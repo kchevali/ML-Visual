@@ -1,0 +1,46 @@
+{
+    "main": {
+        "names": [
+            "header",
+            "0"
+        ],
+        "ratios": [
+            0.1,
+            0.9
+        ],
+        "isVertical": true
+    },
+    "0": {
+        "names": [
+            "file",
+            "1"
+        ],
+        "ratios": [
+            0.15,
+            0.85
+        ],
+        "isVertical": false
+    },
+    "1": {
+        "names": [
+            "2",
+            "hyperparameters"
+        ],
+        "ratios": [
+            0.6,
+            0.4
+        ],
+        "isVertical": true
+    },
+    "2": {
+        "names": [
+            "data",
+            "model"
+        ],
+        "ratios": [
+            0.7,
+            0.3
+        ],
+        "isVertical": false
+    }
+}

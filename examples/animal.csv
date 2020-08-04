@@ -1,0 +1,9 @@
+label,four_legs,live_farm,is_pink,is_pet,can_fly,is_bug,live_zoo
+dog,true,false,false,true,false,false,false
+pig,true,true,true,false,false,false,false
+cow,true,true,false,false,false,false,false
+mosquito,false,false,false,false,true,true,false
+lizard,true,false,false,false,false,false,false
+chicken,false,true,false,false,true,false,false
+ant,false,false,false,false,false,true,false
+fish,false,false,false,true,false,false,false

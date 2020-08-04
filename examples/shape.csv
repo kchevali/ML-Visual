@@ -1,0 +1,7 @@
+label, Number Of Sides, First Color, Second Color, Curved
+A,3,blue,red,false
+B,4,red,yellow,false
+C,4,green,black,false
+D,5,blue,white,false
+E,0,orange,red,true
+F,0,purple,blue,true

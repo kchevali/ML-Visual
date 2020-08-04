@@ -1,0 +1,35 @@
+{
+    "main": {
+        "names": [
+            "left",
+            "right"
+        ],
+        "ratios": [
+            0.5,
+            0.5
+        ],
+        "isVertical": false
+    },
+    "left": {
+        "names": [
+            "NW",
+            "SW"
+        ],
+        "ratios": [
+            0.5,
+            0.5
+        ],
+        "isVertical": true
+    },
+    "right": {
+        "names": [
+            "NE",
+            "SE"
+        ],
+        "ratios": [
+            0.5,
+            0.5
+        ],
+        "isVertical": true
+    }
+}
