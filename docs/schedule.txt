@@ -1,0 +1,36 @@
+1. 8/20  checkpoint 
+    a. finish decision tree implementation without audio - KEVIN        
+    b. finish KNN design - KEVIN 
+    c. finish the teaching materials associated with the decision tree
+ 
+2. 9/10 checkpoint
+    a. debug/test decision tree algorithm - BOTH 
+    b. add audio file for the decision tree  - KEVIN 
+    c. finish KNN implementation - KEVIN 
+    d. finish the teaching materials associated with KNN
+    e. finish linear regression design - BOTH
+
+3. 9/30 checkpoint
+    a. debug/test KNN algorithm
+    b. add audio file for KNN 
+    c. finish linear regression implementation
+    d. finish the teaching materials associated with linear regression
+    e. finish logistic regression design
+
+4. 10/20 checkpoint
+    a. debug/test linear regression
+    b. add audio file for linear regression
+    c. finish logistic regression implementation
+    d. finish the teaching materials associated with logistic regression
+    e. finish support vector machine (SVM) design
+   
+5. 11/10 checkpoint
+     a. debug/test logistic regression
+     b. add audio file for logistic regression
+     c. finish SVM implementation
+     d. finish the teaching materials associated with SVM
+     e. check the workload for machine learning APP v1 iOS version.
+
+6. 11/30 checkpoint
+     a. debug/test overall machine learning
+     b. implement the machine learning APP v1 iOS version for iPhone and iPad.

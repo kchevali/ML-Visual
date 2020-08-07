@@ -2,7 +2,7 @@ import pygame as pg
 # from pygame import gfxdraw as pgx
 import helper as hp
 
-FPS = 1
+FPS = 50
 width = 1000
 height = 700
 title = "Teaching APP"
@@ -35,7 +35,6 @@ def setPage(p):
     global page
     page = p
     if page != None:
-        print("Setting page width and height:", width, height)
         page.setDim(width=width, height=height)
 
 
@@ -44,7 +43,8 @@ def close(self):
 
 
 pg.init()
-hp.initFontSizer('Comic Sans MS', 1, 128)
+pg.font.init()
+# hp.initFontSizer('Comic Sans MS', 1, 128)
 size = (width, height)
 pg.display.set_caption(title)
 clock = pg.time.Clock()

@@ -4,10 +4,14 @@ from time import time
 from random import randint
 from os import listdir
 from os.path import isfile, join
+import pygame.gfxdraw as pgx
 
 white = (255, 255, 255)
 red = ((255, 0, 0))
 green = (0, 255, 0)
+yellow = (255, 255, 51)
+pink = (255, 51, 153)
+blue = (153, 153, 255)
 backgroundColor = ((50, 50, 50))
 
 
@@ -19,11 +23,11 @@ fonts = []
 fontInc = 3
 
 
-def initFontSizer(fontName, minSize, maxSize):
-    global fonts
-    pg.font.init()
-    fonts = [pg.font.SysFont(fontName, i) for i in range(minSize, maxSize + 1, fontInc)]
-    # print("Font Ready")
+# def initFontSizer(fontName, minSize, maxSize):
+#     global fonts
+#     pg.font.init()
+#     fonts = [pg.font.SysFont(fontName, i) for i in range(minSize, maxSize + 1, fontInc)]
+#     # print("Font Ready")
 
 
 def getFont(txt, targetWidth, targetHeight, color):
@@ -56,12 +60,61 @@ def randomString():
     return str(randint(0, 1 << 31))
 
 
-def getFiles(path):
-    return [f for f in listdir(path) if isfile(join(path, f))]
+def getFiles(path, ext):
+    return [f for f in listdir(path) if isfile(join(path, f)) and f.endswith(ext)]
+
+
+def draw_rounded_rect(surface, rect, color, corner_radius):
+    if rect.width < 2 * corner_radius or rect.height < 2 * corner_radius:
+        raise ValueError(f"Both height (rect.height) and width (rect.width) must be > 2 * corner radius ({corner_radius})")
+
+    # need to use anti aliasing circle drawing routines to smooth the corners
+    pgx.aacircle(surface, rect.left + corner_radius, rect.top + corner_radius, corner_radius, color)
+    pgx.aacircle(surface, rect.right - corner_radius - 1, rect.top + corner_radius, corner_radius, color)
+    pgx.aacircle(surface, rect.left + corner_radius, rect.bottom - corner_radius - 1, corner_radius, color)
+    pgx.aacircle(surface, rect.right - corner_radius - 1, rect.bottom - corner_radius - 1, corner_radius, color)
+
+    pgx.filled_circle(surface, rect.left + corner_radius, rect.top + corner_radius, corner_radius, color)
+    pgx.filled_circle(surface, rect.right - corner_radius - 1, rect.top + corner_radius, corner_radius, color)
+    pgx.filled_circle(surface, rect.left + corner_radius, rect.bottom - corner_radius - 1, corner_radius, color)
+    pgx.filled_circle(surface, rect.right - corner_radius - 1, rect.bottom - corner_radius - 1, corner_radius, color)
+
+    rect_tmp = pg.Rect(rect)
+
+    rect_tmp.width -= 2 * corner_radius
+    rect_tmp.center = rect.center
+    pg.draw.rect(surface, color, rect_tmp)
+
+    rect_tmp.width = rect.width
+    rect_tmp.height -= 2 * corner_radius
+    rect_tmp.center = rect.center
+    pg.draw.rect(surface, color, rect_tmp)
+
+
+def draw_bordered_rounded_rect(surface, rect, color, border_color, corner_radius, border_thickness):
+    if corner_radius < 0:
+        raise ValueError(f"border radius ({corner_radius}) must be >= 0")
+    rect_tmp = pg.Rect(rect)
+    center = rect_tmp.center
+
+    if border_thickness:
+        if corner_radius <= 0:
+            pg.draw.rect(surface, border_color, rect_tmp)
+        else:
+            draw_rounded_rect(surface, rect_tmp, border_color, corner_radius)
+
+        rect_tmp.inflate_ip(-2 * border_thickness, -2 * border_thickness)
+        inner_radius = corner_radius - border_thickness + 1
+    else:
+        inner_radius = corner_radius
+
+    if inner_radius <= 0:
+        pg.draw.rect(surface, color, rect_tmp)
+    else:
+        draw_rounded_rect(surface, rect_tmp, color, inner_radius)
 
 
 if __name__ == '__main__':
     clear()
     print("Running HELPER MAIN")
-    initFontSizer('Comic Sans MS', 1, 32)
-    _ = getFont("Hello", 80, 20, white)
+    print("Files:", getFiles("examples", ".csv"))
