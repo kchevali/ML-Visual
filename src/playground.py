@@ -1,10 +1,13 @@
-def packed(a, b):
-    return (a, b)
+count = 1
 
 
-def sumNum(a, b):
-    return a + b
+def run():
+    global count
+    arr = [10] * count
+    count += 1
+    return arr
 
 
 if __name__ == '__main__':
-    print("Sum:", sumNum(*packed(5, 6)))
+    for i in run():
+        print(i)

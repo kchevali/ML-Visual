@@ -5,14 +5,7 @@ from random import randint
 from os import listdir
 from os.path import isfile, join
 import pygame.gfxdraw as pgx
-
-white = (255, 255, 255)
-red = ((255, 0, 0))
-green = (0, 255, 0)
-yellow = (255, 255, 51)
-pink = (255, 51, 153)
-blue = (153, 153, 255)
-backgroundColor = ((50, 50, 50))
+import json
 
 
 def clear():
@@ -62,6 +55,11 @@ def randomString():
 
 def getFiles(path, ext):
     return [f for f in listdir(path) if isfile(join(path, f)) and f.endswith(ext)]
+
+
+def loadJSON(filePath):
+    with open(filePath) as f:
+        return json.load(f)
 
 
 def draw_rounded_rect(surface, rect, color, corner_radius):

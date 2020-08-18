@@ -7,8 +7,12 @@ width = 1000
 height = 700
 title = "Teaching APP"
 
+# Cannot import from graphics
+backgroundColor = ((50, 50, 50))
+
 
 def update():
+    # print("START")
     # background = pg.Surface(self.size)
     # background.fill(hp.red)
     # INPUT======================================
@@ -20,7 +24,7 @@ def update():
                 page.clicked(*pg.mouse.get_pos())
 
     # DRAW=======================================
-    g.fill(hp.backgroundColor)
+    g.fill(backgroundColor)
     # g.blit(background, (0, 0))
     if page != None:
         page.display()
@@ -35,7 +39,8 @@ def setPage(p):
     global page
     page = p
     if page != None:
-        page.setDim(width=width, height=height)
+        page.setSize(width=width, height=height)
+        page.updateAll()
 
 
 def close(self):

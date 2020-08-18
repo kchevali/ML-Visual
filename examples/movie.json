@@ -1,0 +1,10 @@
+{
+    "target": "liked",
+    "index": "movie",
+    "columns": [
+        "type",
+        "length",
+        "director",
+        "fam_actors"
+    ]
+}
