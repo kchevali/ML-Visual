@@ -1,0 +1,13 @@
+{
+    "target": "label",
+    "index": "",
+    "columns": [
+        "four_legs",
+        "live_farm",
+        "is_pink",
+        "is_pet",
+        "can_fly",
+        "is_bug",
+        "live_zoo"
+    ]
+}

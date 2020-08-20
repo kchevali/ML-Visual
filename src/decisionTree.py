@@ -9,13 +9,15 @@ from math import sin, cos, pi
 
 
 class DecisionTree:
-    def __init__(self, table):
-        self.current = BinaryNode(table=table)
+    def __init__(self, table, backMethod, goMethod):
+        self.backMethod = backMethod
+        self.goMethod = goMethod
         self.classColors = {}
-        for i in range(self.current.classCount):
-            self.classColors[self.current.classes[i]] = Color.calmColor(i / self.current.classCount)
-        self.current.colorTable(self.classColors)
-        self.branch = Branch(view=self.current.getDotViews(self.classColors), disjoint=Container())
+        for i in range(table.classCount):
+            self.classColors[table.classes[i]] = Color.calmColor(i / table.classCount)
+
+        self.current = Node(table=table, tree=self)
+        self.branch = Branch(view=self.current.getDotViews(), disjoint=Container())
 
         # self.tree = DecisionTreeClassifier()
         # self.tree.fit(x, y)
@@ -29,14 +31,20 @@ class DecisionTree:
     def getContainer(self):
         return self.branch.getContainer()
 
-    def getData(self):
-        return self.current.dataFrame
-
     def getDisjoint(self):
         return self.branch.disjoint
 
     def getTable(self):
         return self.current.table
+
+    def getClassCount(self):
+        return self.current.table.classCount
+
+    def getClass(self, index):
+        return self.current.table.classes[index]
+
+    def getColName(self, index):
+        return self.current.table.colNames[index]
 
     def isParentColumn(self, column):
         if not self.current or not self.current.parent:
@@ -44,106 +52,99 @@ class DecisionTree:
         return self.current.parent.containsColumn(column)
 
     def isCurrentColumn(self, column):
-        return self.current and self.current.value == column
+        return self.current and self.current.column == column
 
     def isVertical(self):
         return type(self.getView().keyDown("div")) != HStack
 
-    def add(self, column):
+    def add(self, column, backMethod, goMethod):
         self.current.add(column)
         container = self.getContainer()
         prevStack = type(self.getDisjoint().keyUp("div"))
         stack = VStack if prevStack != VStack else HStack
-        label = [Label(text=self.current.parent.value, fontSize=20, color=Color.green if self.current.boolean else Color.red, dx=-0.95, dy=-1)] if self.current.parent else []
+        label = [Button(view=Label(text="{}:{}".format(self.current.parent.column, self.current.value), fontSize=20,
+                                   color=Color.white, dx=-0.95, dy=-1), run=self.backMethod)] if self.current.parent else []
+        totalClassCount = len(self.current.children)
+        for child in self.current.children:
+            totalClassCount += child.table.classCount
+
         self.branch.setView(view=ZStack(views=label + [
-                            stack(views=[
-                                self.current.left.getDotViews(self.classColors),
-                                self.current.right.getDotViews(self.classColors),
-                            ], ratios=[
-                                (self.current.left.classCount + 1) / (self.current.classCount + 2),
-                                (self.current.right.classCount + 1) / (self.current.classCount + 2)
-                            ], border=20 if self.current.parent else 0,
-                                keywords="div")
-                            ], keywords=["z", "left" if self.current.boolean else "right"])
-                            )
+            stack(views=[
+                Button(view=self.current.children[i].getDotViews(), run=self.goMethod, tag=i) for i in range(len(self.current.children))
+            ], ratios=[
+                (child.table.classCount + 1) / totalClassCount for child in self.current.children
+            ], border=20 if self.current.parent else 0, keywords="div")
+        ], keywords=["z"]))
 
     def remove(self):
         self.current.remove()
-        self.branch.setView(view=self.current.getDotViews(self.classColors))
+        self.branch.setView(view=self.current.getDotViews())
 
     def goBack(self):
         self.current = self.current.parent
         self.branch.move(self.getDisjoint().keyUp("z"))
 
-    def goLeft(self):
-        self.current = self.current.left
-        self.branch.move(self.getView().keyDown("left", excludeSelf=True))
-
-    def goRight(self):
-        self.current = self.current.right
-        print("\nView", self.getView(), self.getView().keywords)
-        print("Bottom:", self.getView().keyDown("right", excludeSelf=True))
-        self.branch.move(self.getView().keyDown("right", excludeSelf=True))
+    def go(self, index):
+        self.current = self.current.children[index]
+        container = self.getView().keyDown("div")[index]
+        stack = container.keyDown("z")
+        self.branch.move(stack if stack else container.keyDown("dotStack"))
 
     def isRoot(self):
-        return self.current and self.current.parent == None
+        return self.current and not self.current.parent
 
-    def hasLeft(self):
-        return self.current and self.current.left != None
-
-    def hasRight(self):
-        return self.current and self.current.right != None
+    def hasChildren(self):
+        return self.current and len(self.current.children) > 0
 
 
-class BinaryNode:
+class Node:
 
-    def __init__(self, parent=None, table=None, boolean=None, classColors={}):
-        self.remove()
-        self.parent = parent
+    def __init__(self, table, tree, parent=None, value=None):
+        self.column = None
+        self.children = []
         self.table = table
-        self.boolean = boolean
-        self.dataFrame = table.data if table else None
-        self.classCount = self.dataFrame['label'].nunique()
-        self.classes = self.dataFrame.label.unique()
-        self.colorTable(classColors)
+        self.tree = tree
+        self.parent = parent
+        self.value = value
+
+        index = 1
+        for item in self.table.targetCol:
+            rect = self.table.getView(index * self.table.cols).keyDown("rect")
+            rect.color = self.tree.classColors[item]
+            rect.isHidden = False
+            index += 1
 
         # print("CREATE NODE")
         # print(self.dataFrame.head())
-
-    def colorTable(self, classColors):
-        self.classColors = classColors
-        if self.classColors:  # if len > 0
-            for i in range(self.table.rows - 1):
-                rect = self.table.getView((i + 1) * self.table.cols).keyDown("rect")
-                rect.color = classColors[self.dataFrame['label'][i]]
-                rect.isHidden = False
-
     def add(self, column):
-        self.value = column
-        self.left = BinaryNode(parent=self, table=Table(self.dataFrame[self.dataFrame[self.value] == True], fontSize=20), boolean=True, classColors=self.classColors)
-        self.right = BinaryNode(parent=self, table=Table(self.dataFrame[self.dataFrame[self.value] == False], fontSize=20), boolean=False, classColors=self.classColors)
+        self.column = column
+        self.children = []
+        for item in self.table[column].unique():
+            self.children.append(Node(
+                table=Table(self.table[self.table[self.column] == item], param=self.table.param, fontSize=20),
+                tree=self.tree, parent=self, value=item
+            ))
 
     def remove(self):
-        self.value = None
-        self.left = None  # Yes
-        self.right = None  # No
+        self.column = None
+        self.children = []
 
-    def getDotViews(self, colors):
-        if self.classCount:
-            trig = 2.0 * pi / self.classCount
-        label = [Label(text=self.parent.value, fontSize=20, color=Color.green if self.boolean else Color.red, dx=-0.95, dy=-1)] if self.parent else []
+    def getDotViews(self):
+        if self.table.classCount:
+            trig = 2.0 * pi / self.table.classCount
+        label = [Label(text="{}:{}".format(self.parent.column, self.value), fontSize=20, color=Color.white, dx=-0.95, dy=-1)] if self.parent else []
         return ZStack(views=[
-            Ellipse(color=colors[self.classes[i]],
+            Ellipse(color=self.tree.classColors[self.table.classes[i]],
                     strokeColor=Color.red, strokeWidth=2,
-                    dx=0.5 * cos(trig * i) if self.classCount > 1 else 0.0,
-                    dy=0.5 * sin(trig * i) if self.classCount > 1 else 0.0,
+                    dx=0.5 * cos(trig * i) if self.table.classCount > 1 else 0.0,
+                    dy=0.5 * sin(trig * i) if self.table.classCount > 1 else 0.0,
                     border=0,
                     lockedWidth=20, lockedHeight=20
-                    ) for i in range(self.classCount)
-        ] + label, keywords="left" if self.boolean else "right")
+                    ) for i in range(self.table.classCount)
+        ] + label, keywords="dotStack")
 
     def containsColumn(self, column):
-        if self.value == column:
+        if self.column == column:
             return True
         if self.parent:
             return self.parent.containsColumn(column)
@@ -169,7 +170,7 @@ if __name__ == '__main__':
 
     print(end="\nIterate Rows: ")
     for index, row in table.iterrows():
-        print(row[table.targetCol], row[0], end=" | ")
+        print(row[table.targetName], row[0], end=" | ")
 
     print("\nFirst Item:", table['type'][1])
     print("Column Count:", table.cols, "Row Count:", table.dataRows)

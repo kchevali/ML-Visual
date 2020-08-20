@@ -3,25 +3,32 @@ import pygame as pg
 import helper as hp
 
 FPS = 50
-width = 1000
+width = 1050
 height = 700
 title = "Teaching APP"
+isDebug = True
 
 # Cannot import from graphics
 backgroundColor = ((50, 50, 50))
 
 
 def update():
+    global mouseDebug
     # print("START")
     # background = pg.Surface(self.size)
     # background.fill(hp.red)
     # INPUT======================================
+    mousePos = pg.mouse.get_pos()
+    if isDebug:
+        mouseDebug.keyDown("text").setFont(text=str(mousePos))
+        mouseDebug.updateAll()
+
     for event in pg.event.get():
         if event.type == pg.QUIT:
             return False
         if event.type == pg.MOUSEBUTTONDOWN:
             if page != None:
-                page.clicked(*pg.mouse.get_pos())
+                page.clicked(*mousePos)
 
     # DRAW=======================================
     g.fill(backgroundColor)
@@ -36,9 +43,13 @@ def update():
 
 
 def setPage(p):
-    global page
+    global page, mouseDebug
     page = p
     if page != None:
+        if isDebug:
+            from page import createMouseDebug
+            mouseDebug = createMouseDebug()
+            page.addView(mouseDebug)
         page.setSize(width=width, height=height)
         page.updateAll()
 

@@ -10,15 +10,18 @@ import numpy as np
 class Table(Grid):
 
     # input should be (headers + data) or (cols + rows)
-    def __init__(self, data=None, filePath=None, limit=10, dx=0.0, dy=0.0, border=10, lockedWidth=False, lockedHeight=False, fontName="Comic Sans MS", fontSize=32, autoFontSize=False, fontColor=Color.white, isHidden=False, tag=0, name="", keywords=""):
-        self.param = hp.loadJSON(filePath + ".json")
-        self.targetCol = self.param['target']
+    def __init__(self, data=None, param=None, filePath=None, limit=10, dx=0.0, dy=0.0, border=10, lockedWidth=False, lockedHeight=False, fontName="Comic Sans MS", fontSize=32, autoFontSize=False, fontColor=Color.white, isHidden=False, tag=0, name="", keywords=""):
+        self.param = hp.loadJSON(filePath + ".json") if not param else param
+        self.targetName = self.param['target']
         self.indexCol = self.param['index']
         self.colNames = self.param['columns']
 
-        self.data = data if data is not None else pd.read_csv(filePath + ".csv", index_col=self.indexCol)
-        self.data = self.data[[self.targetCol] + self.colNames]  # move target to front and limit to given columns
+        self.data = data if data is not None else pd.read_csv(filePath + ".csv")  # , index_col=self.indexCol
+        self.data = self.data[[self.targetName] + self.colNames]  # move target to front and limit to given columns
+        self.targetCol = self.data[self.targetName]
         self.loc = self.data.loc
+        self.classes = self.targetCol.unique()
+        self.classCount = self.targetCol.nunique()
 
         cols = min(len(self.data.columns), limit)
         rows = min(len(self.data) + 1, limit)  # not include header row
@@ -59,7 +62,7 @@ class Table(Grid):
     def iterrows(self):
         return self.data.iterrows()
 
-    def __str__(self):
+    def __str__(self, indent=""):
         return "Table:{}".format(self.id)
 
     def __getitem__(self, key):

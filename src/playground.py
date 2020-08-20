@@ -1,13 +1,16 @@
-count = 1
+class A:
+    def __init__(self):
+        self.a = "a"
 
 
-def run():
-    global count
-    arr = [10] * count
-    count += 1
-    return arr
+class B(A):
+    def __init__(self):
+        self.a = "a"
 
 
 if __name__ == '__main__':
-    for i in run():
-        print(i)
+    a = A()
+    b = B()
+    print(issubclass(A, type(a)))
+    print(issubclass(type(b), A))
+    print(issubclass(B, type(b)))

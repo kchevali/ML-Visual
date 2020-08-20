@@ -9,7 +9,7 @@ if __name__ == '__main__':
     print("Running MAIN")
 
     try:
-        page = RunPage()
+        page = MainPage()
         gui.setPage(page)
         # c = page.view.containers
         # a = c[0].view

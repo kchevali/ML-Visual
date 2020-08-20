@@ -54,7 +54,7 @@ def randomString():
 
 
 def getFiles(path, ext):
-    return [f for f in listdir(path) if isfile(join(path, f)) and f.endswith(ext)]
+    return [f.split(".")[0] for f in listdir(path) if isfile(join(path, f)) and f.endswith(ext)]
 
 
 def loadJSON(filePath):
