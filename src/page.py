@@ -46,8 +46,8 @@ class MainPage(ZStack):
         super().__init__(views=views)
 
     def createTaskList(self):
-        tasks = ["Introduction", "Example", "Practice", "Prediction", "More Info"]
-        pages = [IntroDTPage, ExcerisePage, ExcerisePage, IntroDTPage, IntroDTPage]
+        tasks = ["Introduction", "Example", "Improvement", "Practice", "More Info"]
+        pages = [IntroDTPage, ExcerisePage, IntroDTPage, ExcerisePage, IntroDTPage]
 
         def selectTask(sender):
             sender.tag().setContainer(self.pageContainer)
@@ -83,7 +83,7 @@ class ExcerisePage(ZStack):
         self.colSelContainer = None
 
         # Set Table
-        self.setTable(Table(filePath="examples/movie", fontSize=20))
+        self.setTable(Table(filePath="examples/zoo", fontSize=20))
         files = hp.getFiles("examples", ext="csv")
         textboxManager = TextBoxManager(script=[
             ("Welcome to the Decision Tree Simulator", 0, 0),
@@ -106,16 +106,16 @@ class ExcerisePage(ZStack):
                     # ===============================================================================================
                     # FILE EXPLORER
                     # ===============================================================================================
-                    VStack(views=[
-                        ZStack(views=[
-                            Rect(color=Color.steelBlue, cornerRadius=10),
-                            Button(view=Label("Files", fontSize=20), altView=Label("Clicked!!"), run=updateTable)
-                        ])] + [
-                        ZStack(views=[
-                            Rect(color=Color.steelBlue, cornerRadius=10),
-                            Button(view=Label(fileName.split(".")[0], fontSize=15), altView=Label("Clicked!!"), name=fileName, run=updateTable)
-                        ]) for fileName in files
-                    ], ratios=[0.67 / (len(files) + 1)] * (len(files) + 1)),
+                    # VStack(views=[
+                    #     ZStack(views=[
+                    #         Rect(color=Color.steelBlue, cornerRadius=10),
+                    #         Button(view=Label("Files", fontSize=20), altView=Label("Clicked!!"), run=updateTable)
+                    #     ])] + [
+                    #     ZStack(views=[
+                    #         Rect(color=Color.steelBlue, cornerRadius=10),
+                    #         Button(view=Label(fileName.split(".")[0], fontSize=15), altView=Label("Clicked!!"), name=fileName, run=updateTable)
+                    #     ]) for fileName in files
+                    # ], ratios=[0.67 / (len(files) + 1)] * (len(files) + 1)),
 
                     VStack(views=[
                         # ===============================================================================================
@@ -133,7 +133,7 @@ class ExcerisePage(ZStack):
                         self.headerSelection
 
                     ], ratios=[0.9, 0.1])
-                ], ratios=[0.15, 0.85])
+                ])
             ], ratios=[0.08, 0.92]),
 
             # ===============================================================================================

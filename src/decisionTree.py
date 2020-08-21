@@ -109,6 +109,7 @@ class Node:
 
         index = 1
         for item in self.table.targetCol:
+            print("Index:", index * self.table.cols)
             rect = self.table.getView(index * self.table.cols).keyDown("rect")
             rect.color = self.tree.classColors[item]
             rect.isHidden = False

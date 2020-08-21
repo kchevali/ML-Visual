@@ -10,7 +10,7 @@ import numpy as np
 class Table(Grid):
 
     # input should be (headers + data) or (cols + rows)
-    def __init__(self, data=None, param=None, filePath=None, limit=10, dx=0.0, dy=0.0, border=10, lockedWidth=False, lockedHeight=False, fontName="Comic Sans MS", fontSize=32, autoFontSize=False, fontColor=Color.white, isHidden=False, tag=0, name="", keywords=""):
+    def __init__(self, data=None, param=None, filePath=None, limit=10, fontName="Comic Sans MS", fontSize=32, autoFontSize=False, fontColor=Color.white, **args):
         self.param = hp.loadJSON(filePath + ".json") if not param else param
         self.targetName = self.param['target']
         self.indexCol = self.param['index']
@@ -26,7 +26,7 @@ class Table(Grid):
         cols = min(len(self.data.columns), limit)
         rows = min(len(self.data) + 1, limit)  # not include header row
         self.dataRows = min(len(self.data), limit)
-
+        print("Created Table | Cols:", cols, "Rows:", rows)
         headerViews, mainViews, countX, countY = ([], [], 0, 0)
         for column in self.data:
             headerViews.append(self.createCellView(column, fontName=fontName, fontSize=fontSize, autoFontSize=autoFontSize, fontColor=fontColor, rectColor=Color.steelBlue))
@@ -41,16 +41,16 @@ class Table(Grid):
                 mainViews.append(self.createCellView(row[label], fontName=fontName, fontSize=fontSize, autoFontSize=autoFontSize, fontColor=fontColor, rectColor=Color.lightSteelBlue))
                 countX += 1
             countY += 1
-        super().__init__(views=headerViews + mainViews, cols=cols, rows=rows, dx=dx, dy=dy, border=border, lockedWidth=lockedWidth, lockedHeight=lockedHeight, isHidden=isHidden, tag=tag, name=name, keywords=keywords)
+        super().__init__(items=headerViews + mainViews, cols=cols, rows=rows, **args)
         self.selectedColumns = [False for _ in range(self.cols)]
         # self.selectColumn(True, 2)
         # print("Adding Overlay")
         # self.addInstruction(self.addOverlay, ([Rect(color=hp.blue, cornerRadius=10)], 1))
 
     def createCellView(self, obj, fontName, fontSize, autoFontSize, fontColor, rectColor):
-        return ZStack(views=[
+        return ZStack(items=[
             Rect(color=rectColor, border=3, cornerRadius=5, keywords="rect"),
-            Label(str(obj), fontName=fontName, fontSize=fontSize, autoFontSize=autoFontSize, color=fontColor, keywords="label")
+            Label(text=str(obj), fontName=fontName, fontSize=fontSize, autoFontSize=autoFontSize, color=fontColor, keywords="label")
         ])
 
     def selectColumn(self, value, index):

@@ -17,19 +17,26 @@ class Frame:
 
     idCounter = 0
 
-    def __init__(self, dx, dy, container=None, isHidden=False, tag=0, name="", keywords=""):
+    def __init__(self, name="", tag=0, keywords="", dx=0.0, dy=0.0, offsetX=0.0, offsetY=0.0, isHidden=False, container=None):
+        # INPUTS
         self.name = name
         self.tag = tag
-        self.keywords = keywords if type(keywords) == list else [keywords]
+        self.keywords = keywords
+        self.dx = dx
+        self.dy = dy
+        self.offsetX = offsetX
+        self.offsetY = offsetY
+        self.isHidden = isHidden
+        self.container = container  # value set at the end
+
+        # INITIAL VALUES
         self._width = 0.0
         self._height = 0.0
         self.minWidth = 0.0
         self.minHeight = 0.0
-        self.dx = dx
-        self.dy = dy
-        self.container = None  # value set at the end
+        self.scrollX = 0.0
+        self.scrollY = 0.0
         self.border = 0.0  # unused by fixed frames
-        self.isHidden = isHidden
         self.isExpanded = False
         self.isDisabled = False
         self.setup = []
@@ -41,10 +48,11 @@ class Frame:
         self.isHeightLocked = True
         self.canHold = False
 
-        # TEMP METHOD FOR X,Y
         self._setXY(x=0.0, y=0.0)
-        if container != None:
-            self.setContainer(container=container)
+        if self.container != None:
+            self.setContainer(container=self.container)
+        if type(self.keywords) == list:
+            self.keywords = [self.keywords]
 
     def _setXY(self, x, y):
         self.x = x
@@ -200,9 +208,9 @@ class Frame:
 
 
 class ResizableFrame(Frame):
-    def __init__(self, dx, dy, border, lockedWidth, lockedHeight, isHidden, tag, name, keywords, container=None):
-        super().__init__(dx=dx, dy=dy, container=container, isHidden=isHidden, tag=tag, name=name, keywords=keywords)
-        self.lock(lockedWidth, lockedHeight)
+    def __init__(self, lockedWidth=None, lockedHeight=None, border=0, **args):
+        super().__init__(**args)
+        self.lock(lockedWidth=lockedWidth, lockedHeight=lockedHeight)
         self.border = border
 
     def setSize(self, width=None, height=None):
@@ -251,8 +259,8 @@ class Color(ResizableFrame):
     black = (0, 0, 0)
     backgroundColor = ((50, 50, 50))
 
-    def __init__(self, color, dx=0.0, dy=0.0, border=0.0, lockedWidth=False, lockedHeight=False, isHidden=False, tag=0, name="", keywords=""):
-        super().__init__(dx=dx, dy=dy, border=border, lockedWidth=lockedWidth, lockedHeight=lockedHeight, isHidden=isHidden, tag=tag, name=name, keywords=keywords)
+    def __init__(self, color, **args):
+        super().__init__(**args)
         self.color = color
 
     def display(self):
@@ -271,20 +279,17 @@ class Color(ResizableFrame):
 
 class Shape(Color):
 
-    def __init__(self, color=None, strokeColor=None, strokeWidth=0, dx=0.0, dy=0.0, border=10, lockedWidth=False, lockedHeight=False, isHidden=False, tag=0, name="", keywords=""):
-        super().__init__(color=color, dx=dx, dy=dy, border=border, lockedWidth=lockedWidth, lockedHeight=lockedHeight, isHidden=isHidden, tag=tag, name=name, keywords=keywords)
+    def __init__(self, strokeColor=None, strokeWidth=None, **args):
+        super().__init__(**args)
         self.strokeColor = strokeColor
-        self.strokeWidth = strokeWidth
+        self.strokeWidth = None if self.strokeColor == None else strokeWidth
 
 
 class Rect(Shape):
 
-    def __init__(self, color=None, strokeColor=None, strokeWidth=0, cornerRadius=0, dx=0.0, dy=0.0, border=10, lockedWidth=False, lockedHeight=False, isHidden=False, tag=0, name="", keywords=""):
-        super().__init__(color=color, strokeColor=strokeColor, strokeWidth=strokeWidth, dx=dx, dy=dy, border=border,
-                         lockedWidth=lockedWidth, lockedHeight=lockedHeight, isHidden=isHidden, tag=tag, name=name, keywords=keywords)
+    def __init__(self, cornerRadius=0, **args):
+        super().__init__(**args)
         self.cornerRadius = cornerRadius
-        if self.strokeColor == None:
-            self.strokeWidth = None
 
     def display(self):
         if not self.isHidden:
@@ -320,18 +325,10 @@ class Ellipse(Shape):
 
 class Label(Frame):
     # border has no effect on
-    def __init__(self, text, fontName="Comic Sans MS", fontSize=32, autoFontSize=False, color=Color.white, dx=0.0, dy=0.0, isHidden=False, tag=0, name="", keywords=""):
-        super().__init__(dx=dx, dy=dy, isHidden=isHidden, tag=tag, name=name, keywords=keywords)
+    def __init__(self, text, fontName="Comic Sans MS", fontSize=32, color=Color.white, autoFontSize=False, **args):
+        super().__init__(**args)
         self.autoFontSize = autoFontSize
-        self.setFont(text, fontName, fontSize, color)
-        self.keywords.append(self.text)
-        # self.text = text
-        # self.fontName = fontName
-        # self.fontSize = fontSize
-        # self.color = color
-        # self.font = pg.font.SysFont(self.fontName, self.fontSize)
-        # self.width, self.height = self.font.size(self.text)
-        # self.surface = self.font.render(self.text, True, self.color)
+        self.setFont(text=text, fontName=fontName, fontSize=fontSize, color=color)
 
     def setFont(self, text=None, fontName=None, fontSize=None, color=None):
         if text != None:
@@ -371,9 +368,9 @@ class Label(Frame):
 
 class Holder(ResizableFrame):
 
-    def __init__(self, view, dx=0.0, dy=0.0, border=0, lockedWidth=False, lockedHeight=False, isHidden=False, tag=0, name="", keywords="", container=None):
-        super().__init__(dx=dx, dy=dy, border=border, lockedWidth=lockedWidth, lockedHeight=lockedHeight, container=container, isHidden=isHidden, tag=tag, name=name, keywords=keywords)
-        self.view = None  # filled in later
+    def __init__(self, view=None, **args):
+        super().__init__(**args)
+        self.view = view
         self.canHold = True
         if view:
             view.setContainer(container=self)
@@ -421,9 +418,9 @@ class Holder(ResizableFrame):
 
 class Container(Holder):
 
-    def __init__(self, view=None, ratioX=1.0, ratioY=1.0, dx=0.0, dy=0.0, border=0, lockedWidth=False, lockedHeight=False, container=None, isHidden=False, tag=0, name="", keywords=""):
-        super().__init__(view=view, dx=dx, dy=dy, border=border, lockedWidth=lockedWidth, lockedHeight=lockedHeight, container=container, isHidden=isHidden, tag=tag, name=name, keywords=keywords)
-        self.ratioX = ratioX  # ratio within a stack
+    def __init__(self, ratioX=1.0, ratioY=1.0, **args):
+        super().__init__(**args)
+        self.ratioX = ratioX
         self.ratioY = ratioY
 
     def setContainer(self, container):
@@ -434,14 +431,15 @@ class Container(Holder):
 
 
 class Button(Holder):
-    def __init__(self, view=None, altView=None, toggleView=None, run=None, isOn=True, dx=0.0, dy=0.0, border=0, lockedWidth=False, lockedHeight=False, isHidden=False, tag=0, name="", keywords=""):
-        super().__init__(view=view, dx=dx, dy=dy, border=border, lockedWidth=lockedWidth, lockedHeight=lockedHeight, isHidden=isHidden, tag=tag, name=name, keywords=keywords)
-        self.viewBackup = self.view
+    def __init__(self, altView=None, toggleView=None, run=None, isOn=True, **args):
+
+        super().__init__(**args)
         self.altView = altView
         self.toggleView = toggleView
         self.run = run
         self.isOn = None
         self.setOn(isOn=isOn)
+        self.viewBackup = self.view
         self.clickedTime = None
         self.clickHoldTime = 0.5
 
@@ -509,21 +507,28 @@ class Branch:
 class Stack(ResizableFrame):
 
     # init args have default values for ZStack()
-    def __init__(self, views, ratiosX=None, ratiosY=None, cols=1, rows=1, depth=1, limit=10, dx=0.0, dy=0.0, border=0, lockedWidth=False, lockedHeight=False, isHidden=False, tag=0, name="", keywords="", container=None):
-        super().__init__(dx=dx, dy=dy, border=border, lockedWidth=lockedWidth, lockedHeight=lockedHeight, isHidden=isHidden, tag=tag, name=name, keywords=keywords, container=container)
+    def __init__(self, items=[], limit=10, cols=1, rows=1, depth=1, ratiosX=None, ratiosY=None, createView=None, **args):
+        super().__init__(**args)
+        self.items = items
         self.limit = limit
-        self.canHold = True
-        self.isHidingViews = False
         self.rawCols = cols
         self.rawRows = rows
         self.rawDepth = depth
+        if createView != None:
+            self.createView = createView
+
+        self.canHold = True
+        self.isHidingViews = False
         self.cols = min(self.rawCols, self.limit)
         self.rows = min(self.rawRows, self.limit)
         self.depth = min(self.rawDepth, self.limit)
 
-        self.containers = [Container(view=views[k + i * self.rawCols + j], container=self,
+        self.containers = [Container(view=self.createView(self.items[k + i * self.rawCols + j]), container=self,
                                      ratioX=1.0 / self.cols if ratiosX == None else ratiosX[k + i * self.rawCols + j],
                                      ratioY=1.0 / self.rows if ratiosY == None else ratiosY[k + i * self.rawCols + j]) for i in range(self.rows) for j in range(self.cols) for k in range(self.depth)]
+
+    def createView(self, element):
+        return element
 
     def display(self):
         if not self.isHidden:
@@ -603,10 +608,8 @@ class Stack(ResizableFrame):
 
 class HStack(Stack):
 
-    def __init__(self, views, ratios=None, limit=10, dx=0.0, dy=0.0, border=0, lockedWidth=False, lockedHeight=False, isHidden=False, tag=0, name="", keywords="", container=None):
-        # super().__init__() is important
-        super().__init__(views=views, cols=len(views), ratiosX=ratios, limit=limit, dx=dx, dy=dy, border=border,
-                         lockedWidth=lockedWidth, lockedHeight=lockedHeight, isHidden=isHidden, tag=tag, name=name, keywords=keywords, container=container)
+    def __init__(self, items=[], ratios=None, **args):
+        super().__init__(items=items, cols=len(items), ratiosX=ratios, **args)
 
     def updateFrame(self):
         super().updateFrame()
@@ -632,10 +635,8 @@ class HStack(Stack):
 
 class VStack(Stack):
 
-    def __init__(self, views, ratios=None, limit=10, dx=0.0, dy=0.0, border=0, lockedWidth=False, lockedHeight=False, isHidden=False, tag=0, name="", keywords="", container=None):
-        # super().__init__() is important
-        super().__init__(views=views, rows=len(views), ratiosY=ratios, limit=limit, dx=dx, dy=dy, border=border,
-                         lockedWidth=lockedWidth, lockedHeight=lockedHeight, isHidden=isHidden, tag=tag, name=name, keywords=keywords, container=container)
+    def __init__(self, items=[], ratios=None, **args):
+        super().__init__(items=items, rows=len(items), ratiosY=ratios, **args)
 
     def updateFrame(self):
         super().updateFrame()
@@ -661,9 +662,8 @@ class VStack(Stack):
 
 class ZStack(Stack):
 
-    def __init__(self, views, dx=0.0, dy=0.0, border=0, lockedWidth=False, lockedHeight=False, isHidden=False, tag=0, name="", keywords="", container=None):
-        # needed to restrict init args when creating ZStack
-        super().__init__(views=views, depth=len(views), dx=dx, dy=dy, border=border, lockedWidth=lockedWidth, lockedHeight=lockedHeight, isHidden=isHidden, tag=tag, name=name, keywords=keywords, container=container)
+    def __init__(self, items=[], **args):
+        super().__init__(items=items, depth=len(items), **args)
 
     def updateFrame(self):
         super().updateFrame()
@@ -693,9 +693,8 @@ class ZStack(Stack):
 
 class Grid(Stack):
 
-    def __init__(self, views, cols, rows, dx=0.0, dy=0.0, border=0, lockedWidth=False, lockedHeight=False, isHidden=False, tag=0, name="", keywords="", container=None):
-        super().__init__(views=views, cols=cols, rows=rows, dx=dx, dy=dy, border=border, lockedWidth=lockedWidth,
-                         lockedHeight=lockedHeight, isHidden=isHidden, tag=tag, name=name, keywords=keywords, container=None)
+    def __init__(self, items, rows, cols, **args):
+        super().__init__(items=items, rows=rows, cols=cols, **args)
 
     def updateFrame(self):
         super().updateFrame()

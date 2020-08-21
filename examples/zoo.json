@@ -1,0 +1,14 @@
+{
+    "target": "type",
+    "index": "",
+    "columns": [
+        "animal",
+        "hair",
+        "feathers",
+        "eggs",
+        "milk",
+        "airborne",
+        "aquatic",
+        "predator"
+    ]
+}

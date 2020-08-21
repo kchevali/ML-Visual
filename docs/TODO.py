@@ -16,8 +16,8 @@ TODO 8/12
 ☒TASKS: Works with tasks/steps (Guide user through the app)
     1. What is Decision Tree? -Advantage vs Disadvantage
     2. Example (Describe how to select features and create the tree) - Tutorial
-    3. Practice (show different difficulties) - show code (training[70%] vs testing data[30%])
-    4. Prediction improvement(Random forest) -
+    3. Improvement(Bagging) -
+    4. Practice (show different difficulties) - show code (training[70%] vs testing data[30%])
     5. Extended Reading (Teaching materials) - pdf link
 ☐DATA
     Find examples that have Yes or No labels
@@ -37,13 +37,15 @@ TODO 8/16
     Give hints
 
 TODO 8/20
-
-
-
-
-
-
-
-
+☐Change True/False to Yes/No (Liked/Disliked)
+☐Change Target Column (#->String)
+☐Remove File List for Examples (Show just one example)
+☐Support Running Code
+☐Show accuracy with the testing data
+☐Number of dots should match the number of rows
+☐Prediction Improvement - Let the user run the Bagging Algorithm
+    -Use larger data set
+    -Hyperparameter(Improvement) - # of trees
+☐Add Code Button (Show Library Code and Run it)
 
 """

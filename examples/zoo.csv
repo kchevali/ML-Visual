@@ -1,4 +1,5 @@
-aardvark,1,0,0,1,0,0,1,1,1,1,0,0,4,0,0,1,1
+animal,hair,feathers,eggs,milk,airborne,aquatic,predator,toothed,backbone,breathe,venomous,fins,legs,tail,domestic,catsize,type
+ardvark,1,0,0,1,0,0,1,1,1,1,0,0,4,0,0,1,1
 antelope,1,0,0,1,0,0,0,1,1,1,0,0,4,1,0,1,1
 bass,0,0,1,0,0,1,1,1,1,0,0,1,0,1,0,0,4
 bear,1,0,0,1,0,0,1,1,1,1,0,0,4,0,0,1,1
