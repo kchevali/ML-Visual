@@ -18,9 +18,10 @@ def update():
     # background = pg.Surface(self.size)
     # background.fill(hp.red)
     # INPUT======================================
-    mousePos = pg.mouse.get_pos()
-    if isDebug:
-        mouseDebug.keyDown("text").setFont(text=str(mousePos))
+    mouseX, mouseY = pg.mouse.get_pos()
+    if isDebug and page:
+        dx, dy = hp.calcAlignment(x=mouseX, y=mouseY, dw=page.getWidth(), dh=page.getHeight(), isX=True, isY=True)
+        mouseDebug.keyDown("text").setFont(text="({},{})".format(round(dx, 2), round(dy, 2)))
         mouseDebug.updateAll()
 
     for event in pg.event.get():
@@ -28,7 +29,7 @@ def update():
             return False
         if event.type == pg.MOUSEBUTTONDOWN:
             if page != None:
-                page.clicked(*mousePos)
+                page.clicked(mouseX, mouseY)
 
     # DRAW=======================================
     g.fill(backgroundColor)

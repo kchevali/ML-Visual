@@ -49,6 +49,10 @@ def findPosition(width, height, containerX, containerY, containerWidth, containe
     return containerX + (dx + 1.0) * (containerWidth - width) / 2, containerY + (dy + 1.0) * (containerHeight - height) / 2
 
 
+def calcAlignment(x, y, dw, dh, isX=False, isY=False):
+    return 2 * x / dw - 1.0 if isX and dw != 0 else 0, 2 * y / dh - 1.0 if isY and dh != 0 else 0
+
+
 def randomString():
     return str(randint(0, 1 << 31))
 
@@ -61,10 +65,29 @@ def loadJSON(filePath):
     with open(filePath) as f:
         return json.load(f)
 
+# shift 3D Array
+# def shift(self, dx=0, dy=0, dz=0):
+#         cx, cy, cz = 0 if dx <= 0 else self.cols - 1, 0 if dy <= 0 else self.rows - 1, 0 if dz <= 0 else self.depth - 1
+#         ddx, ddy, ddz = -1 if dx > 0 else 1, -1 if dy > 0 else 1, -1 if dz > 0 else 1
+#         for i in range(self.rows):
+#             for j in range(self.cols):
+#                 for k in range(self.depth):
+#                     x, y, z = cx + j * ddx, cy + i * ddy, cz + k * ddz
+#                     a, b = self.index(y - dy, x - dx, z - dz), self.index(y, x, z)
+#                     if a != None:
+#                         if b != None:
+#                             self.arr[b] = self.arr[a]
+#                         if a != b:
+#                             self.arr[a] = 0
+#                     elif b != None:
+#                         self.arr[b] = 0
+#         return self
+
 
 def draw_rounded_rect(surface, rect, color, corner_radius):
     if rect.width < 2 * corner_radius or rect.height < 2 * corner_radius:
-        raise ValueError(f"Both height (rect.height) and width (rect.width) must be > 2 * corner radius ({corner_radius})")
+        return
+        # raise ValueError(f"Both height (rect.height) and width (rect.width) must be > 2 * corner radius ({corner_radius})")
 
     # need to use anti aliasing circle drawing routines to smooth the corners
     pgx.aacircle(surface, rect.left + corner_radius, rect.top + corner_radius, corner_radius, color)

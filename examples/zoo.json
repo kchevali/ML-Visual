@@ -10,5 +10,19 @@
         "airborne",
         "aquatic",
         "predator"
+    ],
+    "map": [
+        {
+            "column": "type",
+            "values": {
+                "1": "mammal",
+                "2": "bird",
+                "3": "reptile",
+                "4": "fish",
+                "5": "amph...",
+                "6": "insect",
+                "7": "other"
+            }
+        }
     ]
 }

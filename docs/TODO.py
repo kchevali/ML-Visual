@@ -37,9 +37,9 @@ TODO 8/16
     Give hints
 
 TODO 8/20
-☐Change True/False to Yes/No (Liked/Disliked)
-☐Change Target Column (#->String)
-☐Remove File List for Examples (Show just one example)
+✓Change True/False to Yes/No (Liked/Disliked)
+✓Change Target Column (#->String)
+✓Remove File List for Examples (Show just one example)
 ☐Support Running Code
 ☐Show accuracy with the testing data
 ☐Number of dots should match the number of rows

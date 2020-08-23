@@ -51,7 +51,7 @@ class Frame:
         self._setXY(x=0.0, y=0.0)
         if self.container != None:
             self.setContainer(container=self.container)
-        if type(self.keywords) == list:
+        if type(self.keywords) != list:
             self.keywords = [self.keywords]
 
     def _setXY(self, x, y):
@@ -210,6 +210,8 @@ class Frame:
 class ResizableFrame(Frame):
     def __init__(self, lockedWidth=None, lockedHeight=None, border=0, **args):
         super().__init__(**args)
+        self.isWidthLocked = False
+        self.isHeightLocked = False
         self.lock(lockedWidth=lockedWidth, lockedHeight=lockedHeight)
         self.border = border
 
@@ -220,16 +222,23 @@ class ResizableFrame(Frame):
             self._height = height
 
     def lock(self, lockedWidth=None, lockedHeight=None):
-        """Lock the width or height of a resizable frame and set to False to remove lock
         """
-        self.isWidthLocked = lockedWidth != False
-        self.isHeightLocked = lockedHeight != False
-        if self.isWidthLocked:
-            self._width = lockedWidth  # Cannot be 0
-            self.minWidth = lockedWidth
-        if self.isHeightLocked:
-            self._height = lockedHeight  # Cannot be 0
-            self.minHeight = lockedHeight
+        Lock the width or height of a resizable frame
+            Num   -> Lock length at num
+            False -> Remove lock
+            None  -> No effect
+        """
+        if lockedWidth != None:
+            self.isWidthLocked = lockedWidth != False
+            if self.isWidthLocked:
+                self._width = lockedWidth  # Cannot be 0
+                self.minWidth = lockedWidth
+
+        if lockedHeight != None:
+            self.isHeightLocked = lockedHeight != False
+            if self.isHeightLocked:
+                self._height = lockedHeight  # Cannot be 0
+                self.minHeight = lockedHeight
 
     def setBorder(self, border):
         self.border = border
@@ -287,8 +296,8 @@ class Shape(Color):
 
 class Rect(Shape):
 
-    def __init__(self, cornerRadius=0, **args):
-        super().__init__(**args)
+    def __init__(self, cornerRadius=0, border=10, **args):
+        super().__init__(border=border, **args)
         self.cornerRadius = cornerRadius
 
     def display(self):
@@ -431,17 +440,16 @@ class Container(Holder):
 
 
 class Button(Holder):
-    def __init__(self, altView=None, toggleView=None, run=None, isOn=True, **args):
-
-        super().__init__(**args)
+    def __init__(self, view, altView=None, toggleView=None, run=None, isOn=True, **args):
+        super().__init__(view=view, **args)
         self.altView = altView
         self.toggleView = toggleView
         self.run = run
         self.isOn = None
-        self.setOn(isOn=isOn)
         self.viewBackup = self.view
         self.clickedTime = None
         self.clickHoldTime = 0.5
+        self.setOn(isOn=isOn)
 
     def display(self):
         if not self.isHidden:
@@ -507,28 +515,43 @@ class Branch:
 class Stack(ResizableFrame):
 
     # init args have default values for ZStack()
-    def __init__(self, items=[], limit=10, cols=1, rows=1, depth=1, ratiosX=None, ratiosY=None, createView=None, **args):
+    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=None, ratiosY=None, createView=None, **args):
         super().__init__(**args)
         self.items = items
         self.limit = limit
-        self.rawCols = cols
-        self.rawRows = rows
-        self.rawDepth = depth
-        if createView != None:
+        self.totalRows = rows
+        self.totalCols = cols
+        self.totalDepth = depth
+        self.totalLength = self.totalRows * self.totalCols * self.totalDepth
+
+        if createView:
             self.createView = createView
 
+        self.ci, self.cj, self.ck = 0, 0, 0
+        self.rows = min(self.totalRows, self.limit)
+        self.cols = min(self.totalCols, self.limit)
+        self.depth = min(self.totalDepth, self.limit)
+        self.length = self.rows * self.cols * self.depth
         self.canHold = True
         self.isHidingViews = False
-        self.cols = min(self.rawCols, self.limit)
-        self.rows = min(self.rawRows, self.limit)
-        self.depth = min(self.rawDepth, self.limit)
 
-        self.containers = [Container(view=self.createView(self.items[k + i * self.rawCols + j]), container=self,
-                                     ratioX=1.0 / self.cols if ratiosX == None else ratiosX[k + i * self.rawCols + j],
-                                     ratioY=1.0 / self.rows if ratiosY == None else ratiosY[k + i * self.rawCols + j]) for i in range(self.rows) for j in range(self.cols) for k in range(self.depth)]
+        self.containers = []
+        for i in range(self.rows):
+            for j in range(self.cols):
+                for k in range(self.depth):
+                    index = self.index(i, j, k)
+                    self.containers.append(Container(view=self.createView(self, self.totalIndex(i, j, k)), container=self,
+                                                     ratioX=1.0 / self.cols if ratiosX == None else ratiosX[index],
+                                                     ratioY=1.0 / self.rows if ratiosY == None else ratiosY[index]))
 
-    def createView(self, element):
-        return element
+    def createView(self, sender, index):
+        return sender.items[index]
+
+    def index(self, i, j, k):
+        return j + self.cols * (i + self.rows * k) if i >= 0 and i < self.rows and j >= 0 and j < self.cols and k >= 0 and k < self.depth else None
+
+    def totalIndex(self, i, j, k):
+        return j + self.totalCols * (i + self.totalRows * k) if i >= 0 and i < self.totalRows and j >= 0 and j < self.totalCols and k >= 0 and k < self.totalDepth else None
 
     def display(self):
         if not self.isHidden:
@@ -567,10 +590,8 @@ class Stack(ResizableFrame):
             for j in range(self.cols):
                 for k in range(self.depth):
                     c = self.containers[index]
-                    dx = self.getWidth() - c.getWidth()
-                    dy = self.getHeight() - c.getHeight()
-                    dx = 2 * x / dx - 1.0 if isX and dx != 0 else 0
-                    dy = 2 * y / dy - 1.0 if isY and dy != 0 else 0
+                    dx, dy = hp.calcAlignment(x=x, y=y, dw=self.getWidth() - c.getWidth(),
+                                              dh=self.getHeight() - c.getHeight(), isX=isX, isY=isY)
                     c.setAlignment(dx=dx, dy=dy)
                     index += 1
                 x += self.containers[index - 1].getWidth()
@@ -592,6 +613,39 @@ class Stack(ResizableFrame):
         if maintainOrder:
             self.containers.sort(key=lambda x: x.id)
         return lengths
+
+    def shift(self, dx=0, dy=0, dz=0):
+        cx, cy, cz = ((0 if dx <= 0 else self.cols - 1),
+                      (0 if dy <= 0 else self.rows - 1),
+                      (0 if dz <= 0 else self.depth - 1))
+        ddx, ddy, ddz = -1 if dx > 0 else 1, -1 if dy > 0 else 1, -1 if dz > 0 else 1
+
+        for i in range(self.rows):
+            for j in range(self.cols):
+                for k in range(self.depth):
+                    x, y, z = cx + j * ddx, cy + i * ddy, cz + k * ddz
+                    a, b = self.index(y - dy, x - dx, z - dz), self.index(y, x, z)
+
+                    if a != None:
+                        x2, y2, z2 = x + self.cj, y + self.ci, z + self.ck
+                        index = self.totalIndex(y2 - 2 * dy, x2 - 2 * dx, z2 - 2 * dz)
+                        # if a != b and ((i + dy) >= self.rows or (j + dx >= self.cols) or k + dz >= self.depth):
+                        newView = self.createView(self, index)
+                        if newView:
+                            if b != None and y > dy and y > 0:
+                                view = self.getView(a)
+                                if view:
+                                    view.setContainer(self.containers[b])
+                                # self.arr[b] = self.arr[a]
+                            newView.setContainer(self.containers[a])
+
+                    #     if a != b:
+                    #         self.arr[a] = 0
+                    # elif b != None:
+                    #     self.arr[b] = 0
+        self.ci -= dy
+        self.cj -= dx
+        self.ck -= dz
 
     def getView(self, key):
         return self.containers[key].view
@@ -693,7 +747,7 @@ class ZStack(Stack):
 
 class Grid(Stack):
 
-    def __init__(self, items, rows, cols, **args):
+    def __init__(self, items=[], rows=1, cols=1, **args):
         super().__init__(items=items, rows=rows, cols=cols, **args)
 
     def updateFrame(self):

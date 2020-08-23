@@ -68,8 +68,8 @@ class DecisionTree:
         for child in self.current.children:
             totalClassCount += child.table.classCount
 
-        self.branch.setView(view=ZStack(views=label + [
-            stack(views=[
+        self.branch.setView(view=ZStack(items=label + [
+            stack(items=[
                 Button(view=self.current.children[i].getDotViews(), run=self.goMethod, tag=i) for i in range(len(self.current.children))
             ], ratios=[
                 (child.table.classCount + 1) / totalClassCount for child in self.current.children
@@ -79,6 +79,9 @@ class DecisionTree:
     def remove(self):
         self.current.remove()
         self.branch.setView(view=self.current.getDotViews())
+
+    def updateTableColor(self):
+        self.current.colorTable()
 
     def goBack(self):
         self.current = self.current.parent
@@ -106,23 +109,17 @@ class Node:
         self.tree = tree
         self.parent = parent
         self.value = value
-
-        index = 1
-        for item in self.table.targetCol:
-            print("Index:", index * self.table.cols)
-            rect = self.table.getView(index * self.table.cols).keyDown("rect")
-            rect.color = self.tree.classColors[item]
-            rect.isHidden = False
-            index += 1
+        self.colorTable()
 
         # print("CREATE NODE")
         # print(self.dataFrame.head())
+
     def add(self, column):
         self.column = column
         self.children = []
         for item in self.table[column].unique():
             self.children.append(Node(
-                table=Table(self.table[self.table[self.column] == item], param=self.table.param, fontSize=20),
+                table=Table(data=self.table[self.table[self.column] == item], param=self.table.param, createView=self.table.createView),
                 tree=self.tree, parent=self, value=item
             ))
 
@@ -130,11 +127,25 @@ class Node:
         self.column = None
         self.children = []
 
+    def colorTable(self):
+        index = self.table.cols
+        startRow = self.table.ci
+        for item in self.table.targetCol:
+            if startRow > 0:
+                startRow -= 1
+                continue
+            if index >= self.table.length:
+                break
+            rect = self.table.getView(index).keyDown("rect")
+            rect.color = self.tree.classColors[item]
+            rect.isHidden = False
+            index += self.table.cols
+
     def getDotViews(self):
         if self.table.classCount:
             trig = 2.0 * pi / self.table.classCount
         label = [Label(text="{}:{}".format(self.parent.column, self.value), fontSize=20, color=Color.white, dx=-0.95, dy=-1)] if self.parent else []
-        return ZStack(views=[
+        return ZStack(items=[
             Ellipse(color=self.tree.classColors[self.table.classes[i]],
                     strokeColor=Color.red, strokeWidth=2,
                     dx=0.5 * cos(trig * i) if self.table.classCount > 1 else 0.0,

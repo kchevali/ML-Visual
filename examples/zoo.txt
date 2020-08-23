@@ -35,8 +35,7 @@
                   herring, pike, piranha, seahorse, sole, stingray, tuna
            5 (4)  frog, frog, newt, toad 
            6 (8)  flea, gnat, honeybee, housefly, ladybird, moth, termite, wasp
-           7 (10) clam, crab, crayfish, lobster, octopus,
-                  scorpion, seawasp, slug, starfish, worm
+           7 (10) clam, crab, crayfish, lobster, octopus,scorpion, seawasp, slug, starfish, worm
 
 5. Number of Instances: 101
 
