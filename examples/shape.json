@@ -1,0 +1,8 @@
+{
+    "target": "sides",
+    "columns": [
+        "color_a",
+        "color_b",
+        "is_curved"
+    ]
+}

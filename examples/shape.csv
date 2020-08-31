@@ -1,4 +1,4 @@
-label, Number Of Sides, First Color, Second Color, Curved
+label,sides,color_a,color_b,is_curved
 A,3,blue,red,false
 B,4,red,yellow,false
 C,4,green,black,false

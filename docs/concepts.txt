@@ -1,2 +1,30 @@
-Draw Elements: Button, Label, Spacer
-Containers: VHZ Stacks
+DT Tasks Content
+    Introduction:
+        -DT description
+        -DT example image
+    Example(Show Me)
+        -File: animal.csv // find other small file
+    Improvement(Show Me/Bagging)
+        -File: zoo.csv // large file
+    Practice(DIY/Bagging)
+        -File:??.csv
+
+
+Content Types
+    Show Me
+        -Text boxes describing each element of the page
+        -Hide elements that are not being focused on
+        -All user interactions should be disabled except for the text boxes-
+        -Run through features of the page until completion
+     Bagging
+        -Don't show table
+        -Initial partition (70% for training)
+            -Testing: Final testing set
+        For each DT:
+            -Allow user to further partition the data for bagging into the 'local' pair of training & testing
+            -User picks local partition %
+            -Randomize the rows per partition
+            -Show accuracy of the local testing data
+            -When done, store the tree and accuracy (don't store coloring / dataframe)
+        -Allow user to create multiple trees
+        -Show final accuracy by bagging the trees

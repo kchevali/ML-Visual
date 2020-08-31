@@ -2,7 +2,6 @@
     "target": "type",
     "index": "",
     "columns": [
-        "animal",
         "hair",
         "feathers",
         "eggs",

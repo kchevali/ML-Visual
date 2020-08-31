@@ -2,10 +2,11 @@ from graphics import *
 import helper as hp
 from table import Table
 from decisionTree import DecisionTree
+from controller import *
 
 
 def createMouseDebug():
-    return ZStack(items=[
+    return ZStack([
         Rect(color=Color.white, keywords="mRect", border=0),
         Label(text="", fontSize=15, color=Color.black, keywords="text")
     ], lockedWidth=80, lockedHeight=20, dx=-1, dy=1)
@@ -13,275 +14,238 @@ def createMouseDebug():
 
 class DefaultPage(ZStack):
     def __init__(self):
-        views = [
+        items = [
             Color(Color.backgroundColor)
         ]
-        super().__init__(items=views)
+        super().__init__(items)
 
 
 class SimplePage(ZStack):
     def __init__(self):
-        def say(sender):
-            print("Hello World!")
+        def createView(sender, index):
+            return Label(str(index))
 
-        views = [
-            Rect(color=Color.blue)
+        items = [
+            Table(filePath="examples/shape", createView=createView)
         ]
-        super().__init__(items=views)
+        super().__init__(items)
 
 
 class MainPage(ZStack):
     def __init__(self):
 
-        firstPage = ExcerisePage()
+        self.content = ExamplePage()
 
-        views = [
-            HStack(items=[
-                self.createTaskList(),
-                firstPage
-            ], ratios=[0.15, 0.85])
+        items = [
+            VStack([
+                self.createTitle(),
+                HStack([
+                    self.createTaskList(),
+                    self.content
+                ], ratios=[0.15, 0.85])
+            ], ratios=[0.08, 0.92])
+
         ]
-        self.pageContainer = firstPage.container
         # print(view)
-        super().__init__(items=views)
+        super().__init__(items)
+
+    def createTitle(self):
+        return ZStack([
+            Rect(color=Color.steelBlue),
+            Label("Decision Tree")
+        ])
 
     def createTaskList(self):
-        tasks = ["Introduction", "Example", "Improvement", "Practice", "More Info"]
-        pages = [IntroDTPage, ExcerisePage, IntroDTPage, ExcerisePage, IntroDTPage]
+        tasks = ["Intro", "Example", "Improve", "Coding", "More Info"]
+        pages = [IntroDTPage, ExamplePage, ExcerisePage, CodingPage, InfoPage]
 
         def selectTask(sender):
-            sender.tag().setContainer(self.pageContainer)
-            self.pageContainer.updateAll()
+            self.content = sender.tag().replaceView(self.content)
+            self.content.container.updateAll()
 
-        return VStack(items=[
-            Button(ZStack(items=[
+        return VStack([
+            Button(ZStack([
                 Rect(color=Color.orange, cornerRadius=10),
                 Label(tasks[i])
             ]), tag=pages[i], run=selectTask) for i in range(len(tasks))
         ], ratios=[1 / (len(tasks) * 2) for _ in range(len(tasks))])
 
+    def canDragView(self, view, container):
+        return self.content.canDragView(view=view, container=container)
+
+    def scrollUp(self):
+        self.content.scrollUp()
+
+    def scrollDown(self):
+        self.content.scrollDown()
+
 
 class IntroDTPage(ZStack):
     def __init__(self):
         views = [
-            Label("Decision Tree Description Here...")
+
+            Label("Description", fontSize=56, dx=-1, dy=-1, offsetX=10, offsetY=10),
+
+            Label(
+                """    A tree has many analogies in real life and turns out that it has influenced
+a wide area of machine learning, covering both classification and regression.
+
+    Tree-based methods involve stratifying or segmenting the predictor space
+into a number of simple regions. Since the set of splitting rules used to
+segment the predictor space can be summarized in a tree, these types of
+approaches are known as decision tree methods. The structure of a decision
+tree includes:
+    1) internal nodes corresponding to attributes (features);
+    2) leaf nodes corresponding to the classification outcome;
+    3) edge denoting the assignment of the attribute.""")
+
+
         ]
-        super().__init__(items=views)
+        super().__init__(views)
 
 
-class ExcerisePage(ZStack):
+class ExamplePage(ZStack):
     def __init__(self):
-
-        # Init Button Methods
-        def updateTable(sender):
-            self.setTable(Table(filePath="examples/" + sender.name, fontSize=20))
-            self.updateContainers()
-
-        def createTableCell(sender, index):
-            if index != None:
-                i, j = index // sender.cols, index % sender.cols
-                column = sender.colNames[j]
-                return ZStack(items=[
-                    Rect(color=Color.steelBlue if index < sender.cols else Color.lightSteelBlue, border=3, cornerRadius=5, keywords="rect"),
-                    Label(text=column if i == 0 else str(sender[column][sender.dataIndex[i - 1]]), fontSize=20, color=Color.white, keywords="label")
-                ])
-
-        # Declare Containers
-        self.tableContainer = None
-        self.treeContainer = None
-        self.colSelContainer = None
-
-        # Set Table
-        self.setTable(Table(filePath="examples/zoo", createView=createTableCell, keywords="table"))
-        files = hp.getFiles("examples", ext="csv")
-        textboxManager = TextBoxManager(script=[
-            ("Welcome to the Decision Tree Simulator", 0, 0),
-            ("On the left hand side, we have the file explorer", -0.5, -0.5)
-        ], stack=self)
-
-        # Shift Buttons
-        upShiftButton = self.createShiftButton(text="Up", tag=1)
-        downShiftButton = self.createShiftButton(text="Down", tag=-1)
-
-        # Build View
+        self.ctr = Controller(filePath="examples/movie", partition=False, textboxScript=[
+            ("Welcome to the Decision Tree Simulator!", 0, 0),
+            (
+                """To begin we will use a Decision Tree to
+analyze movie data. The objective of the
+model is to predict if movies would be
+liked or disliked based on type, length,
+and other characteristics.""", 0.8, 0
+            ),
+            (
+                """Lets start by splitting the data shown on
+the right into separate groups of the
+same color""", -0.5, 0),
+            ("Click on director to split the data into 3 groups", -0.8, 0),
+            ("Next, click on director lass to subdivide the group", -0.8, 0),
+            ("Finally, click on length to complete the tree", -0.8, 0),
+            ("To show the full tree click on group name on the top", -0.8, 0),
+            ("Congratulations on completing the tutorial", 0, 0)
+        ], textboxStack=self)
         views = [
-            VStack(items=[
-
-                # ===============================================================================================
-                # TITLE
-                # ===============================================================================================
-                ZStack(items=[
-                    Rect(color=Color.steelBlue),
-                    Label("Decision Tree")
-                ]),
-
-                HStack(items=[
+            HStack([
+                VStack([
                     # ===============================================================================================
-                    # FILE EXPLORER
+                    # TABLE & MODEL
                     # ===============================================================================================
-                    # VStack(items=[
-                    #     ZStack(items=[
-                    #         Rect(color=Color.steelBlue, cornerRadius=10),
-                    #         Button(view=Label("Files", fontSize=20), altView=Label("Clicked!!"), run=updateTable)
-                    #     ])] + [
-                    #     ZStack(items=[
-                    #         Rect(color=Color.steelBlue, cornerRadius=10),
-                    #         Button(view=Label(fileName.split(".")[0], fontSize=15), altView=Label("Clicked!!"), name=fileName, run=updateTable)
-                    #     ]) for fileName in files
-                    # ], ratios=[0.67 / (len(files) + 1)] * (len(files) + 1)),
+                    HStack([
+                        self.ctr.createTableView(),
+                        self.ctr.createTreeRoomView()
 
-                    VStack(items=[
-                        # ===============================================================================================
-                        # TABLE & MODEL
-                        # ===============================================================================================
-                        HStack(items=[
-                            VStack(items=[
-                                self.table,
+                    ], ratios=[0.6, 0.4]),
 
-                                # SHIFT BUTTONS
-                                HStack(items=[
-                                    upShiftButton,
-                                    downShiftButton
-                                ])
-                            ], ratios=[0.9, 0.1]),
-                            self.tree.getView()
+                    # ===============================================================================================
+                    # HYPERPARAMETERS
+                    # ===============================================================================================
+                    self.ctr.createHeaderButtons()
 
-                        ], ratios=[0.65, 0.35]),
-
-                        # ===============================================================================================
-                        # HYPERPARAMETERS
-                        # ===============================================================================================
-                        self.headerSelection
-
-                    ], ratios=[0.9, 0.1])
-                ])
-            ], ratios=[0.08, 0.92]),
+                ], ratios=[0.9, 0.1])
+            ]),
 
             # ===============================================================================================
             # TEXT BOX OVERLAY
             # ===============================================================================================
-            textboxManager.createView()
+            self.ctr.createNextTextbox()
         ]
         # print(view)
-        super().__init__(items=views)
+        super().__init__(views)
 
-        # Define Containers
-        self.tableContainer = self.table.container
-        self.treeContainer = self.tree.getContainer()
-        self.colSelContainer = self.headerSelection.container
+    def scrollUp(self):
+        self.ctr.shiftTable(dy=1)
 
-    def setTable(self, table):
-        self.table = table
-        self.table.setContainer(self.tableContainer)
+    def scrollDown(self):
+        self.ctr.shiftTable(dy=-1)
 
-        def goForward(sender):
-            # print("Forward:", sender, self.tree.hasChildren(), sender.tag)
-            if self.tree.hasChildren():
-                self.tree.go(index=sender.tag)
-                self.selectedButton = None
-                # self.treeContainer.updateAll()
-                self.table = self.tree.getTable()
-                self.table.setContainer(self.tableContainer)
-                self.updateHeaderSelectionButtons()
-                self.updateContainers()
 
-        def goBack(sender):
-            # print("Back:", sender, not self.tree.isRoot())
-            if not self.tree.isRoot():
-                self.tree.goBack()
-                self.table = self.tree.getTable()
-                self.table.setContainer(self.tableContainer)
-                self.updateHeaderSelectionButtons()
-                self.updateContainers()
-                # print("Final Container:")
-                # print(self.treeContainer)
-            # self.tree.move(view)
-            # self.treeContainer.updateAll()
+class ExcerisePage(ZStack):
+    def __init__(self):
+        self.ctr = Controller(filePath="examples/zoo")
+        views = [
+            HStack([
+                VStack([
+                    # ===============================================================================================
+                    # TABLE & MODEL
+                    # ===============================================================================================
+                    HStack([
+                        self.ctr.createTreeListView(),
+                        self.ctr.createTableView(),
+                        self.ctr.createTreeRoomView()
 
-        self.tree = DecisionTree(table, backMethod=goBack, goMethod=goForward)
-        self.tree.getView().setContainer(self.treeContainer)
-        self.selectedButton = None
+                    ], ratios=[0.15, 0.55, 0.3]),
 
-        def selectColumn(sender):
-            self.selectedButton = sender if sender.isOn else None
-            self.table.selectColumn(value=sender.isOn, index=sender.tag)
-            rect = sender.getCousin(0)
-            if sender.isOn:
-                self.tree.add(column=self.tree.getColName(sender.tag), backMethod=goBack, goMethod=goForward)
-                rect.strokeColor = Color.white
+                    # ===============================================================================================
+                    # HYPERPARAMETERS
+                    # ===============================================================================================
+                    self.ctr.createHeaderButtons()
+
+                ], ratios=[0.9, 0.1])
+            ])
+        ]
+        # print(view)
+        super().__init__(views)
+
+    def scrollUp(self):
+        self.ctr.shiftTable(dy=1)
+
+    def scrollDown(self):
+        self.ctr.shiftTable(dy=-1)
+
+
+class CodingPage(ZStack):
+    def __init__(self):
+        self.ctr = Controller(filePath="examples/medical")
+        items = [
+            HStack([
+                VStack([
+                    self.ctr.createCodeTitle(),
+                    HStack([
+                        self.ctr.createCodeView(),
+                        VStack([None] * len(self.ctr.codes), keywords="ans")
+
+                    ], ratios=[0.3, 0.7])
+                ], ratios=[0.1, 0.9]),
+                self.ctr.createFileExplorerView()
+            ], ratios=[0.85, 0.15])
+
+        ]
+        super().__init__(items)
+
+    def canDragView(self, view, container):
+        srcStack = view.getParentStack()
+        destStack = container.getParentStack()
+        if srcStack.findKey("ans") or destStack.findKey("ans"):
+            label = view.keyDown("label")
+            if destStack.findKey("ans"):
+                view.lock(lockedWidth=400)
+                label.setFont(text=view.tag.line, fontSize=22)
             else:
-                self.tree.remove()
-                rect.strokeColor = Color.gray
-            self.treeContainer.updateAll()
-            self.updateHeaderSelectionButtons()
+                view.lock(lockedWidth=200)
+                label.setFont(text=view.tag.label, fontSize=32)
 
-        columns = self.table.data.columns
-        self.headerSelection = HStack(items=[
-            ZStack(items=[
-                Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
-                Button(view=Label(columns[i], fontSize=25, color=Color.white),
-                       toggleView=Label(columns[i], fontSize=18, color=Color.black),
-                       #    altView=Label("{} CLK".format(columns[i]), fontSize=15),
-                       isOn=False, tag=i, run=selectColumn)
-            ]) for i in range(1, len(columns))
+            success = True
 
-        ])
-        self.headerSelection.setContainer(self.colSelContainer)
-        self.updateHeaderSelectionButtons()
+            destContainers = destStack.containers
+            for i in range(1, len(destContainers)):
+                codeStack = destContainers[i].view if destContainers[i] != container else view
+                prevStack = destContainers[i - 1].view if destContainers[i - 1] != container else view
+                if codeStack == None or prevStack == None or codeStack.tag.order < prevStack.tag.order:
+                    success = False
+                    break
+            self.ctr.runButtonRect.color = Color.green if success else Color.gray
+            self.ctr.runButton.isDisabled = not success
 
-    def updateHeaderSelectionButtons(self):
-        columns = self.table.data.columns
-        for c in self.headerSelection.containers:
-            rect = c.view.getView(0)
-            button = c.view.getView(1)
-            column = columns[button.tag]
-
-            if self.tree.isParentColumn(column):
-                rect.strokeColor = Color.gray
-                button.isDisabled = True
-            else:
-                button.isDisabled = False
-                if self.tree.isCurrentColumn(column):
-                    rect.strokeColor = Color.yellow
-                else:
-                    rect.strokeColor = Color.darkGray
-                    button.setOn(isOn=False)
-                    self.table.selectColumn(value=False, index=button.tag)
-
-    def updateContainers(self):
-        self.tableContainer.updateAll()
-        self.colSelContainer.updateAll()
-        self.treeContainer.updateAll()
-
-    def createShiftButton(self, text, tag):
-        def clickShift(sender):
-            self.table.shift(dy=sender.tag)
-            self.tree.updateTableColor()
-            if self.selectedButton:
-                self.table.selectColumn(value=True, index=self.selectedButton.tag)
-            self.table.updateAll()
-        return Button(view=ZStack(items=[
-            Rect(color=Color.white, strokeColor=Color.steelBlue, strokeWidth=3),
-            Label(text=text, fontSize=20, color=Color.black)
-        ]), lockedWidth=80, lockedHeight=45, run=clickShift, tag=tag)
+            return True
 
 
-class TextBoxManager:
-    def __init__(self, script, stack):
-        self.script = script
-        self.index = 0
-        self.stack = stack
-
-    def createView(self):
-        text, dx, dy = self.script[self.index]
-        return Button(view=ZStack(items=[
-            Rect(color=Color.white, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
-            Label(text=text, color=Color.black, fontSize=15)
-        ]), run=self.pressTextBox, dx=dx, dy=dy, lockedWidth=250, lockedHeight=100)
-
-    def pressTextBox(self, sender):
-        self.stack.popView()
-        self.index += 1
-        if self.index < len(self.script):
-            self.stack.addView(self.createView())
-        self.stack.updateAll()
+class InfoPage(ZStack):
+    def __init__(self):
+        items = [
+            Button(
+                view=Label("Click here to open links for further reading."),
+                altView=Label("The links are not avaliable yet...")
+            )
+        ]
+        super().__init__(items)

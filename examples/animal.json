@@ -9,5 +9,17 @@
         "can_fly",
         "is_bug",
         "live_zoo"
+    ],
+    "map": [
+        {
+            "column": "target",
+            "values": {
+                "1": "mammal",
+                "2": "insect",
+                "3": "reptile",
+                "4": "bird",
+                "5": "fish"
+            }
+        }
     ]
 }

@@ -1,38 +1,18 @@
 from sklearn.tree import DecisionTreeClassifier
+from sklearn import metrics
 import numpy as np
 import helper as hp
 import pandas as pd
 from table import Table
 from graphics import *
 # from random import uniform
-from math import sin, cos, pi
 
 
 class DecisionTree:
-    def __init__(self, table, backMethod, goMethod):
-        self.backMethod = backMethod
-        self.goMethod = goMethod
-        self.classColors = {}
-        for i in range(table.classCount):
-            self.classColors[table.classes[i]] = Color.calmColor(i / table.classCount)
-
+    def __init__(self, table):
         self.current = Node(table=table, tree=self)
-        self.branch = Branch(view=self.current.getDotViews(), disjoint=Container())
-
-        # self.tree = DecisionTreeClassifier()
-        # self.tree.fit(x, y)
-
-    # def predict(self, x):
-    #     return self.tree.predict(x)
-
-    def getView(self):
-        return self.branch.view
-
-    def getContainer(self):
-        return self.branch.getContainer()
-
-    def getDisjoint(self):
-        return self.branch.disjoint
+        self.model = DecisionTreeClassifier()
+        self.model.fit(self.getTable().encodedData, self.getTable().encodeTargetCol)
 
     def getTable(self):
         return self.current.table
@@ -46,8 +26,20 @@ class DecisionTree:
     def getColName(self, index):
         return self.current.table.colNames[index]
 
+    def getChildren(self):
+        return self.current.children
+
+    def getParent(self):
+        return self.current.parent
+
+    def getParentColumn(self):
+        return self.current.parent.column
+
+    def getValue(self):
+        return self.current.value
+
     def isParentColumn(self, column):
-        if not self.current or not self.current.parent:
+        if self.current == None or self.current.parent == None:
             return False
         return self.current.parent.containsColumn(column)
 
@@ -57,47 +49,45 @@ class DecisionTree:
     def isVertical(self):
         return type(self.getView().keyDown("div")) != HStack
 
-    def add(self, column, backMethod, goMethod):
+    def add(self, column):
         self.current.add(column)
-        container = self.getContainer()
-        prevStack = type(self.getDisjoint().keyUp("div"))
-        stack = VStack if prevStack != VStack else HStack
-        label = [Button(view=Label(text="{}:{}".format(self.current.parent.column, self.current.value), fontSize=20,
-                                   color=Color.white, dx=-0.95, dy=-1), run=self.backMethod)] if self.current.parent else []
-        totalClassCount = len(self.current.children)
-        for child in self.current.children:
-            totalClassCount += child.table.classCount
-
-        self.branch.setView(view=ZStack(items=label + [
-            stack(items=[
-                Button(view=self.current.children[i].getDotViews(), run=self.goMethod, tag=i) for i in range(len(self.current.children))
-            ], ratios=[
-                (child.table.classCount + 1) / totalClassCount for child in self.current.children
-            ], border=20 if self.current.parent else 0, keywords="div")
-        ], keywords=["z"]))
 
     def remove(self):
         self.current.remove()
-        self.branch.setView(view=self.current.getDotViews())
-
-    def updateTableColor(self):
-        self.current.colorTable()
 
     def goBack(self):
         self.current = self.current.parent
-        self.branch.move(self.getDisjoint().keyUp("z"))
 
     def go(self, index):
         self.current = self.current.children[index]
-        container = self.getView().keyDown("div")[index]
-        stack = container.keyDown("z")
-        self.branch.move(stack if stack else container.keyDown("dotStack"))
+
+    def predict(self, row):
+        return self.current.predict(row)
+
+    def modelPredict(self, row):
+        return self.model.predict([row])[0]
+
+    def test(self, testData):
+        self.modelTest(testData)
+        correct = 0
+        for index, row in testData.iterrows():
+            if self.predict(row) == row[self.current.table.targetName]:
+                correct += 1
+        return correct / testData.dataRows
+
+    def modelTest(self, testData):
+        y_pred = self.model.predict(testData.encodedData)
+        y_test = testData.targetCol
+        return metrics.accuracy_score(y_test, y_pred)
 
     def isRoot(self):
         return self.current and not self.current.parent
 
     def hasChildren(self):
         return self.current and len(self.current.children) > 0
+
+    def getChild(self, index):
+        return self.current.children[index]
 
 
 class Node:
@@ -109,7 +99,6 @@ class Node:
         self.tree = tree
         self.parent = parent
         self.value = value
-        self.colorTable()
 
         # print("CREATE NODE")
         # print(self.dataFrame.head())
@@ -119,7 +108,7 @@ class Node:
         self.children = []
         for item in self.table[column].unique():
             self.children.append(Node(
-                table=Table(data=self.table[self.table[self.column] == item], param=self.table.param, createView=self.table.createView),
+                table=Table(data=self.table[self.table[self.column] == item], param=self.table.param),
                 tree=self.tree, parent=self, value=item
             ))
 
@@ -127,40 +116,22 @@ class Node:
         self.column = None
         self.children = []
 
-    def colorTable(self):
-        index = self.table.cols
-        startRow = self.table.ci
-        for item in self.table.targetCol:
-            if startRow > 0:
-                startRow -= 1
-                continue
-            if index >= self.table.length:
-                break
-            rect = self.table.getView(index).keyDown("rect")
-            rect.color = self.tree.classColors[item]
-            rect.isHidden = False
-            index += self.table.cols
-
-    def getDotViews(self):
-        if self.table.classCount:
-            trig = 2.0 * pi / self.table.classCount
-        label = [Label(text="{}:{}".format(self.parent.column, self.value), fontSize=20, color=Color.white, dx=-0.95, dy=-1)] if self.parent else []
-        return ZStack(items=[
-            Ellipse(color=self.tree.classColors[self.table.classes[i]],
-                    strokeColor=Color.red, strokeWidth=2,
-                    dx=0.5 * cos(trig * i) if self.table.classCount > 1 else 0.0,
-                    dy=0.5 * sin(trig * i) if self.table.classCount > 1 else 0.0,
-                    border=0,
-                    lockedWidth=20, lockedHeight=20
-                    ) for i in range(self.table.classCount)
-        ] + label, keywords="dotStack")
-
     def containsColumn(self, column):
         if self.column == column:
             return True
-        if self.parent:
+        if self.parent != None:
             return self.parent.containsColumn(column)
         return False
+
+    def predict(self, row):
+        if self.children:
+            for child in self.children:
+                # print("Row:", row)
+                # print("C:", child.column)
+                if child.value == row[self.column]:
+                    return child.predict(row)
+            return None
+        return self.table.commonTarget()
 
 
 if __name__ == '__main__':
@@ -169,54 +140,62 @@ if __name__ == '__main__':
 
     fileName = "examples/movie"
     # pd.set_option('display.max_rows', None)
-    table = Table(filePath=fileName, fontSize=20)
+
+    def createView(sender, index):
+        return Label(str(index))
+
+    table = Table(filePath=fileName, createView=createView)
     print("Table\n", table.data)
 
-    print(end="\nIterate Columns: ")
-    for column in table.colNames:
-        print(column, end=" ")
+    # ==============================================
+    # Data Frame Usage
+    # ==============================================
 
-    print(end="\nIterate Items in Column: ")
-    for item in table[table.targetCol]:
-        print(item, end=" ")
+    # print(end="\nIterate Columns: ")
+    # for column in table.colNames:
+    #     print(column, end=" ")
 
-    print(end="\nIterate Rows: ")
-    for index, row in table.iterrows():
-        print(row[table.targetName], row[0], end=" | ")
+    # print(end="\nIterate Items in Column: ")
+    # for item in table[table.targetName]:
+    #     print(item, end=" ")
 
-    print("\nFirst Item:", table['type'][1])
-    print("Column Count:", table.cols, "Row Count:", table.dataRows)
-    print(end="Unique Values[{}]: ".format(table['type'].nunique()))
-    for item in table['type'].unique():
-        print(item, end=" ")
-    print(end="\nDirectors of Long Comedies: ")
-    for index, row in table.loc[(table['type'] == 'comedy') & (table['length'] == 'long')].iterrows():
-        print(row['director'], end=" ")
+    # print(end="\nIterate Rows: ")
+    # for index, row in table.iterrows():
+    #     print(row[table.targetName], end=" | ")
 
-    # featureCols = ['is_bug', 'can_fly', 'live_farm']
-    # print("\nFeatures:", featureCols)
+    # print("\nFirst Item:", table['type'][1])
+    # print("Column Count:", table.cols, "Row Count:", table.dataRows)
+    # print(end="Unique Values[{}]: ".format(table['type'].nunique()))
+    # for item in table['type'].unique():
+    #     print(item, end=" ")
+    # print(end="\nDirectors of Long Comedies: ")
+    # for index, row in table.loc[(table['type'] == 'comedy') & (table['length'] == 'long')].iterrows():
+    #     print(row['director'], end=" ")
 
-    # x = table.data[featureCols]
+    featureCols = ['type_animated', 'director_adam', 'director_lass', 'director_singer', 'fam_actors']
+    print("\nFeatures:", featureCols)
+
+    x = table.encodedData[featureCols]
     # print("X:\n", x)
 
-    # y = table.data.label
+    y = table.targetCol
     # print("Y:\n", y)
 
-    # # y = table.data['Live Zoo']
-    # # print("Y:", y, "Shape:", y.shape)
+    # y = table.data['Live Zoo']
+    # print("Y:", y, "Shape:", y.shape)
 
-    # # x = table.data.loc[:, featureCols]
-    # # print("Shape:", x.shape)
-    # # X = [[0, 0], [1, 1]]
-    # # Y = [0, 1]
-    # # model = DecisionTree(x, y)
-    # # tree = model.tree
-    # tree = DecisionTreeClassifier()
-    # tree.fit(x, y)
+    # x = table.data.loc[:, featureCols]
+    # print("Shape:", x.shape)
+    # X = [[0, 0], [1, 1]]
+    # Y = [0, 1]
+    # model = DecisionTree(x, y)
+    # tree = model.tree
+    tree = DecisionTreeClassifier()
+    tree.fit(x, y)
 
-    # value = [[False, False, True]]
-    # result = tree.predict(value)
-    # print("Prediction of: {} is {}".format(value, result))
+    value = [[True, False, False, True, True]]
+    result = tree.predict(value)
+    print("Prediction of: {} is {}".format(value, result))
 
     # n_nodes = tree.tree_.node_count
     # children_left = tree.tree_.children_left

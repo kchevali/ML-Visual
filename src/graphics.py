@@ -17,7 +17,7 @@ class Frame:
 
     idCounter = 0
 
-    def __init__(self, name="", tag=0, keywords="", dx=0.0, dy=0.0, offsetX=0.0, offsetY=0.0, isHidden=False, container=None):
+    def __init__(self, name="", tag=0, keywords="", dx=0.0, dy=0.0, offsetX=0.0, offsetY=0.0, isHidden=False, hideContainer=False, hideAllContainers=False, isDraggable=False, isDisabled=False, container=None):
         # INPUTS
         self.name = name
         self.tag = tag
@@ -27,6 +27,11 @@ class Frame:
         self.offsetX = offsetX
         self.offsetY = offsetY
         self.isHidden = isHidden
+        self.isDisabled = isDisabled
+        self.hideContainer = hideContainer
+        self.hideAllContainers = hideAllContainers
+        self.isDraggable = isDraggable
+
         self.container = container  # value set at the end
 
         # INITIAL VALUES
@@ -38,7 +43,6 @@ class Frame:
         self.scrollY = 0.0
         self.border = 0.0  # unused by fixed frames
         self.isExpanded = False
-        self.isDisabled = False
         self.setup = []
         self.id = Frame.idCounter
         Frame.idCounter += 1
@@ -60,16 +64,16 @@ class Frame:
         self.pos = (self.x, self.y)
 
     def setAlignment(self, dx=None, dy=None):
-        if dx:
+        if dx != None:
             self.dx = dx
-        if dy:
+        if dy != None:
             self.dy = dy
 
     def addInstruction(self, method, args):
         self.setup.append((method, args))
 
     def delink(self, allowButtonUpdate=True):
-        if self.container:
+        if self.container != None:
             self.container.view = None
             if self.container.isButton() and allowButtonUpdate:
                 self.container.viewBackup = None
@@ -78,16 +82,16 @@ class Frame:
     def setContainer(self, container, allowButtonUpdate=True):
         self.delink(allowButtonUpdate=allowButtonUpdate)
         if container != None:
-            if container.view:
+            if container.view != None:
                 container.view.delink(allowButtonUpdate=allowButtonUpdate)
             self.container = container
             self.container.view = self
             if self.container.isButton() and allowButtonUpdate:
                 self.container.viewBackup = self
-            # setup = self.setup
-            # self.setup = []
-            # for method, args in setup:
-            #     method(*args)
+
+    def replaceView(self, oldView):
+        self.setContainer(container=oldView.container)
+        return self
 
     def getWidth(self):
         return max(self._width, self.minWidth)
@@ -104,15 +108,14 @@ class Frame:
         if stack:
             return stack.getView(key)
 
-    # need to call when updating x/y/w/h or containers x/y/w/h
     def updateFrame(self):
-        if self.container:
-            self._setXY(x=self.container.x + (self.dx + 1.0) * (self.container.getWidth() - self.getWidth()) / 2.0,
-                        y=self.container.y + (self.dy + 1.0) * (self.container.getHeight() - self.getHeight()) / 2.0)
+        if self.container != None:
+            self._setXY(x=self.container.x + self.offsetX + (self.dx + 1.0) * (self.container.getWidth() - self.getWidth()) / 2.0,
+                        y=self.container.y + self.offsetY + (self.dy + 1.0) * (self.container.getHeight() - self.getHeight()) / 2.0)
+            # print("UF:", type(self), self.id, self.x, self.y)
 
     def updateAll(self):
-        views = self.getLeafOrder()
-        for view in views:
+        for view in self.getLeafOrder():
             view.updateMinimumSizes()
         self.updateDown()
 
@@ -128,41 +131,34 @@ class Frame:
             self.minHeight = self._height if self.isHeightLocked else 0.0
 
     def getLeafOrder(self):
-        q = deque()
-        self.findLeafOrder(q)
-        return q
-
-    def findLeafOrder(self, q):
-        q.appendleft(self)
+        yield self
 
     def getRootOrder(self):
-        q = [self]
-        index = 0
-        while index < len(q):
-            q[index].findRootOrder(q)
-            index += 1
-        return q
+        q = deque()
+        yield from self.findRootOrder(q)
+        while q:
+            yield from q.popleft().findRootOrder(q)
 
     def findRootOrder(self, q):
-        pass
+        yield self
 
     def updateDown(self):
         self.updateFrame()
 
-    def findKey(self, keywords):
-        return self if keywords in self.keywords else None
+    def findKey(self, keyword):
+        return self if keyword in self.keywords else None
 
-    def keyUp(self, keywords, excludeSelf=False):
+    def keyUp(self, keyword, excludeSelf=False):
         if not excludeSelf:
-            obj = self.findKey(keywords)
-            if obj:
+            obj = self.findKey(keyword)
+            if obj != None:
                 return obj
-        if self.container:
-            return self.container.keyUp(keywords)
+        if self.container != None:
+            return self.container.keyUp(keyword)
 
-    def keyDown(self, keywords, excludeSelf=False):
+    def keyDown(self, keyword, excludeSelf=False):
         for obj in self.getRootOrder():
-            if obj.findKey(keywords) and (not excludeSelf or self != obj):
+            if obj.findKey(keyword) != None and (not excludeSelf or self != obj):
                 return obj
 
     def isContainer(self):
@@ -216,9 +212,9 @@ class ResizableFrame(Frame):
         self.border = border
 
     def setSize(self, width=None, height=None):
-        if width and not self.isWidthLocked:
+        if width != None and not self.isWidthLocked:
             self._width = width
-        if height and not self.isHeightLocked:
+        if height != None and not self.isHeightLocked:
             self._height = height
 
     def lock(self, lockedWidth=None, lockedHeight=None):
@@ -296,8 +292,8 @@ class Shape(Color):
 
 class Rect(Shape):
 
-    def __init__(self, cornerRadius=0, border=10, **args):
-        super().__init__(border=border, **args)
+    def __init__(self, color, cornerRadius=0, border=10, **args):
+        super().__init__(color=color, border=border, **args)
         self.cornerRadius = cornerRadius
 
     def display(self):
@@ -334,6 +330,8 @@ class Ellipse(Shape):
 
 class Label(Frame):
     # border has no effect on
+    fontCache = {}
+
     def __init__(self, text, fontName="Comic Sans MS", fontSize=32, color=Color.white, autoFontSize=False, **args):
         super().__init__(**args)
         self.autoFontSize = autoFontSize
@@ -342,19 +340,32 @@ class Label(Frame):
     def setFont(self, text=None, fontName=None, fontSize=None, color=None):
         if text != None:
             self.text = text
-        if fontName:
+        if fontName != None:
             self.fontName = fontName
-        if fontSize:  # and not self.autoFontSize:
+        if fontSize != None:  # and not self.autoFontSize:
             self.fontSize = fontSize
-        if color:
+        if color != None:
             self.color = color
-        self.font = pg.font.SysFont(self.fontName, self.fontSize)
+
+        fontKey = self.fontName + str(self.fontSize)
+        if fontKey in Label.fontCache:
+            self.font = Label.fontCache[fontKey]
+        else:
+            self.font = pg.font.SysFont(self.fontName, self.fontSize)
+            Label.fontCache[fontKey] = self.font
+
         self.render(self.text)
         self.threeDots = False
 
     def render(self, text):
-        self.surface = self.font.render(text, True, self.color)
-        self._setSize(*self.font.size(text))
+        lines = text.splitlines()
+        self.surfaces = []
+        width = 0
+        for i, line in enumerate(lines):
+            self.surfaces.append(self.font.render(line, True, self.color))
+            lineWidth, lineHeight = self.font.size(line)
+            width = max(width, lineWidth)
+        self._setSize(width, len(lines) * self.fontSize)
 
     def updateFrame(self):
         super().updateFrame()
@@ -365,7 +376,8 @@ class Label(Frame):
     def display(self):
         if not self.isHidden:
             super().display()
-            g.blit(self.surface, self.pos)
+            for i, surface in enumerate(self.surfaces):
+                g.blit(surface, (self.x, self.y + self.fontSize * i))
 
     def __str__(self, indent=""):
         return "Label:'{}'".format(self.text)
@@ -381,48 +393,49 @@ class Holder(ResizableFrame):
         super().__init__(**args)
         self.view = view
         self.canHold = True
-        if view:
+        if view != None:
             view.setContainer(container=self)
 
     def updateFrame(self):
         super().updateFrame()
-        if self.view:
+        if self.view != None:
             self.view.setSize(width=self.getWidth() - 2 * self.view.border, height=self.getHeight() - 2 * self.view.border)
 
     def display(self):
-        if not self.isHidden:
-            pg.draw.rect(g, Color.darkGray, (self.x, self.y, self.getWidth(), self.getHeight()), 2)
+        if not self.isHidden and self.view != None:
             super().display()
-            if self.view:
-                self.view.display()
+            self.view.display()
 
     def clicked(self, x, y):
         if self.isClicked(x, y):
-            clickedObj = self.view.clicked(x, y) if self.view else None
-            return clickedObj if clickedObj else self
+            if self.isDraggable:
+                return self
+            clickedObj = self.view.clicked(x, y) if self.view != None else None
+            return clickedObj if clickedObj != None else self
 
     def updateDown(self):
         super().updateDown()
-        if self.view:
+        if self.view != None:
             self.view.updateDown()
 
-    def findLeafOrder(self, q):
-        if self.view:
-            self.view.findLeafOrder(q)
-        q.append(self)
+    def getLeafOrder(self):
+        if self.view != None:
+            yield from self.view.getLeafOrder()
+        yield self
 
     def findRootOrder(self, q):
-        if self.view:
+        yield self
+        if self.view != None:
             q.append(self.view)
 
     def updateMinimumSizes(self):
         super().updateMinimumSizes()
-        if self.view:
+        if self.view != None:
             self.minWidth = max(self.minWidth, self.view.minWidth)
             self.minHeight = max(self.minHeight, self.view.minHeight)
 
     def __str__(self, indent=""):
-        return "<{}>".format(self.view.__str__(indent=indent) if self.view else None)
+        return "<{}>".format(self.view.__str__(indent=indent) if self.view != None else None)
 
 
 class Container(Holder):
@@ -432,11 +445,23 @@ class Container(Holder):
         self.ratioX = ratioX
         self.ratioY = ratioY
 
+    def updateRatios(self, ratioX=None, ratioY=None):
+        if ratioX != None:
+            self.ratioX = ratioX
+        if ratioY != None:
+            self.ratioY = ratioY
+
     def setContainer(self, container):
         self.container = container
 
     def delink(self):
         raise Exception("Cannot delink a container")
+
+    def display(self):
+        if not self.isHidden:
+            if self.view == None or (not self.view.hideContainer and (self.container == None or not self.container.hideAllContainers)):
+                pg.draw.rect(g, Color.darkGray, (self.x, self.y, self.getWidth(), self.getHeight()), 2)
+            super().display()
 
 
 class Button(Holder):
@@ -466,16 +491,19 @@ class Button(Holder):
     def clicked(self, x, y):
         if self.clickedTime == None:
             if self.isClicked(x, y):
-                if self.toggleView:
+                if self.toggleView != None:
                     self.isOn = not self.isOn
-                if self.altView:
+                if self.altView != None:
                     self.altView.setContainer(container=self, allowButtonUpdate=False)
                     self.clickedTime = time()
                     self.getParentStack().updateAll()
                 else:
                     self.clickedTime = 1.0
-                if self.run:
+                if self.run != None:
                     self.run(self)
+                if self.isDraggable:
+                    return self
+                return False  # Nothing else can be clicked above in the hiearchy(False != None)
 
     def setOn(self, isOn):
         if self.isOn != isOn:
@@ -485,27 +513,6 @@ class Button(Holder):
 
     def __str__(self, indent=""):
         return "Button:{}{}".format(self.getID(), super().__str__(indent=indent))
-
-
-class Branch:
-    def __init__(self, view, disjoint):
-        self.disjoint = disjoint  # Container
-        self.view = view  # Noncontainer
-
-    def getContainer(self):
-        return self.view.container
-
-    def setView(self, view):
-        view.setContainer(container=self.view.container)
-        self.view = view
-
-    def move(self, nextView):
-        if nextView:
-            nextDisjoint = nextView.container
-            nextView.setContainer(container=self.view.container)
-            self.view.setContainer(container=self.disjoint)
-            self.disjoint = nextDisjoint
-            self.view = nextView
 
 
 # ===========================================================
@@ -524,7 +531,7 @@ class Stack(ResizableFrame):
         self.totalDepth = depth
         self.totalLength = self.totalRows * self.totalCols * self.totalDepth
 
-        if createView:
+        if createView != None:
             self.createView = createView
 
         self.ci, self.cj, self.ck = 0, 0, 0
@@ -540,12 +547,14 @@ class Stack(ResizableFrame):
             for j in range(self.cols):
                 for k in range(self.depth):
                     index = self.index(i, j, k)
-                    self.containers.append(Container(view=self.createView(self, self.totalIndex(i, j, k)), container=self,
-                                                     ratioX=1.0 / self.cols if ratiosX == None else ratiosX[index],
-                                                     ratioY=1.0 / self.rows if ratiosY == None else ratiosY[index]))
+                    view = self.createView(self, self.totalIndex(i, j, k))
+                    container = Container(view=view, container=self,
+                                          ratioX=1.0 / self.cols if ratiosX == None else ratiosX[index],
+                                          ratioY=1.0 / self.rows if ratiosY == None else ratiosY[index])
+                    self.containers.append(container)
 
-    def createView(self, sender, index):
-        return sender.items[index]
+    def createView(self, table, index):
+        return self.items[index]
 
     def index(self, i, j, k):
         return j + self.cols * (i + self.rows * k) if i >= 0 and i < self.rows and j >= 0 and j < self.cols and k >= 0 and k < self.depth else None
@@ -561,11 +570,13 @@ class Stack(ResizableFrame):
 
     def clicked(self, x, y):
         if self.isClicked(x, y):
+            if self.isDraggable:
+                return self
             for i in range(len(self.containers) - 1, -1, -1):
                 view = self.getView(i)
-                if view:
+                if view != None:
                     clickedObj = view.clicked(x, y)
-                    if clickedObj:
+                    if clickedObj != None:
                         return clickedObj
             return self
 
@@ -574,12 +585,13 @@ class Stack(ResizableFrame):
         for container in self.containers:
             container.updateDown()
 
-    def findLeafOrder(self, q):
+    def getLeafOrder(self):
         for container in self.containers:
-            container.findLeafOrder(q)
-        q.append(self)
+            yield from container.getLeafOrder()
+        yield self
 
     def findRootOrder(self, q):
+        yield self
         for container in self.containers:
             q.append(container)
 
@@ -615,6 +627,11 @@ class Stack(ResizableFrame):
         return lengths
 
     def shift(self, dx=0, dy=0, dz=0):
+        if self.ci < dy or self.ci + self.rows > self.totalRows + dy:
+            dy = 0
+        if dx == 0 and dy == 0 and dz == 0:
+            return
+
         cx, cy, cz = ((0 if dx <= 0 else self.cols - 1),
                       (0 if dy <= 0 else self.rows - 1),
                       (0 if dz <= 0 else self.depth - 1))
@@ -626,18 +643,18 @@ class Stack(ResizableFrame):
                     x, y, z = cx + j * ddx, cy + i * ddy, cz + k * ddz
                     a, b = self.index(y - dy, x - dx, z - dz), self.index(y, x, z)
 
-                    if a != None:
+                    if a != None and 2 * y != dy + 1:
                         x2, y2, z2 = x + self.cj, y + self.ci, z + self.ck
                         index = self.totalIndex(y2 - 2 * dy, x2 - 2 * dx, z2 - 2 * dz)
-                        # if a != b and ((i + dy) >= self.rows or (j + dx >= self.cols) or k + dz >= self.depth):
                         newView = self.createView(self, index)
-                        if newView:
-                            if b != None and y > dy and y > 0:
+                        if newView != None:
+                            if b != None:
                                 view = self.getView(a)
-                                if view:
+                                if view != None:
                                     view.setContainer(self.containers[b])
                                 # self.arr[b] = self.arr[a]
-                            newView.setContainer(self.containers[a])
+                            if y > 1 and y < 14:
+                                newView.setContainer(self.containers[a])
 
                     #     if a != b:
                     #         self.arr[a] = 0
@@ -647,8 +664,34 @@ class Stack(ResizableFrame):
         self.cj -= dx
         self.ck -= dz
 
+    def getEmptyContainer(self, x, y):
+        for view in self.getRootOrder():
+            if view.isContainer() and view.view == None and view.isWithin(x, y):
+                return view
+
+    def canDragView(self, view, container):
+        return False
+
     def getView(self, key):
         return self.containers[key].view
+
+    def addView(self, item, ratioX=None, ratioY=None):
+        if ratioX == None:
+            ratioX = 1 / self.cols
+        if ratioY == None:
+            ratioY = 1 / self.rows
+
+        totalRatioX, totalRatioY = 1.0 - ratioX, 1.0 - ratioY
+        for container in self.containers:
+            container.updateRatios(ratioX=totalRatioX * container.ratioX, ratioY=totalRatioY * container.ratioY)
+
+        self.items.append(item)
+        if len(self.items) <= self.limit:
+            self.containers.append(Container(view=self.createView(self, len(self.items) - 1), container=self, ratioX=ratioX, ratioY=ratioY))
+
+    def popView(self):
+        self.items.pop()
+        return self.containers.pop().view
 
     def __len__(self):
         return len(self.containers)
@@ -680,6 +723,14 @@ class HStack(Stack):
             self.minHeight = max(self.minHeight, container.minHeight)
         self.minWidth = max(self.minWidth, containerMinWidth)
 
+    def addView(self, item, ratio=None):
+        self.cols += 1
+        super().addView(item, ratioX=ratio)
+
+    def popView(self):
+        self.cols -= 1
+        return super().popView()
+
     def __str__(self, indent=""):
         return "H{}".format(super().__str__(indent=indent))
 
@@ -707,6 +758,14 @@ class VStack(Stack):
             containerMinHeight += container.minHeight
         self.minHeight = max(self.minHeight, containerMinHeight)
 
+    def addView(self, item, ratio=None):
+        self.rows += 1
+        super().addView(item, ratioY=ratio)
+
+    def popView(self):
+        self.rows -= 1
+        return super().popView()
+
     def __str__(self, indent=""):
         return "V{}".format(super().__str__(indent=indent))
 
@@ -730,13 +789,24 @@ class ZStack(Stack):
             self.minWidth = max(self.minWidth, container.minWidth)
             self.minHeight = max(self.minHeight, container.minHeight)
 
-    def addView(self, view):
-        self.containers.append(Container(view=view, container=self))
+    def addView(self, item):
         self.depth += 1
+        super().addView(item)
 
     def popView(self):
         self.depth -= 1
-        return self.containers.pop().view
+        return super().popView()
+
+    def scrollUp(self):
+        pass
+
+    def scrollDown(self):
+        pass
+
+    def display(self):
+        super().display()
+        # if self.findKey("codeStack"):
+        #     pg.draw.rect(g, Color.red, (self.x, self.y, self.getWidth(), self.getHeight()))
 
     def __str__(self, indent=""):
         return "Z{}".format(super().__str__(indent=indent))
@@ -771,6 +841,14 @@ class Grid(Stack):
             containerMinHeight += container.minHeight
         self.minWidth = max(self.minWidth, containerMinWidth)
         self.minHeight = max(self.minHeight, containerMinHeight)
+
+    def addView(self, item):
+        "Not implemented!!"
+        pass
+
+    def popView(self):
+        "Not implemented!!"
+        pass
 
     def __str__(self, indent=""):
         return "Grid:{}".format(self.getID())

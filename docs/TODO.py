@@ -27,9 +27,9 @@ TODO 8/16
 ✓More robust method of decending view hiearchy (search by id/name/type)
 ✓Remove left-right/top-bottom button -> use mouse to navigate space partition
 ✓Allow decision tree partition to multiple children
+✓Add scroll to table to show more rows
 ☒Use text box/audio to help guide the user
 ☐Select room and highlight
-☐Add scroll bar to table to show more rows
 ☐Add link to show excel file
 ☐Allow user to write code (also show library code / manual code [DIY])
 ☐User interaction / feedback
@@ -40,12 +40,41 @@ TODO 8/20
 ✓Change True/False to Yes/No (Liked/Disliked)
 ✓Change Target Column (#->String)
 ✓Remove File List for Examples (Show just one example)
-☐Support Running Code
-☐Show accuracy with the testing data
-☐Number of dots should match the number of rows
-☐Prediction Improvement - Let the user run the Bagging Algorithm
+✓Show accuracy with the testing data
+☒Prediction Improvement - Let the user run the Bagging Algorithm
     -Use larger data set
     -Hyperparameter(Improvement) - # of trees
 ☐Add Code Button (Show Library Code and Run it)
+☐Support Running Code
+☐Number of dots should match the number of rows
+
+TODO 8/24
+Add duplication
+Random forest: take sqrt()
+Bagging: Use all features/columns
+Use Library to automate the trees
+    Add 400/500 trees
+    Show best tree + total (bagging) accuracy
+    User doesn't create tree
+    Explain the majority voting
+    Show code
+    Add graph to show (# trees vs Accuracy/Time)
+User coding
+    -Add info button/hover box for the lines of code (explanation)
+    -Show Solution button (Practice)
+    -Show solution in example/improvement
+
+TODO 8/31
+Think about how to add audio files / replace textboxes
+Coding Page
+    Add Tutorial to Coding Page to explain the steps of the code
+    Change examples files or add their own file
+    Show actual source code in .txt file
+        -How to download python
+        -How to download libraries
+More Info
+    Open external pdfs with system viewer
+    Open GenerateDecisionTree.pdf, ImproveDecisionTree.pdf
+    Add short description of each file by the button
 
 """

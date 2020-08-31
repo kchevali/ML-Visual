@@ -6,30 +6,53 @@ FPS = 50
 width = 1050
 height = 700
 title = "Teaching APP"
-isDebug = True
+isDebug = False
 
 # Cannot import from graphics
 backgroundColor = ((50, 50, 50))
+dragObj = None
 
 
 def update():
-    global mouseDebug
+    global mouseDebug, dragObj
     # print("START")
     # background = pg.Surface(self.size)
     # background.fill(hp.red)
+
     # INPUT======================================
     mouseX, mouseY = pg.mouse.get_pos()
     if isDebug and page:
         dx, dy = hp.calcAlignment(x=mouseX, y=mouseY, dw=page.getWidth(), dh=page.getHeight(), isX=True, isY=True)
         mouseDebug.keyDown("text").setFont(text="({},{})".format(round(dx, 2), round(dy, 2)))
         mouseDebug.updateAll()
+    if dragObj != None:
+        dx, dy = hp.calcAlignment(x=mouseX - dragObj.container.x - dragObj.getWidth() // 2, y=mouseY - dragObj.container.y - dragObj.getHeight() // 2, dw=dragObj.container.getWidth() -
+                                  dragObj.getWidth(), dh=dragObj.container.getHeight() - dragObj.getHeight(), isX=True, isY=True)
+        dragObj.setAlignment(dx=dx, dy=dy)
+        dragObj.updateAll()
 
-    for event in pg.event.get():
-        if event.type == pg.QUIT:
-            return False
-        if event.type == pg.MOUSEBUTTONDOWN:
-            if page != None:
-                page.clicked(mouseX, mouseY)
+    if page != None:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                return False
+            elif event.type == pg.MOUSEBUTTONDOWN:
+                view = page.clicked(mouseX, mouseY)
+                if view != None and view != False and view.isDraggable:
+                    dragObj = view
+
+                if event.button == 4:
+                    page.scrollUp()
+                elif event.button == 5:
+                    page.scrollDown()
+
+            elif event.type == pg.MOUSEBUTTONUP:
+                if dragObj != None:
+                    container = page.getEmptyContainer(mouseX, mouseY)
+                    if container != None and page.canDragView(dragObj, container):
+                        dragObj.setContainer(container)
+                    dragObj.setAlignment(dx=0.0, dy=0.0)
+                    dragObj.container.updateAll()
+                    dragObj = None
 
     # DRAW=======================================
     g.fill(backgroundColor)
@@ -72,3 +95,8 @@ setPage(None)
 if __name__ == '__main__':
     hp.clear()
     print("RUNNING GUI Main")
+
+
+"""
+
+"""

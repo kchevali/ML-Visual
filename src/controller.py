@@ -1,0 +1,406 @@
+from graphics import *
+from decisionTree import DecisionTree
+from table import Table
+from random import shuffle
+import helper as hp
+from math import sin, cos, pi
+
+
+class Controller:
+    def __init__(self, filePath=None, partition=True, textboxScript=None, textboxStack=None):
+
+        if filePath:
+            # TABLES
+            if partition:
+                self.mainTable = Table(filePath=filePath)
+                self.trainTable, self.finalTestTable = self.mainTable.partition()
+                self.table, self.localTestTable = self.trainTable.partition()
+            else:
+                self.table = Table(filePath=filePath)
+            self.tableView = None
+
+            # TREE
+            self.tree = DecisionTree(self.table)
+            self.classColors = {}
+            self.treeView = None
+            self.bagIndex = 0
+            self.treeList = []
+
+        # Codes
+        self.codes = [
+            Code("model = DecisionTreeClassifier()", "Load Model", 1),
+            Code("data = pandas.read_csv('example.csv')", "Load Data", 1),
+            Code("train, test = train_test_split(data, test_size=0.3)", "Split Data", 2),
+            Code("model.fit(train,train['y'])", "Train Data", 3),
+            Code("answer = model.predict(test)", "Run Test", 4),
+            Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
+        ]
+
+        # Bagging
+        self.textboxScript = textboxScript
+        self.textboxStack = textboxStack
+        self.textboxIndex = 0
+
+    # ============================================================================
+    # CREATE VIEWS
+    # ============================================================================
+
+    def createTableView(self, **args):
+        tableViewContainer = self.tableView.container if self.tableView != None else None
+        self.tableView = self.table.createView(createCell=self.createTableCell, **args)
+        if tableViewContainer != None:
+            self.tableView.setContainer(tableViewContainer)
+        self.selectedColumns = [False for _ in range(self.tableView.cols)]
+        if self.classColors:
+            self.colorTableTargets()
+        return self.tableView
+
+    def createFileExplorerView(self):
+        files = hp.getFiles("examples", ".csv")
+        self.fileExplorer = VStack([
+            ZStack([
+                Rect(color=Color.steelBlue, cornerRadius=10),
+                Button(view=Label("Files", fontSize=20), altView=Label("Clicked!!"))
+            ])] + [
+            ZStack([
+                Rect(color=Color.steelBlue, cornerRadius=10),
+                Button(view=Label(fileName.split(".")[0], fontSize=15), altView=Label("Clicked!!"), name=fileName)
+            ]) for fileName in files
+        ], ratios=[0.67 / (len(files) + 1)] * (len(files) + 1))
+        return self.fileExplorer
+
+    def createHeaderButtons(self):
+        columns = self.table.columns
+        self.headerSelection = HStack([
+            ZStack([
+                Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
+                Button(view=Label(columns[i], fontSize=25, color=Color.white),
+                       toggleView=Label(columns[i], fontSize=18, color=Color.black),
+                       #    altView=Label("{} CLK".format(columns[i]), fontSize=15),
+                       isOn=False, tag=i, run=self.selectColumn)
+            ]) for i in range(1, len(columns))
+
+        ])
+        return self.headerSelection
+
+    def createTreeRoomView(self):
+        self.classColors = {}
+        for i in range(self.table.classCount):
+            self.classColors[self.table.classes[i]] = Color.calmColor(i / self.table.classCount)
+        self.colorTableTargets()
+        treeViewContainer = self.treeView.container if self.treeView != None else None
+        self.treeView = self.createDotViews(self.tree.current)
+        if treeViewContainer != None:
+            self.treeView.setContainer(treeViewContainer)
+        self.treeBranch = Branch(view=self.treeView, disjoint=Container())
+        return self.treeView
+
+    def createCodeTitle(self):
+        self.treeCountLabel = Label("Add Trees")
+        self.codeAccuracyLabel = Label("Accuracy: --")
+        self.runButtonRect = Rect(color=Color.gray, cornerRadius=10)
+        self.runButton = Button(ZStack([
+            self.runButtonRect,
+            Label("Run")
+        ], hideAllContainers=True), lockedWidth=240, run=self.runTrees, isDisabled=True)
+
+        self.codingTitle = HStack([
+            self.runButton,
+            self.codeAccuracyLabel,
+            Button(ZStack([
+                Rect(color=Color.steelBlue, cornerRadius=10),
+                self.treeCountLabel
+            ]), run=self.incTrees)
+        ], ratios=[0.5, 0.25, 0.25])
+        return self.codingTitle
+
+    def createCodeView(self):
+        codeViews = [
+            ZStack([
+                Rect(color=Color.steelBlue, keywords="rect", cornerRadius=10),
+                Label(code.label, keywords="label")
+            ], isDraggable=True, tag=code, keywords="codeStack", lockedWidth=200, lockedHeight=60, hideAllContainers=True)for code in self.codes
+        ]
+        shuffle(codeViews)
+
+        self.codeLabelStack = VStack(codeViews, keywords="question")
+        return self.codeLabelStack
+
+    def createTreeListView(self):
+        self.totalScoreLabel = Label("Total: [0%]", fontSize=20)
+        self.totalScore = ZStack([
+            Rect(color=Color.steelBlue),
+            self.totalScoreLabel
+        ], lockedHeight=50, dy=1)
+        self.bag = VStack([None] * 9 + [
+            self.totalScore,
+            Button(view=ZStack([
+                Rect(color=Color.steelBlue, cornerRadius=10),
+                Label("Save Tree")
+            ]), run=self.saveTree, lockedHeight=50, dy=1)
+        ])
+        return self.bag
+
+    # ============================================================================
+    # BUTTON METHODS
+    # ============================================================================
+
+    def selectColumn(self, sender):
+        self.selectTableViewColumn(value=sender.isOn, column=sender.tag)
+        rect = sender.getCousin(0)
+        if sender.isOn:
+            self.splitTree(column=self.tree.getColName(sender.tag))
+            rect.strokeColor = Color.white
+        else:
+            self.tree.remove()
+            rect.strokeColor = Color.gray
+        self.treeBranch.getContainer().updateAll()
+        self.updateHeaderSelectionButtons()
+        # self.tableView.container.updateAll()
+
+    def goForward(self, sender):
+        if self.tree.hasChildren():
+            self.goToIndexTree(index=sender.tag)
+            self.table = self.tree.getTable()
+            self.createTableView()
+            self.updateHeaderSelectionButtons()
+            self.treeBranch.getContainer().updateAll()
+            self.tableView.container.updateAll()
+            # self.updateContainers()
+
+    def goBack(self, sender):
+        if not self.tree.isRoot():
+            self.goBackTree()
+            self.table = self.tree.getTable()
+            self.createTableView()
+            self.updateHeaderSelectionButtons()
+            self.treeBranch.getContainer().updateAll()
+            self.tableView.container.updateAll()
+
+    def saveTree(self, sender):
+        self.treeList.append(self.tree)
+        accuracy = round(self.tree.test(self.localTestTable) * 100)
+
+        self.tree.modelTest(self.finalTestTable)
+
+        bagItem = ZStack([
+            Rect(color=Color.steelBlue),
+            Label(text="T:{} [{}%]".format(len(self.treeList), accuracy), fontSize=20)
+        ], dy=1)
+        bagItem.setContainer(self.bag[self.bagIndex])
+        self.bagIndex += 1
+
+        self.totalScoreLabel.setFont(text="Total: [{}%]".format(round(100 * self.getTotalScore(finalTestData=self.finalTestTable.data, predictMethod=self.tree.predict))))
+        self.table, self.localTestTable = self.trainTable.partition()
+
+        self.tree = DecisionTree(self.table)
+        self.createTreeRoomView()
+        self.createTableView()
+
+        self.bag.updateAll()
+        self.treeView.container.updateAll()
+        self.tableView.container.updateAll()
+        self.updateHeaderSelectionButtons()
+
+    def incTrees(self, sender):
+        if len(self.treeList) >= 100:
+            self.treeList = []
+            self.treeCountLabel.setFont("Add Trees")
+
+        else:
+            for _ in range(1):
+                train, test = self.trainTable.partition()
+                self.treeList.append(DecisionTree(train))
+            self.treeCountLabel.setFont("Trees: {}".format(len(self.treeList)))
+
+    def runTrees(self, sender):
+        self.codeAccuracyLabel.setFont(text="Accuracy: {}%".format(round(100 * self.getTotalScore(finalTestData=self.finalTestTable.encodedData, predictMethod=self.tree.modelPredict))))
+        self.codeAccuracyLabel.container.updateAll()
+
+    def pressTextBox(self, sender):
+        self.textboxStack.popView()
+        self.textboxIndex += 1
+        if self.textboxIndex < len(self.textboxScript):
+            self.textboxStack.addView(self.createNextTextbox())
+        self.textboxStack.updateAll()
+
+    # ============================================================================
+    # CHANGE VIEWS
+    # ============================================================================
+
+    def selectTableViewColumn(self, value, column):
+        self.selectedColumns[column] = value
+        for i in range(1, self.tableView.rows):
+            view = self.tableView.getView(i * self.tableView.cols + column)
+            if view != None:
+                view.keyDown("rect").color = Color.steelBlue if value else Color.lightSteelBlue
+
+    def colorTableTargets(self):
+        index = self.tableView.cols
+        startRow = self.tableView.ci
+        for item in self.table.targetCol:
+            if startRow > 0:
+                startRow -= 1
+                continue
+            if index >= self.tableView.length:
+                break
+            rect = self.tableView.getView(index).keyDown("rect")
+            rect.color = self.classColors[item]
+            rect.isHidden = False
+            index += self.tableView.cols
+
+    def createNextTextbox(self):
+        text, dx, dy = self.textboxScript[self.textboxIndex]
+        return Button(view=ZStack([
+            Rect(color=Color.white, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
+            Label(text=text, color=Color.black, fontSize=25)
+        ]), run=self.pressTextBox, dx=dx, dy=dy, lockedWidth=450, lockedHeight=200, hideAllContainers=True)
+
+    def shiftTable(self, dy):
+        self.tableView.shift(dy=dy)
+        self.colorTableTargets()
+        self.updateHeaderSelectionButtons()
+        self.tableView.updateAll()
+
+    def updateHeaderSelectionButtons(self):
+        columns = self.table.columns
+        for c in self.headerSelection.containers:
+            rect = c.view.getView(0)
+            button = c.view.getView(1)
+            column = columns[button.tag]
+
+            if self.tree.isParentColumn(column):
+                rect.strokeColor = Color.gray
+                button.isDisabled = True
+                button.setOn(isOn=False)
+            else:
+                button.isDisabled = False
+                if self.tree.isCurrentColumn(column):
+                    rect.strokeColor = Color.yellow
+                    button.setOn(isOn=True)
+                else:
+                    rect.strokeColor = Color.darkGray
+                    button.setOn(isOn=False)
+                    self.selectTableViewColumn(value=False, column=button.tag)
+
+    def createTableCell(self, tableView, index):
+        if index != None:
+            i, j = index // tableView.cols, index % tableView.cols
+            if self.tableView != None and self.selectedColumns[j]:
+                self.selectTableViewColumn(True, j)
+
+            column = self.table.colNames[j]
+            return ZStack([
+                Rect(color=Color.steelBlue if index < tableView.cols else Color.lightSteelBlue, border=3, cornerRadius=5, keywords="rect"),
+                Label(text=column if i == 0 else str(self.table[column][self.table.dataIndex[i - 1]]), fontSize=20, color=Color.white, keywords="label")
+            ])
+
+    def createDotViews(self, treeNode):
+        if treeNode.table.dataRows > 0:
+            trig = 2.0 * pi / treeNode.table.dataRows
+
+        items = []
+        i = 0
+        for index, row in treeNode.table.iterrows():
+            items.append(Ellipse(color=self.classColors[row[treeNode.table.targetName]],
+                                 strokeColor=Color.red, strokeWidth=2,
+                                 dx=0.5 * cos(trig * i) if treeNode.table.dataRows > 1 else 0.0,
+                                 dy=0.5 * sin(trig * i) if treeNode.table.dataRows > 1 else 0.0,
+                                 border=0,
+                                 lockedWidth=20, lockedHeight=20
+                                 ))
+            i += 1
+
+        if treeNode.parent != None:
+            items.append(Label(text="{}:{}".format(treeNode.parent.column, treeNode.value), fontSize=20, color=Color.white, dx=-0.95, dy=-1))
+        return ZStack(items=items, keywords="dotStack", limit=150)
+
+    def splitTree(self, column):
+        self.tree.add(column=column)
+        container = self.treeBranch.getContainer()
+        prevStack = type(self.treeBranch.disjoint.keyUp("div"))
+        stack = VStack if prevStack != VStack else HStack
+        label = [Button(view=Label(text="{}:{}".format(self.tree.getParentColumn(), self.tree.getValue()), fontSize=20,
+                                   color=Color.white, dx=-0.95, dy=-1), run=self.goBack)] if self.tree.getParent() != None else []
+        treeChildren = self.tree.getChildren()
+        totalClassCount = len(treeChildren)
+        for child in treeChildren:
+            totalClassCount += child.table.classCount
+
+        self.treeView = ZStack(items=label + [
+            stack(items=[
+                Button(view=self.createDotViews(self.tree.getChild(i)), run=self.goForward, tag=i) for i in range(len(treeChildren))
+            ], ratios=[
+                (child.table.classCount + 1) / totalClassCount for child in treeChildren
+            ], border=20 if self.tree.getParent() != None else 0, keywords="div")
+        ], keywords=["z"])
+        self.treeBranch.setView(view=self.treeView)
+
+    def removeNodeTree(self):
+        self.tree.remove()
+        self.treeView = self.createDotViews(self.tree.current)
+        self.treeBranch.setView(view=self.treeView)
+
+    def goBackTree(self):
+        self.tree.goBack()
+        self.treeView = self.treeBranch.disjoint.keyUp("z")
+        self.treeBranch.move(self.treeView)
+
+    def goToIndexTree(self, index):
+        self.tree.go(index=index)
+        container = self.treeBranch.view.keyDown("div")[index]
+        stack = container.keyDown("z")
+        self.treeView = stack if stack != None else container.keyDown("dotStack")
+        self.treeBranch.move(self.treeView)
+
+    # ============================================================================
+    # OTHER
+    # ============================================================================
+
+    def getTotalScore(self, finalTestData, predictMethod):
+        if not self.treeList:
+            return 0.0
+        correct = 0
+        for index, row in finalTestData.iterrows():
+            answers = {"": -1}
+            bestAnswer = ""
+            for tree in self.treeList:
+                answer = predictMethod(row)
+                if answer not in answers:
+                    answers[answer] = 1
+                else:
+                    answers[answer] += 1
+                if answers[answer] > answers[bestAnswer]:
+                    bestAnswer = answer
+            if bestAnswer == row[self.finalTestTable.targetName]:
+                correct += 1
+        return correct / self.finalTestTable.dataRows
+
+
+class Code:
+
+    def __init__(self, line, label, order):
+        self.line = line
+        self.label = label
+        self.order = order
+
+
+class Branch:
+    def __init__(self, view, disjoint):
+        self.disjoint = disjoint  # Container
+        self.view = view  # Noncontainer
+
+    def getContainer(self):
+        return self.view.container
+
+    def setView(self, view):
+        view.setContainer(container=self.view.container)
+        self.view = view
+
+    def move(self, nextView):
+        if nextView != None:
+            nextDisjoint = nextView.container
+            nextView.setContainer(container=self.view.container)
+            self.view.setContainer(container=self.disjoint)
+            self.disjoint = nextDisjoint
+            self.view = nextView
