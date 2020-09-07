@@ -33,8 +33,18 @@ class SimplePage(ZStack):
 
 class MainPage(ZStack):
     def __init__(self):
+        items = [
+            MenuPage()
+        ]
+        super().__init__(items)
 
-        self.content = ExamplePage()
+
+class ModelPage(ZStack):
+    def __init__(self, content, title, pages=[]):
+
+        self.content = content
+        self.title = title
+        self.pages = pages
 
         items = [
             VStack([
@@ -46,29 +56,22 @@ class MainPage(ZStack):
             ], ratios=[0.08, 0.92])
 
         ]
-        # print(view)
         super().__init__(items)
 
     def createTitle(self):
         return ZStack([
             Rect(color=Color.steelBlue),
-            Label("Decision Tree")
+            Button(Label("<", dx=-1, offsetX=20), run=self.replaceSelf, tag=MenuPage) if type(self) != MenuPage else None,
+            Label(self.title)
         ])
 
     def createTaskList(self):
-        tasks = ["Intro", "Example", "Improve", "Coding", "More Info"]
-        pages = [IntroDTPage, ExamplePage, ExcerisePage, CodingPage, InfoPage]
-
-        def selectTask(sender):
-            self.content = sender.tag().replaceView(self.content)
-            self.content.container.updateAll()
-
         return VStack([
-            Button(ZStack([
+            Button([
                 Rect(color=Color.orange, cornerRadius=10),
-                Label(tasks[i])
-            ]), tag=pages[i], run=selectTask) for i in range(len(tasks))
-        ], ratios=[1 / (len(tasks) * 2) for _ in range(len(tasks))])
+                Label(task)
+            ], tag=page, run=self.replaceContent) for task, page in self.pages
+        ], ratios=[1 / (len(self.pages) * 2) for _ in range(len(self.pages))])
 
     def canDragView(self, view, container):
         return self.content.canDragView(view=view, container=container)
@@ -78,6 +81,53 @@ class MainPage(ZStack):
 
     def scrollDown(self):
         self.content.scrollDown()
+
+    def replaceContent(self, sender):
+        self.content = sender.tag().replaceView(self.content)
+        self.content.container.updateAll()
+
+    def replaceSelf(self, sender):
+        self.content = sender.tag().replaceView(self)
+        self.content.container.updateAll()
+
+
+class MenuPage(ModelPage):
+    def __init__(self):
+        content = VStack([
+            None,
+            HStack([
+                None,
+                self.createButton(text="Decision Tree", color=Color.blue, tag=self.createDecisionTree),
+                self.createButton(text="KNN", color=Color.red, tag=self.createKNN),
+                None
+            ]), None
+        ])
+        super().__init__(content=content, title="Select Model")
+
+    def createButton(self, text, color, tag):
+        return Button([
+            Rect(color=color, cornerRadius=10),
+            Label(text=text)
+        ], tag=tag, name=text, run=self.replaceSelf)
+
+    def createDecisionTree(self):
+        return ModelPage(content=IntroDTPage(), title="Decision Tree",
+                         pages=[
+            ("Intro", IntroDTPage),
+            ("Example", ExampleDTPage),
+            ("Improve", ExceriseDTPage),
+            ("Coding", CodingDTPage),
+            ("More Info", InfoDTPage)
+        ])
+
+    def createKNN(self):
+        return ModelPage(content=IntroDTPage(), title="KNN",
+                         pages=[
+            ("Intro", IntroDTPage),
+            ("Example", ExampleKNNPage),
+            ("Coding", CodingDTPage),
+            ("More Info", InfoDTPage)
+        ])
 
 
 class IntroDTPage(ZStack):
@@ -104,7 +154,7 @@ tree includes:
         super().__init__(views)
 
 
-class ExamplePage(ZStack):
+class ExampleDTPage(ZStack):
     def __init__(self):
         self.ctr = Controller(filePath="examples/movie", partition=False, textboxScript=[
             ("Welcome to the Decision Tree Simulator!", 0, 0),
@@ -160,7 +210,7 @@ same color""", -0.5, 0),
         self.ctr.shiftTable(dy=-1)
 
 
-class ExcerisePage(ZStack):
+class ExceriseDTPage(ZStack):
     def __init__(self):
         self.ctr = Controller(filePath="examples/zoo")
         views = [
@@ -194,7 +244,7 @@ class ExcerisePage(ZStack):
         self.ctr.shiftTable(dy=-1)
 
 
-class CodingPage(ZStack):
+class CodingDTPage(ZStack):
     def __init__(self):
         self.ctr = Controller(filePath="examples/medical")
         items = [
@@ -240,12 +290,24 @@ class CodingPage(ZStack):
             return True
 
 
-class InfoPage(ZStack):
+class InfoDTPage(ZStack):
     def __init__(self):
-        items = [
-            Button(
-                view=Label("Click here to open links for further reading."),
-                altView=Label("The links are not avaliable yet...")
-            )
-        ]
+        self.ctr = Controller()
+        items = [self.ctr.createInfoDTViews()]
         super().__init__(items)
+
+
+class ExampleKNNPage(ZStack):
+    def __init__(self):
+        self.ctr = Controller(filePath="examples/car", partition=False, textboxScript=[
+            ("Welcome to the KNN Simulator!", 0, 0)
+        ], textboxStack=self)
+        views = [
+            VStack([
+                self.ctr.createTableView(),
+                self.ctr.createHeaderButtons()
+            ], ratios=[0.9, 0.1]),
+            self.ctr.createNextTextbox()
+        ]
+        # print(view)
+        super().__init__(views)

@@ -4,6 +4,7 @@ from table import Table
 from random import shuffle
 import helper as hp
 from math import sin, cos, pi
+import subprocess
 
 
 class Controller:
@@ -60,11 +61,11 @@ class Controller:
         self.fileExplorer = VStack([
             ZStack([
                 Rect(color=Color.steelBlue, cornerRadius=10),
-                Button(view=Label("Files", fontSize=20), altView=Label("Clicked!!"))
+                Button(Label("Files", fontSize=20))
             ])] + [
             ZStack([
                 Rect(color=Color.steelBlue, cornerRadius=10),
-                Button(view=Label(fileName.split(".")[0], fontSize=15), altView=Label("Clicked!!"), name=fileName)
+                Button(Label(fileName.split(".")[0], fontSize=15), name=fileName)
             ]) for fileName in files
         ], ratios=[0.67 / (len(files) + 1)] * (len(files) + 1))
         return self.fileExplorer
@@ -74,9 +75,7 @@ class Controller:
         self.headerSelection = HStack([
             ZStack([
                 Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
-                Button(view=Label(columns[i], fontSize=25, color=Color.white),
-                       toggleView=Label(columns[i], fontSize=18, color=Color.black),
-                       #    altView=Label("{} CLK".format(columns[i]), fontSize=15),
+                Button(Label(columns[i], fontSize=25, color=Color.white),
                        isOn=False, tag=i, run=self.selectColumn)
             ]) for i in range(1, len(columns))
 
@@ -99,18 +98,18 @@ class Controller:
         self.treeCountLabel = Label("Add Trees")
         self.codeAccuracyLabel = Label("Accuracy: --")
         self.runButtonRect = Rect(color=Color.gray, cornerRadius=10)
-        self.runButton = Button(ZStack([
+        self.runButton = Button([
             self.runButtonRect,
             Label("Run")
-        ], hideAllContainers=True), lockedWidth=240, run=self.runTrees, isDisabled=True)
+        ], hideAllContainers=True, lockedWidth=240, run=self.runTrees, isDisabled=True)
 
         self.codingTitle = HStack([
             self.runButton,
             self.codeAccuracyLabel,
-            Button(ZStack([
+            Button([
                 Rect(color=Color.steelBlue, cornerRadius=10),
                 self.treeCountLabel
-            ]), run=self.incTrees)
+            ], run=self.incTrees)
         ], ratios=[0.5, 0.25, 0.25])
         return self.codingTitle
 
@@ -126,6 +125,9 @@ class Controller:
         self.codeLabelStack = VStack(codeViews, keywords="question")
         return self.codeLabelStack
 
+    def createOpenSpreadsheetView(self):
+        return Button
+
     def createTreeListView(self):
         self.totalScoreLabel = Label("Total: [0%]", fontSize=20)
         self.totalScore = ZStack([
@@ -134,12 +136,36 @@ class Controller:
         ], lockedHeight=50, dy=1)
         self.bag = VStack([None] * 9 + [
             self.totalScore,
-            Button(view=ZStack([
+            Button([
                 Rect(color=Color.steelBlue, cornerRadius=10),
                 Label("Save Tree")
-            ]), run=self.saveTree, lockedHeight=50, dy=1)
+            ], run=self.saveTree, lockedHeight=50, dy=1)
         ])
         return self.bag
+
+    def createInfoDTViews(self):
+        buttons = []
+        for label, path in [
+            ("Generatation", "assets/GenerateDecisionTree.pdf"),
+            ("Improvement", "assets/ImproveDecisionTree.pdf")
+        ]:
+            def setView(sender):
+                labelView = sender.keyDown("label")
+                if sender.isAlt():
+                    labelView.setFont("Opening File...")
+                else:
+                    labelView.setFont("Click here to learn more about: " + label)
+
+            buttons.append(Button(
+                Label("", dx=-1, offsetX=10, keywords="label"),
+                tag=path,
+                run=self.openFile,
+                setViewMethod=setView
+            ))
+
+        return VStack(
+            [Label("More Information Below:", fontSize=48, dx=-1)] + buttons + [None] * 8, hideAllContainers=False
+        )
 
     # ============================================================================
     # BUTTON METHODS
@@ -224,6 +250,9 @@ class Controller:
             self.textboxStack.addView(self.createNextTextbox())
         self.textboxStack.updateAll()
 
+    def openFile(self, sender):
+        subprocess.run(['open', sender.tag], check=True)
+
     # ============================================================================
     # CHANGE VIEWS
     # ============================================================================
@@ -251,10 +280,10 @@ class Controller:
 
     def createNextTextbox(self):
         text, dx, dy = self.textboxScript[self.textboxIndex]
-        return Button(view=ZStack([
+        return Button([
             Rect(color=Color.white, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
             Label(text=text, color=Color.black, fontSize=25)
-        ]), run=self.pressTextBox, dx=dx, dy=dy, lockedWidth=450, lockedHeight=200, hideAllContainers=True)
+        ], run=self.pressTextBox, dx=dx, dy=dy, lockedWidth=450, lockedHeight=200, hideAllContainers=True)
 
     def shiftTable(self, dy):
         self.tableView.shift(dy=dy)
@@ -320,7 +349,7 @@ class Controller:
         container = self.treeBranch.getContainer()
         prevStack = type(self.treeBranch.disjoint.keyUp("div"))
         stack = VStack if prevStack != VStack else HStack
-        label = [Button(view=Label(text="{}:{}".format(self.tree.getParentColumn(), self.tree.getValue()), fontSize=20,
+        label = [Button(Label(text="{}:{}".format(self.tree.getParentColumn(), self.tree.getValue()), fontSize=20,
                                    color=Color.white, dx=-0.95, dy=-1), run=self.goBack)] if self.tree.getParent() != None else []
         treeChildren = self.tree.getChildren()
         totalClassCount = len(treeChildren)
@@ -329,7 +358,7 @@ class Controller:
 
         self.treeView = ZStack(items=label + [
             stack(items=[
-                Button(view=self.createDotViews(self.tree.getChild(i)), run=self.goForward, tag=i) for i in range(len(treeChildren))
+                Button(self.createDotViews(self.tree.getChild(i)), run=self.goForward, tag=i) for i in range(len(treeChildren))
             ], ratios=[
                 (child.table.classCount + 1) / totalClassCount for child in treeChildren
             ], border=20 if self.tree.getParent() != None else 0, keywords="div")

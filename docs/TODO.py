@@ -66,9 +66,10 @@ User coding
 
 TODO 8/31
 Think about how to add audio files / replace textboxes
+Add python export
 Coding Page
     Add Tutorial to Coding Page to explain the steps of the code
-    Change examples files or add their own file
+    Change examples files or add their own file (File Explorer)
     Show actual source code in .txt file
         -How to download python
         -How to download libraries
@@ -76,5 +77,16 @@ More Info
     Open external pdfs with system viewer
     Open GenerateDecisionTree.pdf, ImproveDecisionTree.pdf
     Add short description of each file by the button
+KNN Sections
+    Introduction
+    Example
+        change K (like cross validation)
+        Show dots not table
+        work with only two features/dimension (add more later)
+    Coding
+    More Info
+KNN Other
+    Generate / Find Data (Tshirt size ~ person height and weight)
+
 
 """

@@ -365,7 +365,7 @@ class Label(Frame):
             self.surfaces.append(self.font.render(line, True, self.color))
             lineWidth, lineHeight = self.font.size(line)
             width = max(width, lineWidth)
-        self._setSize(width, len(lines) * self.fontSize)
+        self._setSize(width, len(lines) * self.fontSize - 5)
 
     def updateFrame(self):
         super().updateFrame()
@@ -463,68 +463,17 @@ class Container(Holder):
                 pg.draw.rect(g, Color.darkGray, (self.x, self.y, self.getWidth(), self.getHeight()), 2)
             super().display()
 
-
-class Button(Holder):
-    def __init__(self, view, altView=None, toggleView=None, run=None, isOn=True, **args):
-        super().__init__(view=view, **args)
-        self.altView = altView
-        self.toggleView = toggleView
-        self.run = run
-        self.isOn = None
-        self.viewBackup = self.view
-        self.clickedTime = None
-        self.clickHoldTime = 0.5
-        self.setOn(isOn=isOn)
-
-    def display(self):
-        if not self.isHidden:
-            if self.clickedTime and time() - self.clickedTime > self.clickHoldTime:
-                self.setOn(None)  # force update
-                self.getParentStack().updateAll()
-
-                # (self.viewBackup if self.isOn else self.toggleView).setContainer(container=self)
-
-                self.clickedTime = None
-            super().display()
-            # pg.draw.rect(g, Color.red, (self.x, self.y, self.getWidth(), self.getHeight()), 2)
-
-    def clicked(self, x, y):
-        if self.clickedTime == None:
-            if self.isClicked(x, y):
-                if self.toggleView != None:
-                    self.isOn = not self.isOn
-                if self.altView != None:
-                    self.altView.setContainer(container=self, allowButtonUpdate=False)
-                    self.clickedTime = time()
-                    self.getParentStack().updateAll()
-                else:
-                    self.clickedTime = 1.0
-                if self.run != None:
-                    self.run(self)
-                if self.isDraggable:
-                    return self
-                return False  # Nothing else can be clicked above in the hiearchy(False != None)
-
-    def setOn(self, isOn):
-        if self.isOn != isOn:
-            if isOn != None:
-                self.isOn = isOn
-            (self.viewBackup if self.isOn or self.toggleView == True else self.toggleView).setContainer(container=self, allowButtonUpdate=False)
-
-    def __str__(self, indent=""):
-        return "Button:{}{}".format(self.getID(), super().__str__(indent=indent))
-
-
 # ===========================================================
 # STACKS
 # ===========================================================
+
 
 class Stack(ResizableFrame):
 
     # init args have default values for ZStack()
     def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=None, ratiosY=None, createView=None, **args):
         super().__init__(**args)
-        self.items = items
+        self.items = items if type(items) == list else [items]
         self.limit = limit
         self.totalRows = rows
         self.totalCols = cols
@@ -706,7 +655,7 @@ class Stack(ResizableFrame):
 class HStack(Stack):
 
     def __init__(self, items=[], ratios=None, **args):
-        super().__init__(items=items, cols=len(items), ratiosX=ratios, **args)
+        super().__init__(items=items, cols=len(items) if type(items) == list else 1, ratiosX=ratios, **args)
 
     def updateFrame(self):
         super().updateFrame()
@@ -741,7 +690,7 @@ class HStack(Stack):
 class VStack(Stack):
 
     def __init__(self, items=[], ratios=None, **args):
-        super().__init__(items=items, rows=len(items), ratiosY=ratios, **args)
+        super().__init__(items=items, rows=len(items) if type(items) == list else 1, ratiosY=ratios, **args)
 
     def updateFrame(self):
         super().updateFrame()
@@ -768,48 +717,6 @@ class VStack(Stack):
 
     def __str__(self, indent=""):
         return "V{}".format(super().__str__(indent=indent))
-
-    def __getitem__(self, key):
-        return super().__getitem__(key)
-
-
-class ZStack(Stack):
-
-    def __init__(self, items=[], **args):
-        super().__init__(items=items, depth=len(items), **args)
-
-    def updateFrame(self):
-        super().updateFrame()
-        for container in self.containers:
-            container.setSize(width=self.getWidth(), height=self.getHeight())
-
-    def updateMinimumSizes(self):
-        super().updateMinimumSizes()
-        for container in self.containers:
-            self.minWidth = max(self.minWidth, container.minWidth)
-            self.minHeight = max(self.minHeight, container.minHeight)
-
-    def addView(self, item):
-        self.depth += 1
-        super().addView(item)
-
-    def popView(self):
-        self.depth -= 1
-        return super().popView()
-
-    def scrollUp(self):
-        pass
-
-    def scrollDown(self):
-        pass
-
-    def display(self):
-        super().display()
-        # if self.findKey("codeStack"):
-        #     pg.draw.rect(g, Color.red, (self.x, self.y, self.getWidth(), self.getHeight()))
-
-    def __str__(self, indent=""):
-        return "Z{}".format(super().__str__(indent=indent))
 
     def __getitem__(self, key):
         return super().__getitem__(key)
@@ -855,3 +762,94 @@ class Grid(Stack):
 
     def __getitem__(self, key):
         return super().__getitem__(key)
+
+
+class ZStack(Stack):
+
+    def __init__(self, items=[], **args):
+        super().__init__(items=items, depth=len(items) if type(items) == list else 1, **args)
+
+    def updateFrame(self):
+        super().updateFrame()
+        for container in self.containers:
+            container.setSize(width=self.getWidth(), height=self.getHeight())
+
+    def updateMinimumSizes(self):
+        super().updateMinimumSizes()
+        for container in self.containers:
+            self.minWidth = max(self.minWidth, container.minWidth)
+            self.minHeight = max(self.minHeight, container.minHeight)
+
+    def addView(self, item):
+        self.depth += 1
+        super().addView(item)
+
+    def popView(self):
+        self.depth -= 1
+        return super().popView()
+
+    def scrollUp(self):
+        pass
+
+    def scrollDown(self):
+        pass
+
+    def display(self):
+        super().display()
+        # if self.findKey("codeStack"):
+        #     pg.draw.rect(g, Color.red, (self.x, self.y, self.getWidth(), self.getHeight()))
+
+    def __str__(self, indent=""):
+        return "Z{}".format(super().__str__(indent=indent))
+
+    def __getitem__(self, key):
+        return super().__getitem__(key)
+
+
+class Button(ZStack):
+    def __init__(self, items, run=None, isOn=True, setViewMethod=None, clickHoldTime=0.5, **args):
+        super().__init__(items=items, **args)
+        self.run = run
+        self.setViewMethod = setViewMethod
+        self.clickedTime = None
+        self.clickHoldTime = clickHoldTime
+        self.isOn = None
+        self.setOn(isOn=isOn)
+
+    def display(self):
+        if not self.isHidden:
+            if self.clickedTime and time() - self.clickedTime > self.clickHoldTime:
+                self.clickedTime = None
+                self.setOn(None)  # force update
+            super().display()
+
+    def clicked(self, x, y):
+        if self.clickedTime == None and self.isClicked(x, y):
+            self.isOn = not self.isOn
+            self.clickedTime = time()
+            self.runSetView()
+            if self.run != None:
+                self.run(self)
+            if self.isDraggable:
+                return self
+            return False  # Nothing else can be clicked above in the hiearchy(False != None)
+
+    def setOn(self, isOn):
+        if self.isOn != isOn:
+            if isOn != None:
+                self.isOn = isOn
+            self.runSetView()
+            # (self.viewBackup if self.isOn or self.toggleView == True else self.toggleView).setContainer(container=self, allowButtonUpdate=False)
+
+    def runSetView(self):
+        if self.setViewMethod != None:
+            self.setViewMethod(self)
+            stack = self.getParentStack()
+            if stack != None:
+                stack.updateAll()
+
+    def isAlt(self):
+        return self.clickedTime != None
+
+    def __str__(self, indent=""):
+        return "Button:{}{}".format(self.getID(), super().__str__(indent=indent))
