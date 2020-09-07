@@ -11,6 +11,25 @@ def createMouseDebug():
         Label(text="", fontSize=15, color=Color.black, keywords="text")
     ], lockedWidth=80, lockedHeight=20, dx=-1, dy=1)
 
+# class Page(ZStack):
+
+#     def canDragView(self, view, container):
+#         return self.content.canDragView(view=view, container=container)
+
+#     def scrollUp(self):
+#         self.content.scrollUp()
+
+#     def scrollDown(self):
+#         self.content.scrollDown()
+
+#     def replaceContent(self, sender):
+#         self.content = sender.tag().replaceView(self.content)
+#         self.content.container.updateAll()
+
+#     def replaceSelf(self, sender):
+#         self.content = sender.tag().replaceView(self)
+#         self.content.container.updateAll()
+
 
 class DefaultPage(ZStack):
     def __init__(self):
@@ -37,6 +56,12 @@ class MainPage(ZStack):
             MenuPage()
         ]
         super().__init__(items)
+
+    def canDragView(self, view, container):
+        canDrag = False
+        for c in self.containers:
+            canDrag = canDrag or c.view.canDragView(view=view, container=container)
+        return canDrag
 
 
 class ModelPage(ZStack):
