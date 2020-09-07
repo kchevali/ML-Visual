@@ -14,7 +14,7 @@ dragObj = None
 
 
 def update():
-    global mouseDebug, dragObj
+    global mouseDebug, dragObj, g
     # print("START")
     # background = pg.Surface(self.size)
     # background.fill(hp.red)
@@ -35,6 +35,10 @@ def update():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return False
+            elif event.type == pg.VIDEORESIZE:
+                page.setSize(width=event.w, height=event.h)
+                page.updateAll()
+            #     g = pg.display.set_mode((event.w, event.h), pg.RESIZABLE)
             elif event.type == pg.MOUSEBUTTONDOWN:
                 view = page.clicked(mouseX, mouseY)
                 if view != None and view != False and view.isDraggable:
@@ -88,7 +92,7 @@ pg.font.init()
 size = (width, height)
 pg.display.set_caption(title)
 clock = pg.time.Clock()
-g = pg.display.set_mode(size)
+g = pg.display.set_mode(size, pg.RESIZABLE)
 setPage(None)
 
 

@@ -273,17 +273,27 @@ class CodingDTPage(ZStack):
     def __init__(self):
         self.ctr = Controller(filePath="examples/medical")
         items = [
-            HStack([
-                VStack([
-                    self.ctr.createCodeTitle(),
-                    HStack([
-                        self.ctr.createCodeView(),
-                        VStack([None] * len(self.ctr.codes), keywords="ans")
+            VStack([
+                self.ctr.createCodeTitle(),
+                HStack([
+                    self.ctr.createCodeView(),
+                    VStack([None] * len(self.ctr.codes), keywords="ans")
 
-                    ], ratios=[0.3, 0.7])
-                ], ratios=[0.1, 0.9]),
-                self.ctr.createFileExplorerView()
-            ], ratios=[0.85, 0.15])
+                ], ratios=[0.3, 0.7]),
+                ZStack([
+                    self.ctr.createFileNameView(),
+                    HStack([
+                        None,
+                        self.ctr.createOpenSpreadsheetView(),
+                        self.ctr.createCodeFileView(),
+                        Button([
+                            Rect(Color.green, cornerRadius=10),
+                            Label("Select File")
+                        ], run=self.showFileExplorer, lockedWidth=200),
+                        None
+                    ], hideAllContainers=True)
+                ])
+            ], ratios=[0.1, 0.8, 0.1])
 
         ]
         super().__init__(items)
@@ -313,6 +323,21 @@ class CodingDTPage(ZStack):
             self.ctr.runButton.isDisabled = not success
 
             return True
+
+    def showFileExplorer(self, sender):
+        view = ZStack([
+            self.ctr.createFileExplorerView(),
+            Button([
+                Rect(Color.red, cornerRadius=10),
+                Label("Close", fontSize=25)
+            ], dy=1, lockedWidth=80, lockedHeight=60, offsetY=-50, run=self.hideFileExplorer)
+        ])
+        self.addView(view)
+        self.updateAll()
+
+    def hideFileExplorer(self, sender):
+        self.popView()
+        self.updateAll()
 
 
 class InfoDTPage(ZStack):

@@ -9,11 +9,13 @@ import subprocess
 
 class Controller:
     def __init__(self, filePath=None, partition=True, textboxScript=None, textboxStack=None):
-
-        if filePath:
+        self.filePath = filePath
+        self.fileName = None
+        if self.filePath:
+            self.fileName = self.filePath.split("/")[-1].split(".")[0]
             # TABLES
             if partition:
-                self.mainTable = Table(filePath=filePath)
+                self.mainTable = Table(filePath=self.filePath)
                 self.trainTable, self.finalTestTable = self.mainTable.partition()
                 self.table, self.localTestTable = self.trainTable.partition()
             else:
@@ -46,6 +48,9 @@ class Controller:
     # CREATE VIEWS
     # ============================================================================
 
+    def createFileNameView(self):
+        return Label("File: " + self.fileName, fontSize=18, dx=-1)
+
     def createTableView(self, **args):
         tableViewContainer = self.tableView.container if self.tableView != None else None
         self.tableView = self.table.createView(createCell=self.createTableCell, **args)
@@ -58,16 +63,20 @@ class Controller:
 
     def createFileExplorerView(self):
         files = hp.getFiles("examples", ".csv")
-        self.fileExplorer = VStack([
-            ZStack([
-                Rect(color=Color.steelBlue, cornerRadius=10),
-                Button(Label("Files", fontSize=20))
-            ])] + [
-            ZStack([
-                Rect(color=Color.steelBlue, cornerRadius=10),
-                Button(Label(fileName.split(".")[0], fontSize=15), name=fileName)
-            ]) for fileName in files
-        ], ratios=[0.67 / (len(files) + 1)] * (len(files) + 1))
+        self.fileExplorer = ZStack([
+            Rect(Color.backgroundColor, border=0),
+            VStack([
+                ZStack([
+                    Rect(color=Color.steelBlue, cornerRadius=10),
+                    Label("Files", fontSize=20)
+                ])] + [
+                Button([
+                    Rect(color=Color.steelBlue, cornerRadius=10),
+                    Label(fileName.split(".")[0], fontSize=15)
+                ], name=fileName, lockedWidth=150) for fileName in files
+            ], ratios=[0.7 / (len(files) + 1)] * (len(files) + 1))
+
+        ], lockedWidth=350, lockedHeight=600)
         return self.fileExplorer
 
     def createHeaderButtons(self):
@@ -126,7 +135,16 @@ class Controller:
         return self.codeLabelStack
 
     def createOpenSpreadsheetView(self):
-        return Button
+        return Button([
+            Rect(Color.green, cornerRadius=10),
+            Label("Open Excel")
+        ], run=self.openFile, tag=self.filePath + ".csv", lockedWidth=200)
+
+    def createCodeFileView(self):
+        return Button([
+            Rect(Color.green, cornerRadius=10),
+            Label("Open Code")
+        ], run=self.openFile, tag="assets/treeExample.py", lockedWidth=200)
 
     def createTreeListView(self):
         self.totalScoreLabel = Label("Total: [0%]", fontSize=20)
