@@ -1,0 +1,18 @@
+{
+    "target": "class",
+    "index": "",
+    "columns": [
+        "petalLength",
+        "petalWidth"
+    ],
+    "map": [
+        {
+            "column": "class",
+            "values": {
+                "0": "setosa",
+                "1": "versicolour",
+                "2": "virginica"
+            }
+        }
+    ]
+}

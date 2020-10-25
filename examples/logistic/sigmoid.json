@@ -1,0 +1,8 @@
+{
+    "target": "index",
+    "index": "",
+    "columns": [
+        "a",
+        "b"
+    ]
+}

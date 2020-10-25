@@ -1,0 +1,8 @@
+{
+    "target": "Position",
+    "index": "",
+    "columns": [
+        "Level",
+        "Salary"
+    ]
+}

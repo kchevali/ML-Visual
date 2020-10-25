@@ -2,7 +2,8 @@ from gui import g
 from time import time
 import helper as hp
 import pygame as pg
-import pygame.gfxdraw as pgx
+from pygame.mixer import Sound
+# import pygame.gfxdraw as pgx
 from math import inf
 from random import uniform
 from colorsys import hsv_to_rgb
@@ -184,10 +185,14 @@ class Frame:
         return self.isWithin(x, y) and not self.isDisabled
 
     def clicked(self, x, y):
-        if self.isClicked(x, y):
-            return self
+        return None
+        # if self.isClicked(x, y):
+        #     return None
 
     def setSize(self, width=None, height=None):
+        "Empty Method"
+
+    def hoverMouse(self, x, y):
         "Empty Method"
 
     def getSize(self):
@@ -204,8 +209,8 @@ class Frame:
 
 
 class ResizableFrame(Frame):
-    def __init__(self, lockedWidth=None, lockedHeight=None, border=0, **args):
-        super().__init__(**args)
+    def __init__(self, lockedWidth=None, lockedHeight=None, border=0, **kwargs):
+        super().__init__(**kwargs)
         self.isWidthLocked = False
         self.isHeightLocked = False
         self.lock(lockedWidth=lockedWidth, lockedHeight=lockedHeight)
@@ -264,8 +269,8 @@ class Color(ResizableFrame):
     black = (0, 0, 0)
     backgroundColor = ((50, 50, 50))
 
-    def __init__(self, color, **args):
-        super().__init__(**args)
+    def __init__(self, color, **kwargs):
+        super().__init__(**kwargs)
         self.color = color
 
     def display(self):
@@ -284,16 +289,27 @@ class Color(ResizableFrame):
 
 class Shape(Color):
 
-    def __init__(self, strokeColor=None, strokeWidth=None, **args):
-        super().__init__(**args)
+    def __init__(self, strokeColor=None, strokeWidth=None, **kwargs):
+        super().__init__(**kwargs)
         self.strokeColor = strokeColor
         self.strokeWidth = None if self.strokeColor == None else strokeWidth
 
 
+class Lines(Color):
+    def __init__(self, points=[], **kwargs):
+        super().__init__(**kwargs)
+        self.points = points
+
+    def display(self):
+        if not self.isHidden:
+            for i in range(1, len(self.points)):
+                pg.draw.line(g, self.color, self.points[i - 1], self.points[i], width=5)
+
+
 class Rect(Shape):
 
-    def __init__(self, color, cornerRadius=0, border=10, **args):
-        super().__init__(color=color, border=border, **args)
+    def __init__(self, color, cornerRadius=0, border=10, **kwargs):
+        super().__init__(color=color, border=border, **kwargs)
         self.cornerRadius = cornerRadius
 
     def display(self):
@@ -328,24 +344,47 @@ class Ellipse(Shape):
         return "Ellipse:{}".format(self.getID())
 
 
+class Image(ResizableFrame):
+
+    def __init__(self, imageName, angle=0.0, **kwargs):
+        super().__init__(**kwargs)
+        self.imageName = imageName
+        self.angle = angle
+
+        self.surface = pg.transform.rotate(pg.image.load("assets/images/" + imageName), self.angle)
+        self.setSize(*self.surface.get_size())
+        if self.isWidthLocked or self.isHeightLocked:
+            self.surface = pg.transform.scale(self.surface, (self.getWidth(), self.getHeight()))
+
+    def display(self):
+        if not self.isHidden:
+            super().display()
+            g.blit(self.surface, (self.x, self.y, self.getWidth(), self.getHeight()))
+
+    def __str__(self, indent=""):
+        return "Image:'{}'".format(self.imageName)
+
+
 class Label(Frame):
     # border has no effect on
     fontCache = {}
 
-    def __init__(self, text, fontName="Comic Sans MS", fontSize=32, color=Color.white, autoFontSize=False, **args):
-        super().__init__(**args)
+    def __init__(self, text, fontName="Comic Sans MS", fontSize=32, color=Color.white, autoFontSize=False, angle=0.0, **kwargs):
+        super().__init__(**kwargs)
         self.autoFontSize = autoFontSize
-        self.setFont(text=text, fontName=fontName, fontSize=fontSize, color=color)
+        self.setFont(text=text, fontName=fontName, fontSize=fontSize, color=color, angle=angle)
 
-    def setFont(self, text=None, fontName=None, fontSize=None, color=None):
+    def setFont(self, text=None, fontName=None, fontSize=None, color=None, angle=None):
         if text != None:
-            self.text = text
+            self.text = [text] if type(text) != list else text
         if fontName != None:
             self.fontName = fontName
         if fontSize != None:  # and not self.autoFontSize:
             self.fontSize = fontSize
         if color != None:
             self.color = color
+        if angle != None:
+            self.angle = angle
 
         fontKey = self.fontName + str(self.fontSize)
         if fontKey in Label.fontCache:
@@ -357,15 +396,25 @@ class Label(Frame):
         self.render(self.text)
         self.threeDots = False
 
-    def render(self, text):
-        lines = text.splitlines()
-        self.surfaces = []
-        width = 0
+    def render(self, lines):
+        surfaces, heights = [], [0]
+        width, height = 0.0, 0.0
         for i, line in enumerate(lines):
-            self.surfaces.append(self.font.render(line, True, self.color))
-            lineWidth, lineHeight = self.font.size(line)
+            surface = self.font.render(line, True, self.color)
+            # lineWidth, lineHeight = self.font.size(line)
+            lineWidth, lineHeight = surface.get_size()
             width = max(width, lineWidth)
-        self._setSize(width, len(lines) * self.fontSize - 5)
+            height += lineHeight
+            surfaces.append(surface)
+            heights.append(lineHeight + heights[-1])
+
+        self.surface = pg.Surface((width, height), pg.SRCALPHA)
+
+        for i in range(len(surfaces)):
+            self.surface.blit(surfaces[i], (0, heights[i]))
+        if self.angle != 0.0:
+            self.surface = pg.transform.rotate(self.surface, self.angle)
+        self._setSize(*self.surface.get_size())
 
     def updateFrame(self):
         super().updateFrame()
@@ -376,11 +425,12 @@ class Label(Frame):
     def display(self):
         if not self.isHidden:
             super().display()
-            for i, surface in enumerate(self.surfaces):
-                g.blit(surface, (self.x, self.y + self.fontSize * i))
+            g.blit(self.surface, self.pos)
+            # for i, surface in enumerate(self.surfaces):
+            #     g.blit(surface, (self.x, self.y + self.fontSize * i))
 
     def __str__(self, indent=""):
-        return "Label:'{}'".format(self.text)
+        return "Label:'{}'".format(self.text[0])
 
 # ===========================================================
 # CONTAINERS
@@ -389,8 +439,8 @@ class Label(Frame):
 
 class Holder(ResizableFrame):
 
-    def __init__(self, view=None, **args):
-        super().__init__(**args)
+    def __init__(self, view=None, **kwargs):
+        super().__init__(**kwargs)
         self.view = view
         self.canHold = True
         if view != None:
@@ -440,10 +490,11 @@ class Holder(ResizableFrame):
 
 class Container(Holder):
 
-    def __init__(self, ratioX=1.0, ratioY=1.0, **args):
-        super().__init__(**args)
+    def __init__(self, ratioX=1.0, ratioY=1.0, showEmpty=False, **kwargs):
+        super().__init__(**kwargs)
         self.ratioX = ratioX
         self.ratioY = ratioY
+        self.showEmpty = showEmpty
 
     def updateRatios(self, ratioX=None, ratioY=None):
         if ratioX != None:
@@ -459,7 +510,7 @@ class Container(Holder):
 
     def display(self):
         if not self.isHidden:
-            if self.view == None or (not self.view.hideContainer and (self.container == None or not self.container.hideAllContainers)):
+            if (self.view == None and self.showEmpty) or (self.view != None and not self.view.hideContainer and (self.container == None or not self.container.hideAllContainers)):
                 pg.draw.rect(g, Color.darkGray, (self.x, self.y, self.getWidth(), self.getHeight()), 2)
             super().display()
 
@@ -471,8 +522,8 @@ class Container(Holder):
 class Stack(ResizableFrame):
 
     # init args have default values for ZStack()
-    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=None, ratiosY=None, createView=None, **args):
-        super().__init__(**args)
+    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=None, ratiosY=None, createView=None, containerArgs=[], **kwargs):
+        super().__init__(**kwargs)
         self.items = items if type(items) == list else [items]
         self.limit = limit
         self.totalRows = rows
@@ -499,7 +550,8 @@ class Stack(ResizableFrame):
                     view = self.createView(self, self.totalIndex(i, j, k))
                     container = Container(view=view, container=self,
                                           ratioX=1.0 / self.cols if ratiosX == None else ratiosX[index],
-                                          ratioY=1.0 / self.rows if ratiosY == None else ratiosY[index])
+                                          ratioY=1.0 / self.rows if ratiosY == None else ratiosY[index],
+                                          **containerArgs[index] if index < len(containerArgs) else {})
                     self.containers.append(container)
 
     def createView(self, table, index):
@@ -551,8 +603,7 @@ class Stack(ResizableFrame):
             for j in range(self.cols):
                 for k in range(self.depth):
                     c = self.containers[index]
-                    dx, dy = hp.calcAlignment(x=x, y=y, dw=self.getWidth() - c.getWidth(),
-                                              dh=self.getHeight() - c.getHeight(), isX=isX, isY=isY)
+                    dx, dy = hp.calcAlignment(x=x, y=y, dw=self.getWidth() - c.getWidth(), dh=self.getHeight() - c.getHeight(), isX=isX, isY=isY)
                     c.setAlignment(dx=dx, dy=dy)
                     index += 1
                 x += self.containers[index - 1].getWidth()
@@ -621,6 +672,9 @@ class Stack(ResizableFrame):
     def canDragView(self, view, container):
         return False
 
+    def draggedView(self, view):
+        "Empty Method"
+
     def getView(self, key):
         return self.containers[key].view
 
@@ -642,6 +696,12 @@ class Stack(ResizableFrame):
         self.items.pop()
         return self.containers.pop().view
 
+    def peekView(self):
+        return self.containers[-1].view
+
+    def update(self):  # used in linear regression example page
+        pass
+
     def __len__(self):
         return len(self.containers)
 
@@ -654,8 +714,8 @@ class Stack(ResizableFrame):
 
 class HStack(Stack):
 
-    def __init__(self, items=[], ratios=None, **args):
-        super().__init__(items=items, cols=len(items) if type(items) == list else 1, ratiosX=ratios, **args)
+    def __init__(self, items=[], ratios=None, **kwargs):
+        super().__init__(items=items, cols=len(items) if type(items) == list else 1, ratiosX=ratios, **kwargs)
 
     def updateFrame(self):
         super().updateFrame()
@@ -689,8 +749,8 @@ class HStack(Stack):
 
 class VStack(Stack):
 
-    def __init__(self, items=[], ratios=None, **args):
-        super().__init__(items=items, rows=len(items) if type(items) == list else 1, ratiosY=ratios, **args)
+    def __init__(self, items=[], ratios=None, **kwargs):
+        super().__init__(items=items, rows=len(items) if type(items) == list else 1, ratiosY=ratios, **kwargs)
 
     def updateFrame(self):
         super().updateFrame()
@@ -724,8 +784,8 @@ class VStack(Stack):
 
 class Grid(Stack):
 
-    def __init__(self, items=[], rows=1, cols=1, **args):
-        super().__init__(items=items, rows=rows, cols=cols, **args)
+    def __init__(self, items=[], rows=1, cols=1, **kwargs):
+        super().__init__(items=items, rows=rows, cols=cols, **kwargs)
 
     def updateFrame(self):
         super().updateFrame()
@@ -766,8 +826,9 @@ class Grid(Stack):
 
 class ZStack(Stack):
 
-    def __init__(self, items=[], **args):
-        super().__init__(items=items, depth=len(items) if type(items) == list else 1, **args)
+    def __init__(self, items=[], hoverEnabled=True, **kwargs):
+        super().__init__(items=items, depth=len(items) if type(items) == list else 1, **kwargs)
+        self.hoverEnabled = hoverEnabled
 
     def updateFrame(self):
         super().updateFrame()
@@ -783,6 +844,10 @@ class ZStack(Stack):
     def addView(self, item):
         self.depth += 1
         super().addView(item)
+
+    def addAllViews(self, *args):
+        for item in args:
+            self.addView(item)
 
     def popView(self):
         self.depth -= 1
@@ -807,17 +872,21 @@ class ZStack(Stack):
 
 
 class Button(ZStack):
-    def __init__(self, items, run=None, isOn=True, setViewMethod=None, clickHoldTime=0.5, **args):
-        super().__init__(items=items, **args)
+    def __init__(self, items, run=None, isOn=True, setViewMethod=None, clickHoldTime=0.5, soundName="click", **kwargs):
+        super().__init__(items=items, **kwargs)
         self.run = run
         self.setViewMethod = setViewMethod
         self.clickedTime = None
         self.clickHoldTime = clickHoldTime
         self.isOn = None
         self.setOn(isOn=isOn)
+        self.sound = Sound("assets/audio/" + soundName + ".wav") if soundName != None else None
+        self.lastClickX = 0
+        self.lastClickY = 0
 
     def display(self):
         if not self.isHidden:
+            # pg.draw.rect(g, Color.red, (self.x, self.y, self.getWidth(), self.getHeight()))
             if self.clickedTime and time() - self.clickedTime > self.clickHoldTime:
                 self.clickedTime = None
                 self.setOn(None)  # force update
@@ -825,9 +894,13 @@ class Button(ZStack):
 
     def clicked(self, x, y):
         if self.clickedTime == None and self.isClicked(x, y):
+            self.lastClickX = x
+            self.lastClickY = y
             self.isOn = not self.isOn
             self.clickedTime = time()
             self.runSetView()
+            if self.sound != None:
+                Sound.play(self.sound)
             if self.run != None:
                 self.run(self)
             if self.isDraggable:
@@ -852,4 +925,4 @@ class Button(ZStack):
         return self.clickedTime != None
 
     def __str__(self, indent=""):
-        return "Button:{}{}".format(self.getID(), super().__str__(indent=indent))
+        return "Button-{}".format(super().__str__(indent=indent))

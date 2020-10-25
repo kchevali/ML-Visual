@@ -8,7 +8,6 @@ id,make,model,fuel_type,aspiration,num_of_doors,body_style,drive_wheels,engine_l
 7,audi,audi  7,gas,std,4,sedan,fwd,front,105.8,192.7,71.4,55.7,2844,ohc,5,136,mpfi,8.5,110,5500,19,25,17710
 8,audi,audi  8,gas,std,4,wagon,fwd,front,105.8,192.7,71.4,55.7,2954,ohc,5,136,mpfi,8.5,110,5500,19,25,18920
 9,audi,audi  9,gas,turbo,4,sedan,fwd,front,105.8,192.7,71.4,55.9,3086,ohc,5,131,mpfi,8.3,140,5500,17,20,23875
-10,audi,audi  10,gas,turbo,2,hatchback,4wd,front,99.5,178.2,67.9,52,3053,ohc,5,131,mpfi,7,160,5500,16,22,?
 11,bmw,bmw  11,gas,std,2,sedan,rwd,front,101.2,176.8,64.8,54.3,2395,ohc,4,108,mpfi,8.8,101,5800,23,29,16430
 12,bmw,bmw  12,gas,std,4,sedan,rwd,front,101.2,176.8,64.8,54.3,2395,ohc,4,108,mpfi,8.8,101,5800,23,29,16925
 13,bmw,bmw  13,gas,std,2,sedan,rwd,front,101.2,176.8,64.8,54.3,2710,ohc,6,164,mpfi,9,121,4250,21,28,20970
@@ -26,7 +25,6 @@ id,make,model,fuel_type,aspiration,num_of_doors,body_style,drive_wheels,engine_l
 25,dodge,dodge  25,gas,std,4,hatchback,fwd,front,93.7,157.3,63.8,50.6,1967,ohc,4,90,2bbl,9.4,68,5500,31,38,6229
 26,dodge,dodge  26,gas,std,4,sedan,fwd,front,93.7,157.3,63.8,50.6,1989,ohc,4,90,2bbl,9.4,68,5500,31,38,6692
 27,dodge,dodge  27,gas,std,4,sedan,fwd,front,93.7,157.3,63.8,50.6,1989,ohc,4,90,2bbl,9.4,68,5500,31,38,7609
-28,dodge,dodge  28,gas,turbo,?,sedan,fwd,front,93.7,157.3,63.8,50.6,2191,ohc,4,98,mpfi,7.6,102,5500,24,30,8558
 29,dodge,dodge  29,gas,std,4,wagon,fwd,front,103.3,174.6,64.6,59.8,2535,ohc,4,122,2bbl,8.5,88,5000,24,30,8921
 30,dodge,dodge  30,gas,turbo,2,hatchback,fwd,front,95.9,173.2,66.3,50.2,2811,ohc,4,156,mfi,7,145,5000,19,24,12964
 31,honda,honda  31,gas,std,2,hatchback,fwd,front,86.6,144.6,63.9,50.8,1713,ohc,4,92,1bbl,9.6,58,4800,49,54,6479
@@ -43,8 +41,6 @@ id,make,model,fuel_type,aspiration,num_of_doors,body_style,drive_wheels,engine_l
 42,honda,honda  42,gas,std,4,sedan,fwd,front,96.5,175.4,65.2,54.1,2465,ohc,4,110,mpfi,9,101,5800,24,28,12945
 43,honda,honda  43,gas,std,2,sedan,fwd,front,96.5,169.1,66,51,2293,ohc,4,110,2bbl,9.1,100,5500,25,31,10345
 44,isuzu,isuzu  44,gas,std,4,sedan,rwd,front,94.3,170.7,61.8,53.5,2337,ohc,4,111,2bbl,8.5,78,4800,24,29,6785
-45,isuzu,isuzu  45,gas,std,2,sedan,fwd,front,94.5,155.9,63.6,52,1874,ohc,4,90,2bbl,9.6,70,5400,38,43,?
-46,isuzu,isuzu  46,gas,std,4,sedan,fwd,front,94.5,155.9,63.6,52,1909,ohc,4,90,2bbl,9.6,70,5400,38,43,?
 47,isuzu,isuzu  47,gas,std,2,hatchback,rwd,front,96,172.6,65.2,51.4,2734,ohc,4,119,spfi,9.2,90,5000,24,29,11048
 48,jaguar,jaguar  48,gas,std,4,sedan,rwd,front,113,199.6,69.6,52.8,4066,dohc,6,258,mpfi,8.1,176,4750,15,19,32250
 49,jaguar,jaguar  49,gas,std,4,sedan,rwd,front,113,199.6,69.6,52.8,4066,dohc,6,258,mpfi,8.1,176,4750,15,19,35550
@@ -62,7 +58,6 @@ id,make,model,fuel_type,aspiration,num_of_doors,body_style,drive_wheels,engine_l
 61,mazda,mazda  61,gas,std,4,sedan,fwd,front,98.8,177.8,66.5,55.5,2410,ohc,4,122,2bbl,8.6,84,4800,26,32,8495
 62,mazda,mazda  62,gas,std,2,hatchback,fwd,front,98.8,177.8,66.5,53.7,2385,ohc,4,122,2bbl,8.6,84,4800,26,32,10595
 63,mazda,mazda  63,gas,std,4,sedan,fwd,front,98.8,177.8,66.5,55.5,2410,ohc,4,122,2bbl,8.6,84,4800,26,32,10245
-64,mazda,mazda  64,diesel,std,?,sedan,fwd,front,98.8,177.8,66.5,55.5,2443,ohc,4,122,idi,22.7,64,4650,36,42,10795
 65,mazda,mazda  65,gas,std,4,hatchback,fwd,front,98.8,177.8,66.5,55.5,2425,ohc,4,122,2bbl,8.6,84,4800,26,32,11245
 66,mazda,mazda  66,gas,std,4,sedan,rwd,front,104.9,175,66.1,54.4,2670,ohc,4,140,mpfi,8,120,5000,19,27,18280
 67,mazda,mazda  67,diesel,std,4,sedan,rwd,front,104.9,175,66.1,54.4,2700,ohc,4,134,idi,22,72,4200,31,39,18344
@@ -128,9 +123,6 @@ id,make,model,fuel_type,aspiration,num_of_doors,body_style,drive_wheels,engine_l
 127,porsche,porsche  127,gas,std,2,hardtop,rwd,rear,89.5,168.9,65,51.6,2756,ohcf,6,194,mpfi,9.5,207,5900,17,25,32528
 128,porsche,porsche  128,gas,std,2,hardtop,rwd,rear,89.5,168.9,65,51.6,2756,ohcf,6,194,mpfi,9.5,207,5900,17,25,34028
 129,porsche,porsche  129,gas,std,2,convertible,rwd,rear,89.5,168.9,65,51.6,2800,ohcf,6,194,mpfi,9.5,207,5900,17,25,37028
-130,porsche,porsche  130,gas,std,2,hatchback,rwd,front,98.4,175.7,72.3,50.5,3366,dohcv,8,203,mpfi,10,288,5750,17,28,?
-131,renault,renault  131,gas,std,4,wagon,fwd,front,96.1,181.5,66.5,55.2,2579,ohc,4,132,mpfi,8.7,?,?,23,31,9295
-132,renault,renault  132,gas,std,2,hatchback,fwd,front,96.1,176.8,66.6,50.5,2460,ohc,4,132,mpfi,8.7,?,?,23,31,9895
 133,saab,saab  133,gas,std,2,hatchback,fwd,front,99.1,186.6,66.5,56.1,2658,ohc,4,121,mpfi,9.31,110,5250,21,28,11850
 134,saab,saab  134,gas,std,4,sedan,fwd,front,99.1,186.6,66.5,56.1,2695,ohc,4,121,mpfi,9.3,110,5250,21,28,12170
 135,saab,saab  135,gas,std,2,hatchback,fwd,front,99.1,186.6,66.5,56.1,2707,ohc,4,121,mpfi,9.3,110,5250,21,28,15040

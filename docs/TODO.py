@@ -65,28 +65,137 @@ User coding
     -Show solution in example/improvement
 
 TODO 8/31
-Think about how to add audio files / replace textboxes
+✓Think about how to add audio files / replace textboxes
 Add python export
 Coding Page
-    Add Tutorial to Coding Page to explain the steps of the code
-    Change examples files or add their own file (File Explorer)
-    Show actual source code in .txt file
+    ✓Add Tutorial to Coding Page to explain the steps of the code
+    ✓Change examples files or add their own file (File Explorer)
+    ✓Show actual source code in .txt file
         -How to download python
         -How to download libraries
 More Info
-    Open external pdfs with system viewer
-    Open GenerateDecisionTree.pdf, ImproveDecisionTree.pdf
+    ✓Open external pdfs with system viewer
+    ✓Open GenerateDecisionTree.pdf, ImproveDecisionTree.pdf
     Add short description of each file by the button
 KNN Sections
     Introduction
     Example
-        change K (like cross validation)
-        Show dots not table
-        work with only two features/dimension (add more later)
+        ✓change K (like cross validation)
+        ✓Show dots not table
+        ✓work with only two features/dimension (add more later)
     Coding
     More Info
 KNN Other
     Generate / Find Data (Tshirt size ~ person height and weight)
 
+TODO 9/7
+✓Add comments to the code files
+✓Change "Select File" to "Select Data File" in Coding Page
+Reminder:
+    Visualize Tree
+    ✓Audio
+KNN Example
+    ✓Pick simpler data (2 classes and less data)
+    ✓The classes should be better distributed and separated easily
+    ✓Look at the "KNN Decision.docx" data sets (insert and reduce)
+    ✓Add Legend
+    ✓Let user pick k
+
+    Functionality:
+        ✓Add White Dot/Square - show how it changes with different k values
+        Let user manually pick class for white dot
+
+TODO 9/16
+-Coding Page: Only allow the block to be placed if it is in the correct position
+-User should have choice between text or sound. If click sound button -> hide text and play sound instead.
+-Group the menu into categories
+    -Classical ML Models: KNN, Linear Regression, Logistic Regression
+    -Modern ML Models: Decision Tree, SVM
+
+-Linear Regression
+    Introduction
+    Example
+        Let user pick the slope and intercept
+        Show the error
+        The user will try to minimize the error
+    Extensions
+        Polynomial Regression (ax^n + bx^n-1 ... + k) (Quadratic - think about n-power)
+        Let user draw the line
+        Show the error
+        The user will try to minimize the error
+    Coding
+        Pick exponent and show accuracy
+    Further Reading
+
+    Look at data sets in LR Design.docx
+
+    Let Dr.Zhu know if we will have a meeting on Sunday
+
+TODO 9/27
+    Linear Regression
+        Example:
+            Implement Linear Regression algorithm and animate the model training
+            Compare user's solution with computer's solutions
+        Add multiple variables (show it as 2d graphs)
+        Show polynomial equation for the coding page
+        
+    KNN
+        Fix KNN Example 
+        Change selection points from gray to the class color
+        Remove duplicate rows in iris.csv (change in code, instead of data file)
+
+TODO 10/4
+    Linear Regression
+        Implement Linear Regression Algorithm (also keep sklearn.LinearRegression - use together)
+            Compare user line with computer's line
+            Animate training of the model in Example
+            Add show me ML results
+        Further Reading
+            CrossValidation.pdf
+            LinearRegression.pdf
+            ExtensionLinearRegression.pdf (coming soon)
+
+        STILL NEED TO DO:
+            Add R or R^2 value for regression
+            Look at examples on different ways to visualize (multiple features)
+            Extension
+                Select different features with Lasso or SelectKBest (best feature subset selection) algorithm (use library) - try to implement
+                Add second example file to Example that is quadratic
+    
+    Writing or Video (Extra) - if have time
+        Libraries used
+        IDE to run python
+        How to install libraries
+
+TODO 10/11
+    Show ML Results error as well as user error
+    Remove hardcoded width/height from __init__ in Linear class
+    Organize examples into folders
+    Add more linear regression examples from LR Design.docx (5-6) including quad equation:
+        https://lionbridge.ai/datasets/10-open-datasets-for-linear-regression/
+        https://www.smackslide.com/slide/linear-regression-example-data-y4bosz
+
+
+    Start logistics regression
+
+TODO 10/18
+    Linear Example
+        Experiment with changing eq/error color/position (grouping by eq or algorithm)
+        Extension: power 2, lasso, subset selection
+        Add compModel to power k
+    
+    Logisitic Example:
+        Add Coding (Should have 3 data files)
+    
+    Coding page
+        Fix font / change appearance of "Select Data File" Menu
+        
+    Modern Model
+        add Neural Networks(handwriting detection)
+    
+    If time permits
+        New page: data cleaning
+        New page: introduction to machine learning (supervised/unsupervised learning)
+        New page: Introduction to python / library
 
 """

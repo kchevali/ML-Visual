@@ -32,19 +32,22 @@ def update():
         dragObj.updateAll()
 
     if page != None:
+        page.update()
+        page.hoverMouse(mouseX, mouseY)
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return False
-            elif event.type == pg.VIDEORESIZE:
+
+            if event.type == pg.VIDEORESIZE:
                 page.setSize(width=event.w, height=event.h)
                 page.updateAll()
             #     g = pg.display.set_mode((event.w, event.h), pg.RESIZABLE)
             elif event.type == pg.MOUSEBUTTONDOWN:
-                view = page.clicked(mouseX, mouseY)
-                if view != None and view != False and view.isDraggable:
-                    dragObj = view
-
-                if event.button == 4:
+                if event.button == 1:
+                    view = page.clicked(mouseX, mouseY)
+                    if view != None and view != False and view.isDraggable:
+                        dragObj = view
+                elif event.button == 4:
                     page.scrollUp()
                 elif event.button == 5:
                     page.scrollDown()
@@ -54,6 +57,7 @@ def update():
                     container = page.getEmptyContainer(mouseX, mouseY)
                     if container != None and page.canDragView(dragObj, container):
                         dragObj.setContainer(container)
+                        page.draggedView(dragObj)
                     dragObj.setAlignment(dx=0.0, dy=0.0)
                     dragObj.container.updateAll()
                     dragObj = None

@@ -22,6 +22,7 @@ class Table:
 
         self.data = data if data is not None else pd.read_csv(filePath + ".csv")  # , index_col=self.indexCol
         self.data = self.data[self.colNames]  # move target to front and limit to given columns
+        self.data = self.data.drop_duplicates(self.colNames)
         self.encodedData = encodedData if encodedData is not None else pd.get_dummies(self.data)
         try:
             self.encodeTargetCol = self.encodedData[self.targetName]
@@ -39,12 +40,21 @@ class Table:
 
                 columnDict = {int(k): v for k, v in mapDict['values'].items()}
                 self.data[column] = self.data[column].map(columnDict)
-            self.data = self.data.replace({
-                True: 'Yes',
-                False: 'No'
-            })
+
+            for col in self.colNames:
+                if self.data[col].dtypes.name == 'bool':
+                    self.data[col] = self.data[col].replace({
+                        True: 'Yes',
+                        False: 'No'
+                    })
         # if not mappedTargetCol:
         #     self.encodeTargetCol = self.data[self.targetName]
+
+        # Normalizing between -1 & 1
+        self.normalized = self.data.copy()
+        for col in self.data.columns:
+            column = self.data[col]
+            self.normalized[col] = hp.map(column, column.min(), column.max(), -1.0, 1.0) if self.data.dtypes[col] == np.float64 or self.data.dtypes[col] == np.int64 else column
 
         self.targetCol = self.data[self.targetName]
         self.columns = self.data.columns
@@ -55,8 +65,8 @@ class Table:
 
         self.dataRows = len(self.data)  # total rows of data
 
-    def createView(self, createCell, **args):
-        return Grid(createView=createCell, cols=len(self.columns), rows=len(self.data) + 1, **args)
+    def createView(self, createCell, **kwargs):
+        return Grid(createView=createCell, cols=len(self.columns), rows=len(self.data) + 1, **kwargs)
 
     def majorityValue(self, column):
         return self.data[column].value_counts().idxmax()
@@ -76,6 +86,12 @@ class Table:
 
     def iterrows(self):
         return self.data.iterrows()
+
+    def first(self):
+        return self.columns[1]
+
+    def second(self):
+        return self.columns[2]
 
     def __getitem__(self, key):
         return self.data[key]

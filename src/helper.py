@@ -6,6 +6,7 @@ from os import listdir
 from os.path import isfile, join
 import pygame.gfxdraw as pgx
 import json
+import subprocess
 
 
 def clear():
@@ -49,8 +50,12 @@ def findPosition(width, height, containerX, containerY, containerWidth, containe
     return containerX + (dx + 1.0) * (containerWidth - width) / 2, containerY + (dy + 1.0) * (containerHeight - height) / 2
 
 
+def map(x, a, b, A, B):
+    return((B - A) * (x - a) / (b - a)) + A
+
+
 def calcAlignment(x, y, dw, dh, isX=False, isY=False):
-    return 2 * x / dw - 1.0 if isX and dw != 0 else 0, 2 * y / dh - 1.0 if isY and dh != 0 else 0
+    return 2.0 * x / dw - 1.0 if isX and dw != 0 else 0.0, 2.0 * y / dh - 1.0 if isY and dh != 0 else 0.0
 
 
 def randomString():
@@ -64,6 +69,10 @@ def getFiles(path, ext):
 def loadJSON(filePath):
     with open(filePath) as f:
         return json.load(f)
+
+
+def openFile(sender):
+    subprocess.run(['open', sender.tag], check=True)
 
 # shift 3D Array
 # def shift(self, dx=0, dy=0, dz=0):
