@@ -6,6 +6,9 @@ from models import *
 from random import shuffle
 from math import sin, cos, pi
 from elements import *
+from comp import *
+import statistics as stat
+from time import time
 
 
 modelTitle = ""
@@ -74,6 +77,7 @@ class ModelPage(ZStack):
         self.title = title
         self.pages = pages
         self.includeTaskList = includeTaskList
+        self.taskListLength = 8
 
         self.content.modelPage = self
 
@@ -92,7 +96,7 @@ class ModelPage(ZStack):
     def createTaskList(self):
         return VStack([
             createButton(text=task, color=Color.orange, tag=page, run=self.replaceContent) for task, page in self.pages
-        ], ratios=[1 / (len(self.pages) * 2) for _ in range(len(self.pages))])
+        ] + [None] * (self.taskListLength - len(self.pages)), ratios=[1.0 / self.taskListLength] * self.taskListLength)
 
     def canDragView(self, view, container):
         return self.content.canDragView(view=view, container=container)
@@ -129,21 +133,27 @@ class MenuPage(ModelPage):
         content = HStack([
             None,
             VStack([
-                createLabel(text="Classical Models", color=Color.green),
-                self.createMenuButton(text="KNN", color=Color.red, tag=self.createKNN),
-                self.createMenuButton(text="Linear Regression", color=Color.red, tag=self.createLinear),
-                self.createMenuButton(text="Logistic Regression", color=Color.red, tag=self.createLogistic),
-                None
-            ], hideAllContainers=True),
-            VStack([
-                createLabel("Modern Models", color=Color.green),
-                self.createMenuButton(text="Decision Tree", color=Color.blue, tag=self.createDecisionTree),
-                self.createMenuButton(text="SVM", color=Color.gray),
-                self.createMenuButton(text="Neural Networks", color=Color.gray),
-                None
-            ], hideAllContainers=True),
+                HStack([
+                    VStack([
+                        createLabel(text="Classical Models", color=Color.green),
+                        self.createMenuButton(text="KNN", color=Color.red, tag=self.createKNN),
+                        self.createMenuButton(text="Linear Regression", color=Color.red, tag=self.createLinear),
+                        self.createMenuButton(text="Logistic Regression", color=Color.red, tag=self.createLogistic),
+                        None
+                    ], hideAllContainers=True),
+                    VStack([
+                        createLabel("Modern Models", color=Color.green),
+                        self.createMenuButton(text="Decision Tree", color=Color.blue, tag=self.createDecisionTree),
+                        self.createMenuButton(text="SVM", color=Color.gray),
+                        self.createMenuButton(text="Neural Networks", color=Color.gray),
+                        None
+                    ], hideAllContainers=True)
+                ]),
+                None,
+                self.createMenuButton(text="Compare Models", color=Color.green, tag=self.createComp),
+            ], ratios=[0.8, 0.05, 0.15]),
             None
-        ], ratios=[0.15, 0.35, 0.35, 0.15])
+        ], ratios=[0.15, 0.7, 0.15])
         super().__init__(content=content, title="Select Machine Learning Model", includeTaskList=False)
 
     def createMenuButton(self, text, color, tag=None):
@@ -172,8 +182,9 @@ class MenuPage(ModelPage):
         return ModelPage(content=ExampleLinearPage(), title="Linear Regression",
                          pages=[
             ("Intro", IntroLinearPage),
-            ("Example", ExampleLinearPage),
+            ("Linear", ExampleLinearPage),
             ("Quadratic", QuadLinearPage),
+            # ("Subset", SubsetLinearPage),
             ("Coding", CodingLinearPage),
             ("More Info", InfoLinearPage)
         ])
@@ -182,7 +193,16 @@ class MenuPage(ModelPage):
         return ModelPage(content=ExampleLogisticPage(), title="Logistic Regression",
                          pages=[
             ("Intro", IntroLogisticPage),
-            ("Example", ExampleLogisticPage)
+            ("Example", ExampleLogisticPage),
+            ("Coding", CodingLogisticPage),
+            # ("More Info", InfoLogisticPage)
+        ])
+
+    def createComp(self):
+        return ModelPage(content=CompPage(), title="Model Comparsions",
+                         pages=[
+            ("Home", CompPage),
+            # ("Example", ExampleLogisticPage),
             # ("Coding", CodingLogisticPage),
             # ("More Info", InfoLogisticPage)
         ])
@@ -192,7 +212,13 @@ class MenuPage(ModelPage):
 # =====================================================================
 
 
-class TextBoxPage(ZStack):
+class BasePage(ZStack):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Add things from ZStack that don't really belong to here
+
+
+class TextBoxPage(BasePage):
 
     def __init__(self, textboxScript=None, textboxAudioPath=None, **kwargs):
         super().__init__(**kwargs)
@@ -219,14 +245,14 @@ class TextBoxPage(ZStack):
         ], dx=dx, dy=dy, lockedWidth=450, lockedHeight=200, hideAllContainers=True)
 
 
-class IntroPage(ZStack):
+class IntroPage(BasePage):
 
     def __init__(self, description, **kwargs):
-        views = [
+        items = [
             Label("Description", fontSize=56, dx=-1, dy=-1, offsetX=10, offsetY=10),
             Label(description)
         ]
-        super().__init__(views, **kwargs)
+        super().__init__(items=items, **kwargs)
 
 
 class TablePage(TextBoxPage):
@@ -245,13 +271,13 @@ class TablePage(TextBoxPage):
         self.classColors = {}
         for i in range(self.table.classCount):
             self.classColors[self.table.classes[i]] = Color.calmColor(i / self.table.classCount)
+        self.selectedColumns = [False for _ in self.table.columns]
 
     def createTableView(self, **kwargs):
         prevContainer = self.tableView.container if self.tableView != None else None
         self.tableView = self.table.createView(createCell=self.createTableCell, **kwargs)
         if prevContainer != None:
             self.tableView.setContainer(prevContainer)
-        self.selectedColumns = [False for _ in range(self.tableView.cols)]
         if self.classColors:
             self.colorTableTargets()
         return self.tableView
@@ -284,10 +310,11 @@ class TablePage(TextBoxPage):
 
     def selectTableViewColumn(self, value, column):
         self.selectedColumns[column] = value
-        for i in range(1, self.tableView.rows):
-            view = self.tableView.getView(i * self.tableView.cols + column)
-            if view != None:
-                view.keyDown("rect").color = Color.steelBlue if value else Color.lightSteelBlue
+        if self.tableView != None:
+            for i in range(1, self.tableView.rows):
+                view = self.tableView.getView(i * self.tableView.cols + column)
+                if view != None:
+                    view.keyDown("rect").color = Color.steelBlue if value else Color.lightSteelBlue
 
     def shiftTable(self, dy):
         self.tableView.shift(dy=dy)
@@ -303,16 +330,19 @@ class TablePage(TextBoxPage):
 
 
 class MLPage(TablePage):
-    def __init__(self, **kwargs):
+    def __init__(self, separateByTarget=False, drawModel=False, drawComp=False, **kwargs):
         super().__init__(**kwargs)
         self.models = []
         self.mainModel = None
         self.modelView = None
+        self.drawModel = drawModel
+        self.drawComp = drawComp
+        self.separateByTarget = separateByTarget
         if self.filePath:
             self.modelMousePoints = []
 
-    def createLegendView(self, separateByTarget=True):
-        if separateByTarget:
+    def createLegendView(self):
+        if self.separateByTarget:
             legendItems = [Label("Legend", fontSize=30, color=Color.white)] + [
                 Label(self.table.classes[i], fontSize=30, color=self.classColors[self.table.classes[i]]) for i in range(self.table.classCount)
             ]
@@ -323,39 +353,44 @@ class MLPage(TablePage):
             ], lockedWidth=150, lockedHeight=180, dx=0.8, dy=-0.8, hideAllContainers=True)
         return None
 
-    def createDots(self, separateByTarget=True):
+    def createDots(self):
         items = []
         for index, row in self.table.normalized.iterrows():
-            items.append(Ellipse(color=self.classColors[row[self.table.targetName]] if separateByTarget else Color.steelBlue,
+            items.append(Ellipse(color=self.classColors[row[self.table.targetName]] if self.separateByTarget else Color.steelBlue,
                                  strokeColor=Color.white, strokeWidth=3, dx=row[self.table.first()], dy=row[self.table.second()], lockedWidth=15, lockedHeight=15))
         return items
 
-    def createGraphView(self, separateByTarget=True, clickPoint=None):
-
-        self.legend = self.createLegendView(separateByTarget)
+    def createGraphView(self):
+        self.legend = self.createLegendView()
 
         self.modelView = ZStack([
-            Button(self.createDots(separateByTarget), limit=1000, run=clickPoint),
+            Button(self.createDots(), limit=200, run=self.clickGraph),
             self.legend,
             self.createIncButton(dx=-1, dy=1)
         ], limit=100)
 
-        axises = [ZStack([
-            Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
-            Label(self.table.columns[i], fontSize=25, color=Color.white, angle=90 * (2 - i))
-        ], tag=i)for i in range(1, len(self.table.columns))]
-
         self.modelGraph = HStack([
             VStack([
-                axises[0],
+                self.createAxis(self.table.firstIndex, 2),
                 None,
             ], ratios=[0.9, 0.1]),
             VStack([
                 self.modelView,
-                axises[1]
+                self.createAxis(self.table.secondIndex, 1),
             ], ratios=[0.9, 0.1])
         ], ratios=[0.08, 0.92])
+        if self.drawModel:
+            self.modelLine, self.modelError, self.modelEq = self.createLines(color=self.mainModel.color, errorOffset=-120, eqOffset=-90, dx=-1, dy=1)
+        if self.drawComp:
+            self.compLine, self.compError, self.compEq = self.createLines(color=self.compModel.color, errorOffset=90, eqOffset=120, dx=1, dy=-1, offsetX=-150)
+
         return self.modelGraph
+
+    def createAxis(self, column, index):
+        return ZStack([
+            Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
+            Label(self.table.columns[column], fontSize=25, color=Color.white, angle=90 * (2 - index))
+        ])
 
     def getTotalScore(self):
         if not self.models:
@@ -380,7 +415,7 @@ class MLPage(TablePage):
         columns = self.table.columns
         self.headerSelection = HStack([
             ZStack([
-                Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
+                Rect(color=Color.steelBlue, strokeColor=Color.white, strokeWidth=4, cornerRadius=10),
                 Button(Label(columns[i], fontSize=25, color=Color.white),
                        isOn=False, tag=i, run=self.selectColumn)
             ]) for i in range(1, len(columns))
@@ -389,26 +424,22 @@ class MLPage(TablePage):
         return self.headerSelection
 
     def selectColumn(self, sender):
+        self.table.setColumnIndex(sender.tag)
         self.selectTableViewColumn(value=sender.isOn, column=sender.tag)
-        rect = sender.getCousin(0)
-        if sender.isOn:
-            self.splitTree(column=self.mainModel.getColName(sender.tag))
-            rect.strokeColor = Color.white
-        else:
-            self.mainModel.remove()
-            rect.strokeColor = Color.gray
-        self.modelBranch.getContainer().updateAll()
         self.updateHeaderSelectionButtons()
-        # self.tableView.container.updateAll()
+
+        container = self.modelGraph.container
+        self.createGraphView()
+        self.modelGraph.setContainer(container)
+        container.updateAll()
 
     def updateHeaderSelectionButtons(self):
-        columns = self.table.columns
         for c in self.headerSelection.containers:
             rect = c.view.getView(0)
             button = c.view.getView(1)
-            column = columns[button.tag]
+            column = self.table.columns[button.tag]
 
-            if self.mainModel.isParentColumn(column):
+            if self.mainModel.isLockedColumn(column):
                 rect.strokeColor = Color.gray
                 button.isDisabled = True
                 button.setOn(isOn=False)
@@ -435,16 +466,17 @@ class MLPage(TablePage):
         self.modelView.addAllViews(lines, errorLabel, eqLabel)
         return lines, errorLabel, eqLabel
 
-    def clickSlope(self, sender):
-        self.mainModel.setSize(self.modelView)
-        points = self.mainModel.addPoint((sender.lastClickX, sender.lastClickY))
+    def clickGraph(self, sender):
+        if self.drawModel:
+            self.mainModel.setSize(self.modelView)
+            points = self.mainModel.addPoint((sender.lastClickX, sender.lastClickY))
 
-        if points != None:
-            self.modelLine.points = points
-            self.modelError.setFont(text="Error: {}".format(round(self.mainModel.getError(), 4)))
-            # self.modelEq.setFont(text=self.mainModel.getEqString())
-        else:
-            self.modelLine.points = []
+            if points != None:
+                self.modelLine.points = points
+                self.modelError.setFont(text="Error: {}".format(round(self.mainModel.getError(), 4)))
+                self.modelEq.setFont(text=self.mainModel.getEqString())
+            else:
+                self.modelLine.points = []
 
     def createAddCompButton(self):
         self.addCompButton = Button([
@@ -455,8 +487,6 @@ class MLPage(TablePage):
 
     def startComp(self, sender):
         self.compTrainComplete = False
-        self.compLine = Lines(color=Color.blue)
-        self.modelView.addView(self.compLine)
 
     def hoverMouse(self, x, y):
         if self.hoverEnabled:
@@ -465,7 +495,7 @@ class MLPage(TablePage):
             if points != None:
                 self.modelLine.points = points
                 self.modelError.setFont(text="Error: {}".format(round(self.mainModel.getError(), 4)))
-                # self.modelEq.setFont(text=self.mainModel.getEqString())
+                self.modelEq.setFont(text=self.mainModel.getEqString())
 
 
 class DTPage(MLPage):
@@ -600,6 +630,17 @@ class DTPage(MLPage):
         self.modelView = stack if stack != None else container.keyDown("dotStack")
         self.modelBranch.move(self.modelView)
 
+    def selectColumn(self, sender):
+        super().selectColumn(sender)
+        rect = sender.getCousin(0)
+        if sender.isOn:
+            self.splitTree(column=self.mainModel.getColName(sender.tag))
+            rect.strokeColor = Color.white
+        else:
+            self.mainModel.remove()
+            rect.strokeColor = Color.gray
+        self.modelBranch.getContainer().updateAll()
+
 
 class KNNPage(MLPage):
     def __init__(self, **kwargs):
@@ -629,21 +670,6 @@ class LinearPage(MLPage):
         self.mainModel = Linear(table=self.table)
         self.models.append(self.mainModel)
 
-    def createIncButton(self, **kwargs):
-        pass
-        # self.codingAddLabel = Label("Power: {}".format(self.mainModel.n))
-        # return Button([
-        #     Rect(color=Color.backgroundColor, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
-        #     self.codingAddLabel
-        # ], run=self.incMethod, lockedWidth=130, lockedHeight=80, **kwargs)
-
-    def incMethod(self, sender):
-        pass
-        # self.mainModel.n = (self.mainModel.n & 1) + 1
-        # self.mainModel.reset()
-        # self.codingAddLabel.setFont("Power: {}".format(self.mainModel.n))
-        # self.modelLine.points = []
-
 
 class LogisticPage(MLPage):
     def __init__(self, **kwargs):
@@ -653,12 +679,13 @@ class LogisticPage(MLPage):
 
 
 class CodingPage(MLPage):
-    def __init__(self, codes, codingAddString, codingFilePath, codingIncMethod, examplePath, **kwargs):
+    def __init__(self, codes, codingAddString, codingFilePath, codingIncMethod, examplePath, isAccuracy=True, **kwargs):
         self.codes = codes
         self.codingAddString = codingAddString
         self.codingFilePath = codingFilePath
         self.codingIncMethod = codingIncMethod
         self.codingExamplePath = examplePath
+        self.isAccuracy = isAccuracy
 
         super().__init__(textboxScript=[
             ("Welcome to the Coding Tutorial!", 0, 0),
@@ -689,7 +716,7 @@ class CodingPage(MLPage):
             Label("Run")
         ], hideAllContainers=True, lockedWidth=240, run=self.runCodingTest, isDisabled=True)
 
-        self.codingAccLabel = Label("Accuracy: --")
+        self.codingAccLabel = Label("Accuracy: --" if self.isAccuracy else "Error: --")
         self.codingAddLabel = Label(self.codingAddString)
         self.codingHeader = HStack([
             self.codingRunButton,
@@ -783,19 +810,19 @@ class CodingPage(MLPage):
 
     def createFileExplorerView(self):
         files = hp.getFiles(self.codingExamplePath, ".csv")
+        length = 10
         self.fileExplorer = ZStack([
             Rect(Color.backgroundColor, border=0),
             VStack([
                 ZStack([
                     Rect(color=Color.steelBlue, cornerRadius=10),
-                    Label("Files", fontSize=20)
+                    Label("Files", fontSize=35)
                 ])] + [
                 Button([
                     Rect(color=Color.steelBlue, cornerRadius=10),
-                    Label(fileName.split(".")[0], fontSize=15)
+                    Label(fileName.split(".")[0], fontSize=25)
                 ], name=fileName, lockedWidth=150) for fileName in files
-            ], ratios=[0.7 / (len(files) + 1)] * (len(files) + 1))
-
+            ] + [None] * (10 - len(files) - 1), ratios=[1.0 / length] * length)
         ], lockedWidth=350, lockedHeight=600)
         return self.fileExplorer
 
@@ -804,11 +831,12 @@ class CodingPage(MLPage):
         self.updateAll()
 
     def runCodingTest(self, sender):
-        self.codingAccLabel.setFont(text="Accuracy: {}%".format(round(100 * self.getTotalScore())))
+        self.codingAccLabel.setFont(text="Accuracy: {}%".format(round(100 * self.getTotalScore()))
+                                    if self.isAccuracy else "Error: {}".format(round(self.mainModel.getModelError(self.finalTestTable), 4)))
         self.codingAccLabel.container.updateAll()
 
 
-class InfoPage(ZStack):
+class InfoPage(BasePage):
     def __init__(self, files, **kwargs):
         self.files = files
         buttons = []
@@ -850,7 +878,7 @@ class IntroDTPage(IntroPage):
                        "       1) internal nodes corresponding to attributes (features)",
                        "       2) leaf nodes corresponding to the classification outcome",
                        "       3) edge denoting the assignment of the attribute."]
-        super().__init__(description)
+        super().__init__(description=description)
 
 
 class ExampleDTPage(DTPage):
@@ -949,29 +977,26 @@ class InfoDTPage(InfoPage):
 
 
 # KNN
-class IntroKNNPage(ZStack):
+class IntroKNNPage(IntroPage):
     def __init__(self):
-        items = [
-            Label("Description", fontSize=56, dx=-1, dy=-1, offsetX=10, offsetY=10),
-            Label("""Welcome to the KNN Introduction Page""")
-        ]
-        super().__init__(items)
+        description = ["Welcome to the KNN Introduction Page"]
+        super().__init__(description=description)
 
 
 class ExampleKNNPage(KNNPage):
     def __init__(self):
         super().__init__(textboxScript=[
             ("Welcome to the KNN Simulator!", 0, 0)
-        ], filePath="examples/linear/iris", partition=False)
+        ], filePath="examples/linear/iris", partition=False, separateByTarget=True)
 
         items = [
-            self.createGraphView(clickPoint=self.clickPoint),
+            self.createGraphView(),
             self.createNextTextbox()
         ]
         ZStack.__init__(self, items=items)
         # print(view)
 
-    def clickPoint(self, sender):
+    def clickGraph(self, sender):
         dx, dy = hp.map(sender.lastClickX - self.modelView.x, 0.0, self.modelView.getWidth(), -1.0, 1.0), hp.map(sender.lastClickY - self.modelView.y, 0.0, self.modelView.getHeight(), -1.0, 1.0)
         view = Rect(color=self.classColors[self.mainModel.predictPoint(dx=dx, dy=dy)], dx=dx, dy=dy, lockedWidth=15, lockedHeight=15, tag=(dx, dy))
         self.modelMousePoints.append(view)
@@ -1014,33 +1039,32 @@ class InfoKNNPage(InfoPage):
 # Linear
 
 
-class IntroLinearPage(ZStack):
+class IntroLinearPage(IntroPage):
     def __init__(self):
-        items = [
-            Label("Description", fontSize=56, dx=-1, dy=-1, offsetX=10, offsetY=10),
-            Label("""Welcome to the Linear Regression Introduction Page""")
-        ]
-        super().__init__(items)
+        description = ["Welcome to the Linear Regression Introduction Page"]
+        super().__init__(description=description)
 
 
 class ExampleLinearPage(LinearPage):
     def __init__(self):
         super().__init__(textboxScript=[
             ("Welcome to the Linear Regression Simulator!", 0, 0)
-        ], filePath="examples/linear/iris", partition=False)
+        ], filePath="examples/linear/iris", partition=False, drawModel=True, drawComp=True)
 
-        items = [
-            self.createGraphView(clickPoint=self.clickSlope, separateByTarget=False),
-            self.createAddCompButton(),
-            self.createNextTextbox()  # must be last item
-        ]
         self.compModel = Linear(table=self.table, color=Color.blue)
         self.compTrainComplete = True
 
-        self.modelLine, self.modelError, self.modelEq = self.createLines(color=self.mainModel.color, errorOffset=-120, eqOffset=-90, dx=-1, dy=1)
-        self.compLine, self.compError, self.compEq = self.createLines(color=self.compModel.color, errorOffset=90, eqOffset=120, dx=1, dy=-1, offsetX=-110)
+        items = [
+            VStack([
+                self.createGraphView(),
+                self.createHeaderButtons()
+            ], ratios=[0.9, 0.1]),
+            self.createAddCompButton(),
+            self.createNextTextbox()  # must be last item
+        ]
 
         ZStack.__init__(self, items=items)
+        self.updateHeaderSelectionButtons()
         # print(view)
 
     def update(self):
@@ -1059,22 +1083,65 @@ class QuadLinearPage(LinearPage):
     def __init__(self):
         super().__init__(textboxScript=[
             ("Welcome to the Linear Regression Simulator!", 0, 0)
-        ], filePath="examples/linear/iris", partition=False)
+        ], filePath="examples/linear/test", partition=False, drawModel=True, drawComp=True)
         self.mainModel.n = 2
-
+        self.compModel = Linear(table=self.table, color=Color.blue, n=2, alpha=0.05)
+        self.compTrainComplete = True
         items = [
-            self.createGraphView(clickPoint=self.clickSlope, separateByTarget=False),
-            # self.createAddCompButton(),
+            VStack([
+                self.createGraphView(),
+                self.createHeaderButtons()
+            ], ratios=[0.9, 0.1]),
+            self.createAddCompButton(),
             self.createNextTextbox()  # must be last item
         ]
 
-        self.modelLine, self.modelError, self.modelEq = self.createLines(color=self.mainModel.color, errorOffset=-120, eqOffset=-90, dx=-1, dy=1)
-
         ZStack.__init__(self, items=items)
+        self.updateHeaderSelectionButtons()
         # print(view)
 
     def update(self):
-        pass
+        # print("UPDATE")
+        if not self.compTrainComplete:
+            self.compModel.setSize(self.modelView)
+            self.compTrainComplete = not self.compModel.fit()
+            self.compLine.points = self.compModel.getManyPoints()
+            self.compError.setFont(text="ML Error: {}".format(round(self.compModel.getError(), 4)))
+            self.compEq.setFont(text=self.compModel.getEqString())
+
+            # print("COMP:", self.compModel.cef, "ERROR:", self.compModel.dJ)
+
+
+class SubsetLinearPage(LinearPage):
+    def __init__(self):
+        super().__init__(textboxScript=[
+            ("Welcome to the Linear Regression Simulator!", 0, 0)
+        ], filePath="examples/linear/iris", partition=False, drawComp=True)
+        self.compTrainComplete = True
+        self.compModel = Linear(table=self.table, color=Color.blue)
+
+        items = [
+            VStack([
+                self.createGraphView(),
+                self.createHeaderButtons()
+            ], ratios=[0.9, 0.1]),
+            self.createAddCompButton(),
+            self.createNextTextbox()  # must be last item
+        ]
+
+        ZStack.__init__(self, items=items)
+        self.updateHeaderSelectionButtons()
+
+    def update(self):
+        # print("UPDATE")
+        if not self.compTrainComplete:
+            self.compModel.setSize(self.modelView)
+            self.compTrainComplete = not self.compModel.fit()
+            self.compLine.points = self.compModel.getEdgePoints()
+            self.compError.setFont(text="ML Error: {}".format(round(self.compModel.getError(), 4)))
+            self.compEq.setFont(text=self.compModel.getEqString())
+
+            # print("COMP:", self.compModel.cef, "ERROR:", self.compModel.dJ)
 
 
 class CodingLinearPage(CodingPage):
@@ -1089,13 +1156,9 @@ class CodingLinearPage(CodingPage):
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
         super().__init__(codes=codes, codingAddString="--", filePath="examples/linear/iris",
-                         codingFilePath="assets/treeExample.py", codingIncMethod=self.incMethod, examplePath="examples/linear", **kwargs)
+                         codingFilePath="assets/treeExample.py", codingIncMethod=self.incMethod, examplePath="examples/linear", isAccuracy=False, **kwargs)
         self.mainModel = Linear(table=self.table)
         self.models.append(self.mainModel)
-
-    def runCodingTest(self, sender):
-        self.codingAccLabel.setFont(text="Error: {}".format(self.mainModel.getModelError(self.finalTestTable)))
-        self.codingAccLabel.container.updateAll()
 
 
 class InfoLinearPage(InfoPage):
@@ -1108,31 +1171,29 @@ class InfoLinearPage(InfoPage):
 
 
 # Logistic
-class IntroLogisticPage(ZStack):
+class IntroLogisticPage(IntroPage):
     def __init__(self):
-        items = [
-
-            Label("Description", fontSize=56, dx=-1, dy=-1, offsetX=10, offsetY=10),
-            Label("""Welcome to the Logistic Regression Introduction Page""")
-
-        ]
-        super().__init__(items)
+        description = ["Welcome to the Logisitic Regression Introduction Page"]
+        super().__init__(description=description)
 
 
 class ExampleLogisticPage(LogisticPage):
     def __init__(self):
         super().__init__(textboxScript=[
             ("Welcome to the Logistic Regression Simulator!", 0, 0)
-        ], filePath="examples/logistic/sigmoid", partition=False)
+        ], filePath="examples/logistic/diabetes", partition=False, drawModel=True)
 
         items = [
-            self.createGraphView(clickPoint=self.clickSlope, separateByTarget=False),
+            VStack([
+                self.createGraphView(),
+                self.createHeaderButtons()
+            ], ratios=[0.9, 0.1]),
             # self.createAddCompButton(),
             self.createNextTextbox()  # must be last item
         ]
-        self.modelLine, self.modelError, self.modelEq = self.createLines(color=self.mainModel.color, errorOffset=-120, eqOffset=-90, dx=-1, dy=1)
 
         ZStack.__init__(self, items=items)
+        self.updateHeaderSelectionButtons()
         # print(view)
 
     def update(self):
@@ -1160,13 +1221,9 @@ class CodingLogisticPage(CodingPage):
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
         super().__init__(codes=codes, codingAddString="--", filePath="examples/linear/iris",
-                         codingFilePath="assets/treeExample.py", codingIncMethod=self.incMethod, examplePath="examples/linear", **kwargs)
+                         codingFilePath="assets/treeExample.py", codingIncMethod=self.incMethod, examplePath="examples/linear", isAccuracy=False, **kwargs)
         self.mainModel = Linear(table=self.table)
         self.models.append(self.mainModel)
-
-    def runCodingTest(self, sender):
-        self.codingAccLabel.setFont(text="Error: {}".format(self.mainModel.getModelError(self.finalTestTable)))
-        self.codingAccLabel.container.updateAll()
 
 
 class InfoLogisticPage(InfoPage):
@@ -1177,6 +1234,94 @@ class InfoLogisticPage(InfoPage):
         ]
         super().__init__(files=files, **kwargs)
 
+
+class CompPage(IntroPage):
+    def __init__(self):
+
+        # self.models = [(KNN, {
+        #         "k": 1,
+        #         "table": data.training
+        #     }), (Logistic, {
+        #         "table": data.training
+        #     })]
+        # self.models = [model(**args) for model, args in self.modelClass]
+
+        modelCount = 2
+        runCount = 1
+        error = [[] for _ in range(modelCount)]
+
+        startTime = time()
+        for i in range(runCount):
+
+            # Scenario 1
+            data = Data(Dist.Normal, xFeatures=[
+                Feature(mean=10, std=0.5),
+                Feature(mean=0, std=0.5)
+            ], yFeatures=[
+                Feature(mean=10, std=0.5),
+                Feature(mean=0, std=0.5)
+            ], trainCount=5, testCount=5, p=0.0)
+
+            print(data.training.data)
+            print(data.testing.data)
+            # data = Data(Dist.Normal, xFeatures=[
+            #     Feature(mean=10, std=1),
+            #     Feature(mean=0, std=0.5)
+            # ], yFeatures=[
+            #     Feature(mean=10, std=1),
+            #     Feature(mean=0, std=0.5)
+            # ], trainCount=20, testCount=20, p=0.0)
+
+            # Scenario 2
+            # data = Data(Dist.T, xFeatures=[
+            #     Feature(mean=10, std=1),
+            #     Feature(mean=0, std=0.5)
+            # ], yFeatures=[
+            #     Feature(mean=10, std=1),
+            #     Feature(mean=0, std=0.5)
+            # ], trainCount=50, testCount=50, p=0.0)
+
+            # Scenario 3
+            # data = Data(Dist.Normal, xFeatures=[
+            #     Feature(mean=10, std=1),
+            #     Feature(mean=0, std=0.5)
+            # ], yFeatures=[
+            #     Feature(mean=10, std=1),
+            #     Feature(mean=0, std=0.5)
+            # ], trainCount=50, testCount=50, p=0.5)
+
+            self.models = [
+                KNN(k=1, table=data.training),
+                Logistic(table=data.training)
+            ]
+
+            print("PREDICTION:", self.models[0].predictPoint(data.testing, 0, 0))
+
+            # for i in range(len(self.models)):
+            #     error[i].append(self.models[i].getError(data.testing))
+
+        #     print("Ran:", (i + 1), "/", runCount, end="\r")
+        # print("Get Error Time:", round(time() - startTime, 2))
+        # for i in range(len(self.models)):
+        #     print("\nModel", i + 1)
+        #     print("\tMean:", stat.mean(error[i]))
+        #     print("\tSt Dev:", stat.stdev(error[i]))
+        #     print("\tMin:", min(error[i]))
+        #     print("\tMax:", max(error[i]))
+
+        # import matplotlib.pyplot as plt
+
+        # x = np.array([i for i in range(len(self.models))])
+        # y = np.array([stat.mean(e) for e in error])
+        # std = np.array([stat.stdev(e) for e in error])
+        # # colors = [(model.color[0] / 255, model.color[1] / 255, model.color[2] / 255) for model in self.models]
+        # # print(colors)
+        # # ['red', 'green', 'blue', 'cyan', 'magenta']
+        # plt.errorbar(x, y, std, linestyle='None', marker='.')
+        # # plt.show()
+
+        description = ["Welcome to the Comparsion Model Page"]
+        super().__init__(description=description)
 
 # =====================================================================
 # Support Classes
@@ -1210,3 +1355,11 @@ class Branch:
             self.view.setContainer(container=self.disjoint)
             self.disjoint = nextDisjoint
             self.view = nextView
+
+
+if __name__ == '__main__':
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', None)
+    pd.set_option('display.max_colwidth', -1)
+    page = CompPage()

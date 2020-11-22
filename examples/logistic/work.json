@@ -1,0 +1,8 @@
+{
+    "target": "work_experience",
+    "columns": [
+        "gmat",
+        "admitted",
+        "gpa"
+    ]
+}

@@ -3,7 +3,9 @@
     "index": "",
     "columns": [
         "petalLength",
-        "petalWidth"
+        "petalWidth",
+        "sepalLength",
+        "sepalWidth"
     ],
     "map": [
         {

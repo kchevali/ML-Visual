@@ -198,4 +198,52 @@ TODO 10/18
         New page: introduction to machine learning (supervised/unsupervised learning)
         New page: Introduction to python / library
 
+TODO 10/25
+    Think about normalization
+    Linear
+        Lasso Regression with all features vs Simple Linear Regression with all features
+        Let user pick x column - pick multiple features - show error (Coding page)
+
+    
+    Logistics
+        Fix the Y column - outcome column
+        Let user pick x column - pick multiple features - show error (Coding page)
+        Clean Data - replace null values with average of same class
+        Add new examples - depression (yes or no)
+        
+TODO 11/8
+    Comparsion models -- see email below -- remove decision tree
+    run 50 times - take avg / std / range
+    Don't create table - graph the avg and range together - include std somehow?
+
+    How to create correlated variables
+        x1 ~ N(0,1)
+        x2 ~ N(0,1)
+        x3 = p*x1 + sqrt(1-p^2)*x2
+        y1 = u1 + o*x1
+        y2 = u2 + o*x2
+
+        p - correlation coefficient (0.5)
+        u - mean
+        0 - standard deviation
+
+    Email
+    I would love to compare different classification algorithms at different scenarios. We only consider two classes.
+    The possible algorithms are 1) KNN with k = 1; 2) KNN with no limitation of K (algorithm can determine K); 3) logistic algorithm; //4) not decision tree - maybe SVM
+    We consider the following scenarios
+
+    Scenario 1. There are 20 training cases in each of two classes. The cases within each class are uncorrelated random normal variables with a different mean in each class
+    Scenario 2. There are two features. The data for each feature is t-distribution.  Each class has 50 training cases.
+    Scenario 3. The data are generated from a normal distribution, with a correlation of 0.5 between the features in the first class and correlation of -0.5 between the features in the second class.
+
+    You may random generate more data and run the cross validation to see the results from different classification algorithms.
+
+    Linear Regression
+        Data - add outlier data - add some pts in the top right corner (shifting / rotating ML Results)
+
+TODO 11/16
+    Continue working model comparsion (from 11/8)
+    Start working on SVM
+
+
 """

@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 class Table:
 
     # input should be (headers + data) or (cols + rows)
-    def __init__(self, data=None, param=None, encodedData=None, filePath=None, canDisplay=True):
+    def __init__(self, data=None, param=None, encodedData=None, filePath=None, numpy=None, canDisplay=True):
         # assert (data != None and param != None) or filePath != None, "Cannot generate table"
         self.param = hp.loadJSON(filePath + ".json") if not param else param
         self.targetName = self.param['target']
@@ -20,7 +20,8 @@ class Table:
 
         self.colNames = [self.targetName] + self.param['columns']
 
-        self.data = data if data is not None else pd.read_csv(filePath + ".csv")  # , index_col=self.indexCol
+        # , index_col=self.indexCol
+        self.data = data if data is not None else (pd.read_csv(filePath + ".csv") if filePath != None else pd.DataFrame(data=numpy.transpose(), columns=self.colNames))
         self.data = self.data[self.colNames]  # move target to front and limit to given columns
         self.data = self.data.drop_duplicates(self.colNames)
         self.encodedData = encodedData if encodedData is not None else pd.get_dummies(self.data)
@@ -62,6 +63,9 @@ class Table:
         self.dataIndex = self.data.index
         self.classes = self.targetCol.unique()
         self.classCount = self.targetCol.nunique()
+        self.firstIndex = 1
+        self.secondIndex = 2
+        self.setIndex = 0
 
         self.dataRows = len(self.data)  # total rows of data
 
@@ -88,10 +92,19 @@ class Table:
         return self.data.iterrows()
 
     def first(self):
-        return self.columns[1]
+        return self.columns[self.firstIndex]
 
     def second(self):
-        return self.columns[2]
+        return self.columns[self.secondIndex]
+
+    def setColumnIndex(self, value):
+        if value == self.firstIndex or value == self.secondIndex:
+            return
+        if self.setIndex == 0:
+            self.firstIndex = value
+        else:
+            self.secondIndex = value
+        self.setIndex = 1 - self.setIndex
 
     def __getitem__(self, key):
         return self.data[key]

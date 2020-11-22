@@ -13,17 +13,23 @@ import math
 
 
 class Model:
-    def __init__(self, table,color=Color.red, **kwargs):
+    def __init__(self, table, color=Color.red, **kwargs):
         super().__init__(**kwargs)
-        self.table = table
+        self.training = table
         self.color = color
+
+    def isLockedColumn(self, column):
+        return False
+
+    def isCurrentColumn(self, column):
+        return column == self.training.first() or column == self.training.second()
 
 
 class DecisionTree(Model):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.current = Node(table=self.table, tree=self)
-        self.table = None
+        self.current = Node(table=self.training, tree=self)
+        self.training = None
 
         self.model = DecisionTreeClassifier()
         self.model.fit(self.getTable().encodedData, self.getTable().encodeTargetCol)
@@ -52,7 +58,7 @@ class DecisionTree(Model):
     def getValue(self):
         return self.current.value
 
-    def isParentColumn(self, column):
+    def isLockedColumn(self, column):
         if self.current == None or self.current.parent == None:
             return False
         return self.current.parent.containsColumn(column)
@@ -109,7 +115,7 @@ class Node:
     def __init__(self, table, tree, parent=None, value=None):
         self.column = None
         self.children = []
-        self.table = table
+        self.training = table
         self.tree = tree
         self.parent = parent
         self.value = value
@@ -120,9 +126,9 @@ class Node:
     def add(self, column):
         self.column = column
         self.children = []
-        for item in self.table[column].unique():
+        for item in self.training[column].unique():
             self.children.append(Node(
-                table=Table(data=self.table[self.table[self.column] == item], param=self.table.param),
+                table=Table(data=self.training[self.training[self.column] == item], param=self.training.param),
                 tree=self.tree, parent=self, value=item
             ))
 
@@ -145,7 +151,7 @@ class Node:
                 if child.value == row[self.column]:
                     return child.predict(row)
             return None
-        return self.table.commonTarget()
+        return self.training.commonTarget()
 
 
 class KNN(Model):
@@ -154,23 +160,25 @@ class KNN(Model):
         super().__init__(**kwargs)
         self.k = k
 
-    def getNeighbor(self, dx, dy):
+    def getNeighbor(self, table, dx, dy):
         dist = [(inf, None) for _ in range(self.k)]
-        for index, row in self.table.normalized.iterrows():
-            a, b = row[self.table.first()], row[self.table.second()]
+        for index, row in table.normalized.iterrows():
+            a, b = row[table.first()], row[table.second()]
             d = (dx - a) * (dx - a) + (dy - b) * (dy - b)
             if d < dist[-1][0]:
                 dist[-1] = (d, index, a, b)
                 dist.sort()
         return dist
 
-    def predict(self, row):
-        return self.predictPoint(row[self.table.first()], row[self.table.second()])
+    def predict(self, table, row):
+        return self.predictPoint(table, row[table.first()], row[table.second()])
 
-    def predictPoint(self, dx, dy):
+    def predictPoint(self, table, dx, dy):
         record = {}
-        for _, index, _, _ in self.getNeighbor(dx, dy):
-            className = self.table.loc[index][self.table.targetName]
+        # print("Point:", dx, dy)
+        for _, index, x2, y2 in self.getNeighbor(table, dx, dy):
+            print("Neighbor:", x2, y2)
+            className = table.loc[index][table.targetName]
             if className in record:
                 record[className] += 1
             else:
@@ -183,29 +191,58 @@ class KNN(Model):
                 bestClass = className
         return bestClass
 
-    def test(self, test):
+    def test(self, table):
         correct = 0
-        for index, row in test.iterrows():
-            if row[test.targetName] == self.predict(row):
+        for index, row in table.iterrows():
+            if row[table.targetName] == self.predict(table, row):
                 correct += 1
-        return correct / test.dataRows
+        return correct / table.dataRows
+
+    def getError(self, table):
+        correct = 0
+        for index, row in table.iterrows():
+            if row[table.targetName] == self.predict(row):
+                correct += 1
+            else:
+                pass
+                # print("Error:", row['label'], self.predict(row), row['label'] == self.predict(row))
+
+        return 1 - (correct / table.dataRows)
+
+    # def getError(self, table):
+    #     error = 0
+    #     for index, row in table.normalized.iterrows():
+    #         x, y = row[table.first()], row[table.second()]
+    #         neighbors = self.getNeighbor(x, y)
+    #         yTot = 0
+    #         for (_, _, x2, y2) in neighbors:
+    #             # xTot += x2
+    #             yTot += y2
+    #         # print("#", y, yTot, len(neighbors))
+    #         error += (y - yTot / len(neighbors))**2
+    #     # print("ERROR CALC:", error, table.dataRows)
+    #     return sqrt(error) / table.dataRows
 
 
 class Linear(Model):
-    def __init__(self, n=1, alpha=1e-7, epsilon=0.0001, offset=None, **kwargs):
+    def __init__(self, n=1, alpha=0.05, epsilon=1e-5, offset=None, **kwargs):
         super().__init__(**kwargs)
         self.n = n
         self.alpha = alpha
         self.epsilon = epsilon
+        self.llamda = 0.1
 
         self.dJ = self.epsilon
         self.width, self.height, self.offsetX, self.offsetY = 0, 0, 0, 0
 
         # width,height = 821.1 579.6
-        self.x = [x for x in self.table.normalized[self.table.first()]]  # hp.map(x, minA, maxA, 0, 821.1)
-        self.y = [y for y in self.table.normalized[self.table.second()]]  # hp.map(y, minB, maxB, 0, 579.6)
+        self.x = [x for x in self.training.normalized[self.training.first()]]  # hp.map(x, minA, maxA, 0, 821.1)
+        self.y = [y for y in self.training.normalized[self.training.second()]]  # hp.map(y, minB, maxB, 0, 579.6)
         self.length = len(self.x)
         self.reset()
+
+        self.model = linear_model.LinearRegression()
+        self.model.fit([self.x], [self.y])
 
     def reset(self):
         self.points = []
@@ -217,15 +254,23 @@ class Linear(Model):
             self.width = view.getWidth()
             self.height = view.getHeight()
             self.offsetX, self.offsetY = view.pos
-            self.x = [hp.map(x, -1, 1, 0, self.width) for x in self.table.normalized[self.table.first()]]  #
-            self.y = [hp.map(y, -1, 1, 0, self.height) for y in self.table.normalized[self.table.second()]]
 
     def getEdgePoints(self):
-        # if self.n == 1:
-        allPts = [(0, self.getY(0)), (self.width, self.getY(self.width)), (self.getX(0), 0), (self.getX(self.height), self.height)]
-        return [(x + self.offsetX, y + self.offsetY) for x, y in allPts if(x >= 0 and x <= self.width and y >= 0 and y <= self.height)]
+        allPts = [(-1, self.getY(-1)), (1, self.getY(1)), (self.getX(-1), -1), (self.getX(1), 1)]
+        return [(hp.map(x, -1, 1, 0, self.width) + self.offsetX, hp.map(y, -1, 1, 0, self.height) + self.offsetY) for x, y in allPts if(x >= -1 and x <= 1 and y >= -1 and y <= 1)]
 
+    def getManyPoints(self):
+        pts = []
+        length, num = 100, -1
+        delta = 2 / length
+        for i in range(length):
+            pts.append((hp.map(num, -1, 1, 0, self.width) + self.offsetX, hp.map(self.getY(num), -1, 1, 0, self.height) + self.offsetY))
+            num += delta
+        return pts
+
+    # incoming point must be pixel coordinates
     def addPoint(self, point, storePoint=True):
+        point = (hp.map(point[0] - self.offsetX, 0, self.width, -1, 1), hp.map(point[1] - self.offsetY, 0, self.height, -1, 1))
         if storePoint:
             if len(self.points) < self.n + 1:
                 self.points.append(point)
@@ -237,7 +282,7 @@ class Linear(Model):
                 x1, y1 = self.points[0]
                 x2, y2 = point if len(self.points) == 1 else self.points[1]
                 if x2 != x1:
-                    self.getLinearEq(x1 - self.offsetX, y1 - self.offsetY, x2 - self.offsetX, y2 - self.offsetY)
+                    self.getLinearEq(x1, y1, x2, y2)
                     return self.getEdgePoints()
             if self.n == 2:
                 x1, y1 = self.points[0]
@@ -245,11 +290,8 @@ class Linear(Model):
                 x3, y3 = (-point[0], point[1]) if len(self.points) == 1 else (point if len(self.points) == 2 else self.points[2])
 
                 if x2 != x1 and x3 != x1 and x3 != x2:
-                    self.getQuadEq(x1 - self.offsetX, y1 - self.offsetY, x2 - self.offsetX, y2 - self.offsetY, x3 - self.offsetX, y3 - self.offsetY)
-                    pts = []
-                    for i in range(0, int(self.width), 5):
-                        pts.append((i + self.offsetX, self.getY(i) + self.offsetY))
-                    return pts
+                    self.getQuadEq(x1, y1, x2, y2, x3, y3)
+                    return self.getManyPoints()
 
                     # edgePoints = [(0, self.getY(0)), (width, self.getY(width)), (self.getX(0)[0], 0), (self.getX(height)[0], height)]
                     # # print("Edge:", edgePoints)
@@ -263,7 +305,7 @@ class Linear(Model):
         elif self.n == 2:
             a, b, c = tuple(self.cef)
             delta = b * b - 4 * a * c
-            if delta < 0:
+            if delta < 0 or a == 0:
                 return None, None
             return (-b + sqrt(delta)) / (2 * a), (-b - sqrt(delta)) / (2 * a)
 
@@ -277,18 +319,20 @@ class Linear(Model):
 
     def getError(self):
         error = 0
-        for index, row in self.table.normalized.iterrows():
-            x, y = row[self.table.first()], row[self.table.second()]
+        for index, row in self.training.normalized.iterrows():
+            x, y = row[self.training.first()], row[self.training.second()]
             error += (y - self.getY(x))**2
-        return sqrt(error) / self.table.dataRows
+        return sqrt(error) / self.training.dataRows
 
     def getModelError(self, testTable):
-        colA, colB = self.table.columns[1], self.table.columns[2]
+        colA, colB = self.training.columns[1], self.training.columns[2]
         predY = self.model.predict([self.x])
         # print("COF:")
         # print(len(self.model.coef_))
         # print(len(self.model.intercept_))
-        return mean_squared_error([self.x], predY)
+        error = mean_squared_error([self.x], predY)
+        # print("ERR:", error)
+        return error
 
     def getQuadEq(self, x1, y1, x2, y2, x3, y3):
         denom = (x1 - x2) * (x1 - x3) * (x2 - x3)
@@ -303,33 +347,95 @@ class Linear(Model):
         self.cef = [slope, intercept]
 
     def fit(self):
-        if(self.n == 1):
-            if self.dJ >= self.epsilon:
-                a = self.cef[0] - self.alpha * self.getJGradient(multX=True) / self.length
-                b = self.cef[1] - self.alpha * self.getJGradient(multX=False) / self.length
-                self.dJ = self.getJ(self.cef[0], self.cef[1]) - self.getJ(a, b)
-                self.cef = [a, b]
-                # print(self.cef, self.dJ)
-                return True
+        if self.dJ >= self.epsilon:
+            newCefs = [self.cef[i] - self.alpha * self.getJGradient(degreeX=self.n - i) for i in range(self.n + 1)]
+            # a = self.cef[0] - self.alpha * self.getJGradient(multX=True) / self.length
+            # b = self.cef[1] - self.alpha * self.getJGradient(multX=False) / self.length
+            self.dJ = self.getJ(self.cef) - self.getJ(newCefs)
+            self.cef = newCefs
+            # print("NUMS:", self.cef, self.dJ)
+            return True
+        print("FIT DONE")
         return False
 
-    def getJ(self, a, b):
+    def getJ(self, cef):
         total = 0
+        # testTotal = 0
         for i in range(self.length):
-            total += (self.y[i] - a * self.x[i] - b)**2
+            localTotal = self.y[i]
+            for j in range(self.n + 1):
+                localTotal -= cef[j] * (self.x[i]**(self.n - j))
+
+            # testTotal += (self.y[i] - cef[0] * self.x[i] - cef[1])**2
+            total += localTotal * localTotal
+        # print("J:", total, testTotal)
         return total
 
-    def getJGradient(self, multX=False):
+    def getJGradient(self, degreeX):
         total = 0
+        # testTotal = 0
         for i in range(self.length):
-            total += (self.cef[0] * self.x[i] + self.cef[1] - self.y[i]) * (self.x[i] if multX else 1)
+            localTotal = -self.y[i]
+            for j in range(self.n + 1):
+                localTotal += self.cef[j] * (self.x[i]**(self.n - j))
+            total += localTotal * (self.x[i]**degreeX)
+            # testTotal += (self.cef[0] * self.x[i] + self.cef[1] - self.y[i]) * (self.x[i]**degreeX)
+        # print("G:", total, testTotal)
+        total /= self.length
+        # print("Gradient Step:", total)
+        return total
+
+    def fitLasso(self):
+        if self.dJ >= self.epsilon:
+            newCefs = [self.cef[i] - self.alpha * self.getJGradient(degreeX=self.n - i) / self.length for i in range(self.n + 1)]
+            # a = self.cef[0] - self.alpha * self.getJGradient(multX=True) / self.length
+            # b = self.cef[1] - self.alpha * self.getJGradient(multX=False) / self.length
+            self.dJ = self.getJ(self.cef) - self.getJ(newCefs)
+            self.cef = newCefs
+            # print(self.cef, self.dJ)
+            return True
+        return False
+
+    def getJLasso(self, cef):
+        total = 0
+        # testTotal = 0
+        for i in range(self.length):
+            localTotal = self.y[i]
+            for j in range(self.n + 1):
+                localTotal -= cef[j] * (self.x[i]**(self.n - j))
+
+            # testTotal += (self.y[i] - cef[0] * self.x[i] - cef[1])**2
+            total += localTotal * localTotal
+        for j in range(self.n + 1):
+            total += abs(cef[j]) * self.llamda
+        # print("J:", total, testTotal)
+        return total
+
+    def getJGradientLasso(self, degreeX):
+        total = 0
+        # testTotal = 0
+        for i in range(self.length):
+            localTotal = -self.y[i]
+            for j in range(self.n + 1):
+                localTotal += self.cef[j] * (self.x[i]**(self.n - j))
+            total += localTotal * (self.x[i]**degreeX)
+            # testTotal += (self.cef[0] * self.x[i] + self.cef[1] - self.y[i]) * (self.x[i]**degreeX)
+        for j in range(self.n + 1):
+            total -= self.llamda * self.cef[j] / abs(self.cef[j])
+        # print("G:", total, testTotal)
         return total
 
     def getEqString(self):
-        if self.n == 1:
-            return "Y={}x+{}".format(round(self.cef[0], 2), round(self.cef[1], 2))
-        elif self.n == 2:
-            return "Y={}x^2+{}x+{}".format(round(self.cef[0], 2), round(self.cef[1], 2), round(self.cef[2], 2))
+        out = "Y="
+        n = self.n
+        for i in range(self.n + 1):
+            val = round(self.cef[i], 2)
+            out += ("" if val < 0 or i == 0 else "+") + \
+                (str(val) if val != 0 or n == 0 else "") + \
+                ("x" if n > 0 else "") + \
+                (("^" + str(n)) if n > 1 else "")
+            n -= 1
+        return out
 
 
 class Logistic(Model):
@@ -337,8 +443,8 @@ class Logistic(Model):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # self.compModel = linear_model.LogisticRegression()
-        self.x = [x for x in self.table.normalized[self.table.first()]]  # hp.map(x, minA, maxA, 0, 821.1)
-        self.y = [y for y in self.table.normalized[self.table.second()]]  # hp.map(y, minB, maxB, 0, 579.6)
+        self.x = [hp.map(x, -1, 1, 0, 1) for x in self.training.normalized[self.training.first()]]  # hp.map(x, minA, maxA, 0, 821.1)
+        self.y = [hp.map(y, -1, 1, 0, 1) for y in self.training.normalized[self.training.second()]]  # hp.map(y, minB, maxB, 0, 579.6)
         self.length = len(self.x)
         self.width, self.height, self.offsetX, self.offsetY = 0, 0, 0, 0
         self.reset()
@@ -349,10 +455,11 @@ class Logistic(Model):
         self.debug = 0
 
     def getEdgePoints(self):
-        allPts = [(0, self.getY(0)), (self.width, self.getY(self.width)), (self.getX(0), 0), (self.getX(self.height), self.height)]
-        return [(x + self.offsetX, y + self.offsetY) for x, y in allPts if(x >= 0 and x <= self.width and y >= 0 and y <= self.height)]
+        allPts = [(0, self.getY(0)), (1, self.getY(1)), (self.getX(0), 0), (self.getX(1), 1)]
+        return [(hp.map(x, 0, 1, 0, self.width) + self.offsetX, hp.map(y, 0, 1, 0, self.height) + self.offsetY) for x, y in allPts if(x >= 0 and x <= 1 and y >= 0 and y <= 1)]
 
     def addPoint(self, point, storePoint=True):
+        point = (hp.map(point[0] - self.offsetX, 0, self.width, 0, 1), hp.map(point[1] - self.offsetY, 0, self.height, 0, 1))
         if storePoint:
             if len(self.points) < 2:
                 self.points.append(point)
@@ -363,20 +470,23 @@ class Logistic(Model):
             x1, y1 = self.points[0]
             x2, y2 = point if len(self.points) == 1 else self.points[1]
             if x2 != x1:
-                self.getSigmoidEq(x1 - self.offsetX, y1 - self.offsetY, x2 - self.offsetX, y2 - self.offsetY)
+                self.getSigmoidEq(x1, y1, x2, y2)
                 pts = []
                 # print("")
-                for i in range(0, int(self.width), 5):
-                    pts.append((i + self.offsetX, self.getY(i) + self.offsetY))
+                length, num = 100, 0
+                delta = 1.0 / length
+                for i in range(length):
+                    pts.append((hp.map(num, 0, 1, 0, self.width) + self.offsetX, hp.map(self.getY(num), 0, 1, 0, self.height) + self.offsetY))
+                    num += delta
                     # print(i + self.offsetX, self.getY(i) + self.offsetY)
                 return pts
 
         return None
 
-    #y = height / (1 + e^(ax+b))
+    # y = height / (1 + e^(ax+b))
 
     def invY(self, y):
-        return log((self.height - y) / y)  # * self.height
+        return log((1.0 - y) / y)  # * self.height
 
     def getX(self, y):
         return (self.invY(y) - self.cef[1]) / self.cef[0]
@@ -384,9 +494,9 @@ class Logistic(Model):
     def getY(self, x):
         try:
             exp = math.e**(x * self.cef[0] + self.cef[1])
-            return (self.height / (1.0 + exp))
+            return (1.0 / (1.0 + exp))
         except:
-            return self.height
+            return 1.0
 
     def getSigmoidEq(self, x1, y1, x2, y2):
         slope = (self.invY(y2) - self.invY(y1)) / (x2 - x1)
@@ -399,15 +509,16 @@ class Logistic(Model):
             self.width = view.getWidth()
             self.height = view.getHeight()
             self.offsetX, self.offsetY = view.pos
-            self.x = [hp.map(x, -1, 1, 0, self.width) for x in self.table.normalized[self.table.first()]]  #
-            self.y = [hp.map(y, -1, 1, 0, self.height) for y in self.table.normalized[self.table.second()]]
 
-    def getError(self):
+    def getError(self, table):
         error = 0
-        for index, row in self.table.normalized.iterrows():
-            x, y = row[self.table.first()], row[self.table.second()]
+        for index, row in table.normalized.iterrows():
+            x, y = row[table.first()], row[table.second()]
             error += (y - self.getY(x))**2
-        return sqrt(error) / self.table.dataRows
+        return sqrt(error) / table.dataRows
+
+    def getEqString(self):
+        return ""
 
 
 # hp.clear()

@@ -1,0 +1,10 @@
+{
+    "target": "Age",
+    "columns": [
+        "Glucose",
+        "BloodPressure",
+        "Insulin",
+        "BMI",
+        "Diabetes"
+    ]
+}
