@@ -245,5 +245,18 @@ TODO 11/16
     Continue working model comparsion (from 11/8)
     Start working on SVM
 
+TODO 11/22
+    Logisitic Comparsions - need to be comparable to KNN (x,y) -> label (z coordinate)
+        Change Logisitic to Classifier
+    Find Data where each model outperforms the others
+
+    SVM
+        1 Hard line and 2 soft line
+        Improvement: Kernel functions
+        2/3 classes - iris
+    
+    Start Neural Networks
+        Visualize training (show forward and back propagation)
+
 
 """

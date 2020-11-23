@@ -1,7 +1,7 @@
 {
-    "target": "class",
-    "index": "",
+    "target": "label",
     "columns": [
+        "label",
         "petalLength",
         "petalWidth",
         "sepalLength",

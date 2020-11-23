@@ -1,7 +1,7 @@
 from enum import Enum
 import numpy as np
 from math import sqrt
-from table import Table
+from table import *
 import pandas as pd
 
 
@@ -85,17 +85,21 @@ class Data:
     def createTable(self, x, y, count):
         labels = []
         for i in range(len(self.xFeatures)):
-            labels.append(np.full(count, i))
+            labels.append(np.full(count, i, dtype=np.int64))
         labels = np.concatenate(labels)
 
-        param = {
-            "target": "label",
-            "columns": [
-                "x",
-                "y"
-            ]
-        }
-        return Table(param=param, numpy=np.array([labels, x, y]))
+        out = [(labels[i], x[i], y[i]) for i in range(len(x))]
+
+        # param = {
+        #     "target": "label",
+        #     "columns": [
+        #         "label",
+        #         "x",
+        #         "y"
+        #     ]
+        # }
+        #np.array([labels, x, y])
+        return LabelledTable(data=np.array(out), headers=["label", "x", "y"])
 
 
 if __name__ == '__main__':
@@ -103,7 +107,7 @@ if __name__ == '__main__':
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
     pd.set_option('display.width', None)
-    pd.set_option('display.max_colwidth', -1)
+    pd.set_option('display.max_colwidth', None)
 
     # print(np.full(10, 100))
     # xFeatures = [
@@ -117,20 +121,20 @@ if __name__ == '__main__':
     # data = Data(dist=Dist.Normal, xFeatures=xFeatures, yFeatures=yFeatures, trainCount=100, testCount=100)
     #
 
-    data = Data(Dist.Normal, xFeatures=[
+    data = Data(Dist.T, xFeatures=[
                 Feature(mean=0, std=0.5),
-                Feature(mean=10, std=0.5)
+                Feature(mean=2, std=0.5)
                 ], yFeatures=[
                 Feature(mean=0, std=0.5),
-                Feature(mean=10, std=0.5)
-                ], trainCount=20, testCount=20, p=0.0)
+                Feature(mean=2, std=0.5)
+                ], trainCount=50, testCount=100, p=0.25)
 
-    print("TRAINING")
-    print(data.training.data)
+    # print("TRAINING")
+    # print(data.training.data)
 
-    print("TESTING")
-    print(data.testing.data)
+    # print("TESTING")
+    # print(data.testing.data)
 
     import matplotlib.pyplot as plt
-    plt.scatter(data.training['x'], data.training['y'], c=data.training['label'], alpha=0.5)
+    plt.scatter(data.training.getColumn(1), data.training.getColumn(2), c=data.training.getColumn(0), alpha=0.5)
     plt.show()

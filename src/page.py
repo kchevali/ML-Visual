@@ -1,7 +1,7 @@
 from graphics import *
 import helper as hp
 import viewHelper as vp
-from table import Table
+from table import *
 from models import *
 from random import shuffle
 from math import sin, cos, pi
@@ -256,22 +256,25 @@ class IntroPage(BasePage):
 
 
 class TablePage(TextBoxPage):
-    def __init__(self, filePath, partition=True, **kwargs):
+    def __init__(self, filePath, tableClass=LabelledTable, partition=True, **kwargs):
         super().__init__(**kwargs)
         self.filePath = filePath
         self.fileName = self.filePath.split("/")[-1].split(".")[0] if self.filePath else None
         self.partition = partition
         if self.partition:
-            self.mainTable = Table(filePath=self.filePath)
+            self.mainTable = tableClass(filePath=self.filePath)
             self.trainTable, self.finalTestTable = self.mainTable.partition()
             self.table, self.localTestTable = self.trainTable.partition()
         else:
-            self.table = Table(filePath=self.filePath)
+            self.table = tableClass(filePath=self.filePath)
         self.tableView = None
         self.classColors = {}
-        for i in range(self.table.classCount):
-            self.classColors[self.table.classes[i]] = Color.calmColor(i / self.table.classCount)
-        self.selectedColumns = [False for _ in self.table.columns]
+
+        i = 0
+        for label in self.table.classSet:
+            self.classColors[label] = Color.calmColor(i / self.table.classCount)
+            i += 1
+        self.selectedColumns = [False for _ in range(self.cols)]
 
     def createTableView(self, **kwargs):
         prevContainer = self.tableView.container if self.tableView != None else None
@@ -344,7 +347,7 @@ class MLPage(TablePage):
     def createLegendView(self):
         if self.separateByTarget:
             legendItems = [Label("Legend", fontSize=30, color=Color.white)] + [
-                Label(self.table.classes[i], fontSize=30, color=self.classColors[self.table.classes[i]]) for i in range(self.table.classCount)
+                Label(str(label), fontSize=30, color=self.classColors[label]) for label in self.table.classSet
             ]
 
             return ZStack([
@@ -1246,24 +1249,24 @@ class CompPage(IntroPage):
         #     })]
         # self.models = [model(**args) for model, args in self.modelClass]
 
-        modelCount = 2
-        runCount = 1
+        modelCount = 3
+        runCount = 10
         error = [[] for _ in range(modelCount)]
 
         startTime = time()
         for i in range(runCount):
 
             # Scenario 1
-            data = Data(Dist.Normal, xFeatures=[
-                Feature(mean=10, std=0.5),
-                Feature(mean=0, std=0.5)
+            data = Data(Dist.T, xFeatures=[
+                Feature(mean=0, std=1),
+                Feature(mean=1, std=1)
             ], yFeatures=[
-                Feature(mean=10, std=0.5),
-                Feature(mean=0, std=0.5)
-            ], trainCount=5, testCount=5, p=0.0)
+                Feature(mean=0, std=1),
+                Feature(mean=1, std=1)
+            ], trainCount=50, testCount=100, p=0.25)
 
-            print(data.training.data)
-            print(data.testing.data)
+            # print(data.training.data)
+            # print(data.testing.data)
             # data = Data(Dist.Normal, xFeatures=[
             #     Feature(mean=10, std=1),
             #     Feature(mean=0, std=0.5)
@@ -1291,34 +1294,35 @@ class CompPage(IntroPage):
             # ], trainCount=50, testCount=50, p=0.5)
 
             self.models = [
-                KNN(k=1, table=data.training),
+                KNN(bestK=True, table=data.training, testing=data.testing),
+                KNN(k=1, table=data.training, testing=data.testing),
                 Logistic(table=data.training)
             ]
 
-            print("PREDICTION:", self.models[0].predictPoint(data.testing, 0, 0))
+            # print("PREDICTION:", self.models[0].predictPoint(10, 10))
 
-            # for i in range(len(self.models)):
-            #     error[i].append(self.models[i].getError(data.testing))
+            for i in range(len(self.models)):
+                error[i].append(self.models[i].error())
 
-        #     print("Ran:", (i + 1), "/", runCount, end="\r")
-        # print("Get Error Time:", round(time() - startTime, 2))
-        # for i in range(len(self.models)):
-        #     print("\nModel", i + 1)
-        #     print("\tMean:", stat.mean(error[i]))
-        #     print("\tSt Dev:", stat.stdev(error[i]))
-        #     print("\tMin:", min(error[i]))
-        #     print("\tMax:", max(error[i]))
+            print("Ran:", (i + 1), "/", runCount, end="\r")
+        print("Get Error Time:", round(time() - startTime, 2))
+        for i in range(len(self.models)):
+            print("\nModel", i + 1)
+            print("\tMean:", stat.mean(error[i]))
+            print("\tSt Dev:", stat.stdev(error[i]))
+            print("\tMin:", min(error[i]))
+            print("\tMax:", max(error[i]))
 
-        # import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt
 
-        # x = np.array([i for i in range(len(self.models))])
-        # y = np.array([stat.mean(e) for e in error])
-        # std = np.array([stat.stdev(e) for e in error])
-        # # colors = [(model.color[0] / 255, model.color[1] / 255, model.color[2] / 255) for model in self.models]
-        # # print(colors)
-        # # ['red', 'green', 'blue', 'cyan', 'magenta']
-        # plt.errorbar(x, y, std, linestyle='None', marker='.')
-        # # plt.show()
+        x = np.array([i for i in range(len(self.models))])
+        y = np.array([stat.mean(e) for e in error])
+        std = np.array([stat.stdev(e) for e in error])
+        # colors = [(model.color[0] / 255, model.color[1] / 255, model.color[2] / 255) for model in self.models]
+        # print(colors)
+        # ['red', 'green', 'blue', 'cyan', 'magenta']
+        plt.errorbar(x, y, std, linestyle='None', marker='.')
+        plt.show()
 
         description = ["Welcome to the Comparsion Model Page"]
         super().__init__(description=description)
@@ -1361,5 +1365,5 @@ if __name__ == '__main__':
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
     pd.set_option('display.width', None)
-    pd.set_option('display.max_colwidth', -1)
+    pd.set_option('display.max_colwidth', None)
     page = CompPage()

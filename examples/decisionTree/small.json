@@ -1,0 +1,8 @@
+{
+    "target": "label",
+    "columns": [
+        "label",
+        "y",
+        "x"
+    ]
+}

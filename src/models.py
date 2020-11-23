@@ -1,6 +1,7 @@
 from sklearn.tree import DecisionTreeClassifier
 from sklearn import metrics, linear_model
 from sklearn.metrics import mean_squared_error
+from scipy import spatial
 from myModels import MyLinear
 import numpy as np
 import helper as hp
@@ -13,22 +14,109 @@ import math
 
 
 class Model:
-    def __init__(self, table, color=Color.red, **kwargs):
+    def __init__(self, table, testing=None, partition=0.7, color=Color.red, **kwargs):
         super().__init__(**kwargs)
-        self.training = table
+        self.training, self.testing = table.partition(partition) if testing is None else (table, testing)
         self.color = color
+        self.validateData()
+        # self.compModel = None -- maybe should make new class - think how to handle
 
-    def isLockedColumn(self, column):
-        return False
+    def predict(self, row):
+        pass
 
-    def isCurrentColumn(self, column):
-        return column == self.training.first() or column == self.training.second()
+    def test(self, testTable=None):
+        # use test set
+        pass
+
+    def validateData(self):
+        # check conditions - number of x, y, labels...etc per class
+        pass
+
+    def error(self, testTable=None):
+        pass
 
 
-class DecisionTree(Model):
+class Classifier(Model):
+    # takes multiple features and outputs a categorical data
+
+    # "Accuracy"
+    def test(self, testTable=None):
+        if testTable == None:
+            testTable = self.testing
+        correct = 0
+        for row in testTable:
+            correct += 1 if self.predict(row) == row[0] else 0
+        return (correct / testTable.rows)
+
+    def error(self, testTable=None):
+        return 1.0 - self.test(testTable)
+
+
+class Regression(Model):
+    # takes multiple features and outputs real data
+
+    def __init__(self, length, **kwargs):
+        super().__init__(**kwargs)
+        self.length = length
+        self.reset()
+
+    # "Error"
+
+    def test(self, testTable=None):
+        if testTable == None:
+            testTable = self.testing
+        error = 0
+        for _, x, y in testTable:
+            error += (y - self.getY(x))**2
+        return sqrt(error) / testTable.rows
+
+    def error(self, testTable=None):
+        return self.test(testTable)
+
+    def getY(self, x):
+        pass
+
+    def getX(self, y):
+        pass
+
+    def reset(self):
+        self.points = []
+        self.cef = [0] * self.length  # highest power first
+        self.debug = 0
+
+    def getEdgePoints(self):
+        allPts = [
+            (self.training.minX, self.getY(self.training.minX)),
+            (self.training.maxX, self.getY(self.training.maxX)),
+            (self.getX(self.training.minY), self.training.minY),
+            (self.getX(self.training.maxY), self.training.maxY),
+        ]
+        return [(self.training.createDisplayX(x), self.training.createDisplayY(y)) for x, y in allPts if(x >= self.training.minX and x <= self.training.maxX and y >= self.training.minY and y <= self.training.maxY)]
+
+    def getManyPoints(self):
+        pts = []
+        length, num = 100, -1
+        delta = 2 / length
+        for i in range(length):
+            pts.append((self.training.createDisplayX(num), self.training.createDisplayY(self.getY(num))))
+            num += delta
+        return pts
+
+    def addPoint(self, point, storePoint=True):
+        if storePoint:
+            if len(self.points) < self.n + 1:
+                self.points.append(point)
+            else:
+                self.reset()
+
+    def getEqString(self):
+        return "EQ"
+
+
+class DecisionTree(Classifier):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.current = Node(table=self.training, tree=self)
+        self.current = DTNode(table=self.training, tree=self)
         self.training = None
 
         self.model = DecisionTreeClassifier()
@@ -87,14 +175,6 @@ class DecisionTree(Model):
     def modelPredict(self, row):
         return self.model.predict([row])[0]
 
-    def test(self, testData):
-        self.modelTest(testData)
-        correct = 0
-        for index, row in testData.iterrows():
-            if self.predict(row) == row[self.current.table.targetName]:
-                correct += 1
-        return correct / testData.dataRows
-
     def modelTest(self, testData):
         y_pred = self.model.predict(testData.encodedData)
         y_test = testData.targetCol
@@ -110,7 +190,7 @@ class DecisionTree(Model):
         return self.current.children[index]
 
 
-class Node:
+class DTNode:
 
     def __init__(self, table, tree, parent=None, value=None):
         self.column = None
@@ -127,7 +207,7 @@ class Node:
         self.column = column
         self.children = []
         for item in self.training[column].unique():
-            self.children.append(Node(
+            self.children.append(DTNode(
                 table=Table(data=self.training[self.training[self.column] == item], param=self.training.param),
                 tree=self.tree, parent=self, value=item
             ))
@@ -154,35 +234,45 @@ class Node:
         return self.training.commonTarget()
 
 
-class KNN(Model):
+class KNN(Classifier):
 
-    def __init__(self, k=3, **kwargs):
+    def __init__(self, k=3, bestK=False, **kwargs):
         super().__init__(**kwargs)
         self.k = k
+        if bestK:
+            self.findBestK()
 
-    def getNeighbor(self, table, dx, dy):
-        dist = [(inf, None) for _ in range(self.k)]
-        for index, row in table.normalized.iterrows():
-            a, b = row[table.first()], row[table.second()]
-            d = (dx - a) * (dx - a) + (dy - b) * (dy - b)
-            if d < dist[-1][0]:
-                dist[-1] = (d, index, a, b)
-                dist.sort()
-        return dist
+        # xy = self.training.getArray([1, 2])
+        # print(xy)
+        # self.distTree = spatial.KDTree(xy)
 
-    def predict(self, table, row):
-        return self.predictPoint(table, row[table.first()], row[table.second()])
+    def getNeighbor(self, x, y):
+        neighbors = []
+        pt = [x, y]
+        out = spatial.KDTree(self.training.getArray([1, 2])).query(pt, k=self.k)[1]
 
-    def predictPoint(self, table, dx, dy):
+        # out = self.distTree.query(pt, k=self.k)[1]
+        return out if out is np.ndarray else np.array([out])
+
+    def predict(self, row):
+        return self.predictPoint(row[1], row[2])
+
+    def predictPoint(self, X, Y):
+        # print("Predicting:", X, Y)
         record = {}
-        # print("Point:", dx, dy)
-        for _, index, x2, y2 in self.getNeighbor(table, dx, dy):
-            print("Neighbor:", x2, y2)
-            className = table.loc[index][table.targetName]
-            if className in record:
-                record[className] += 1
-            else:
-                record[className] = 1
+        for rowIndex in self.getNeighbor(X, Y):
+            # print("Neighbor:", x2, y2)
+
+            try:
+                label, x, y = self.training.data[rowIndex]
+                # print("M:", x, y)
+                if label in record:
+                    record[label] += 1
+                else:
+                    record[label] = 1
+            except:
+                pass
+
         maxClassCount = 0
         bestClass = None
         for className, classCount in record.items():
@@ -191,92 +281,35 @@ class KNN(Model):
                 bestClass = className
         return bestClass
 
-    def test(self, table):
-        correct = 0
-        for index, row in table.iterrows():
-            if row[table.targetName] == self.predict(table, row):
-                correct += 1
-        return correct / table.dataRows
-
-    def getError(self, table):
-        correct = 0
-        for index, row in table.iterrows():
-            if row[table.targetName] == self.predict(row):
-                correct += 1
-            else:
-                pass
-                # print("Error:", row['label'], self.predict(row), row['label'] == self.predict(row))
-
-        return 1 - (correct / table.dataRows)
-
-    # def getError(self, table):
-    #     error = 0
-    #     for index, row in table.normalized.iterrows():
-    #         x, y = row[table.first()], row[table.second()]
-    #         neighbors = self.getNeighbor(x, y)
-    #         yTot = 0
-    #         for (_, _, x2, y2) in neighbors:
-    #             # xTot += x2
-    #             yTot += y2
-    #         # print("#", y, yTot, len(neighbors))
-    #         error += (y - yTot / len(neighbors))**2
-    #     # print("ERROR CALC:", error, table.dataRows)
-    #     return sqrt(error) / table.dataRows
+    def findBestK(self):
+        self.k = 1
+        acc = self.test()
+        bestAcc = 0
+        while(acc > bestAcc):
+            self.k += 2
+            bestAcc = acc
+            acc = self.test()
+        self.k -= 1
+        print("Final:", self.test())
 
 
-class Linear(Model):
-    def __init__(self, n=1, alpha=0.05, epsilon=1e-5, offset=None, **kwargs):
-        super().__init__(**kwargs)
+class Linear(Regression):
+    def __init__(self, n=1, alpha=0.05, epsilon=1e-5, **kwargs):
+        super().__init__(length=self.n + 1, **kwargs)
         self.n = n
         self.alpha = alpha
         self.epsilon = epsilon
         self.llamda = 0.1
-
         self.dJ = self.epsilon
-        self.width, self.height, self.offsetX, self.offsetY = 0, 0, 0, 0
-
-        # width,height = 821.1 579.6
-        self.x = [x for x in self.training.normalized[self.training.first()]]  # hp.map(x, minA, maxA, 0, 821.1)
-        self.y = [y for y in self.training.normalized[self.training.second()]]  # hp.map(y, minB, maxB, 0, 579.6)
-        self.length = len(self.x)
-        self.reset()
 
         self.model = linear_model.LinearRegression()
         self.model.fit([self.x], [self.y])
 
-    def reset(self):
-        self.points = []
-        self.cef = [0] * (self.n + 1)  # highest power first
-        self.debug = 0
-
-    def setSize(self, view):
-        if(self.width != view.getWidth() or self.height != view.getHeight()):
-            self.width = view.getWidth()
-            self.height = view.getHeight()
-            self.offsetX, self.offsetY = view.pos
-
-    def getEdgePoints(self):
-        allPts = [(-1, self.getY(-1)), (1, self.getY(1)), (self.getX(-1), -1), (self.getX(1), 1)]
-        return [(hp.map(x, -1, 1, 0, self.width) + self.offsetX, hp.map(y, -1, 1, 0, self.height) + self.offsetY) for x, y in allPts if(x >= -1 and x <= 1 and y >= -1 and y <= 1)]
-
-    def getManyPoints(self):
-        pts = []
-        length, num = 100, -1
-        delta = 2 / length
-        for i in range(length):
-            pts.append((hp.map(num, -1, 1, 0, self.width) + self.offsetX, hp.map(self.getY(num), -1, 1, 0, self.height) + self.offsetY))
-            num += delta
-        return pts
-
     # incoming point must be pixel coordinates
-    def addPoint(self, point, storePoint=True):
-        point = (hp.map(point[0] - self.offsetX, 0, self.width, -1, 1), hp.map(point[1] - self.offsetY, 0, self.height, -1, 1))
-        if storePoint:
-            if len(self.points) < self.n + 1:
-                self.points.append(point)
-            else:
-                self.reset()
 
+    def addPoint(self, point, storePoint=True):
+        # point = (hp.map(point[0] - self.offsetX, 0, self.width, -1, 1), hp.map(point[1] - self.offsetY, 0, self.height, -1, 1))
+        super.addPoint(point, storePoint)
         if len(self.points) > 0:
             if self.n == 1:
                 x1, y1 = self.points[0]
@@ -316,13 +349,6 @@ class Linear(Model):
             y += self.cef[i] * x_
             x_ *= x
         return y
-
-    def getError(self):
-        error = 0
-        for index, row in self.training.normalized.iterrows():
-            x, y = row[self.training.first()], row[self.training.second()]
-            error += (y - self.getY(x))**2
-        return sqrt(error) / self.training.dataRows
 
     def getModelError(self, testTable):
         colA, colB = self.training.columns[1], self.training.columns[2]
@@ -438,48 +464,31 @@ class Linear(Model):
         return out
 
 
-class Logistic(Model):
+class Logistic(Regression):
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(length=2, **kwargs)
         # self.compModel = linear_model.LogisticRegression()
-        self.x = [hp.map(x, -1, 1, 0, 1) for x in self.training.normalized[self.training.first()]]  # hp.map(x, minA, maxA, 0, 821.1)
-        self.y = [hp.map(y, -1, 1, 0, 1) for y in self.training.normalized[self.training.second()]]  # hp.map(y, minB, maxB, 0, 579.6)
-        self.length = len(self.x)
-        self.width, self.height, self.offsetX, self.offsetY = 0, 0, 0, 0
-        self.reset()
-
-    def reset(self):
-        self.points = []
-        self.cef = [0] * 2  # highest power first
-        self.debug = 0
-
-    def getEdgePoints(self):
-        allPts = [(0, self.getY(0)), (1, self.getY(1)), (self.getX(0), 0), (self.getX(1), 1)]
-        return [(hp.map(x, 0, 1, 0, self.width) + self.offsetX, hp.map(y, 0, 1, 0, self.height) + self.offsetY) for x, y in allPts if(x >= 0 and x <= 1 and y >= 0 and y <= 1)]
 
     def addPoint(self, point, storePoint=True):
-        point = (hp.map(point[0] - self.offsetX, 0, self.width, 0, 1), hp.map(point[1] - self.offsetY, 0, self.height, 0, 1))
-        if storePoint:
-            if len(self.points) < 2:
-                self.points.append(point)
-            else:
-                self.reset()
+        # point = (hp.map(point[0] - self.offsetX, 0, self.width, 0, 1), hp.map(point[1] - self.offsetY, 0, self.height, 0, 1))
+        super.addPoint(point, storePoint)
 
         if len(self.points) > 0:
             x1, y1 = self.points[0]
             x2, y2 = point if len(self.points) == 1 else self.points[1]
             if x2 != x1:
                 self.getSigmoidEq(x1, y1, x2, y2)
-                pts = []
-                # print("")
-                length, num = 100, 0
-                delta = 1.0 / length
-                for i in range(length):
-                    pts.append((hp.map(num, 0, 1, 0, self.width) + self.offsetX, hp.map(self.getY(num), 0, 1, 0, self.height) + self.offsetY))
-                    num += delta
-                    # print(i + self.offsetX, self.getY(i) + self.offsetY)
-                return pts
+                # pts = []
+                # # print("")
+                # length, num = 100, 0
+                # delta = 1.0 / length
+                # for i in range(length):
+                #     pts.append((hp.map(num, 0, 1, 0, self.width) + self.offsetX, hp.map(self.getY(num), 0, 1, 0, self.height) + self.offsetY))
+                #     num += delta
+                #     # print(i + self.offsetX, self.getY(i) + self.offsetY)
+                # return pts
+                return self.getManyPoints()
 
         return None
 
@@ -504,25 +513,17 @@ class Logistic(Model):
         self.cef = [slope, intercept]
         # print("CEF:", self.cef)
 
-    def setSize(self, view):
-        if(self.width != view.getWidth() or self.height != view.getHeight()):
-            self.width = view.getWidth()
-            self.height = view.getHeight()
-            self.offsetX, self.offsetY = view.pos
-
-    def getError(self, table):
-        error = 0
-        for index, row in table.normalized.iterrows():
-            x, y = row[table.first()], row[table.second()]
-            error += (y - self.getY(x))**2
-        return sqrt(error) / table.dataRows
-
     def getEqString(self):
-        return ""
+        return "LOG EQ"
 
 
-# hp.clear()
-#     print("Running Decision Tree MAIN")
+if __name__ == '__main__':
+    hp.clear()
+    print("Running Models MAIN")
+    table = Table(filePath="examples/decisionTree/small.csv")
+    knn = KNN(table=table, partition=0.8, k=1)
+    print(knn.test())
+
 
 #     fileName = "examples/movie"
 #     # pd.set_option('display.max_rows', None)
