@@ -14,39 +14,41 @@ import math
 
 
 class Model:
-    def __init__(self, table, testing=None, partition=0.7, color=Color.red, **kwargs):
+    def __init__(self, x, y, partition=0.7, color=Color.red, **kwargs):
         super().__init__(**kwargs)
         self.training, self.testing = table.partition(partition) if testing is None else (table, testing)
         self.color = color
-        self.validateData()
+        # self.validateData()
         # self.compModel = None -- maybe should make new class - think how to handle
 
-    def predict(self, row):
-        pass
+    # def predict(self, row):
+    #     pass
 
-    def test(self, testTable=None):
-        # use test set
-        pass
+    # def test(self, testTable=None):
+    #     # use test set
+    #     pass
 
-    def validateData(self):
-        # check conditions - number of x, y, labels...etc per class
-        pass
+    # def validateData(self):
+    #     # check conditions - number of x, y, labels...etc per class
+    #     pass
 
-    def error(self, testTable=None):
-        pass
+    # def error(self, testTable=None):
+    #     pass
 
 
 class Classifier(Model):
     # takes multiple features and outputs a categorical data
 
-    # "Accuracy"
-    def test(self, testTable=None):
+    def accuracy(self, testTable=None):
         if testTable == None:
             testTable = self.testing
         correct = 0
         for row in testTable:
             correct += 1 if self.predict(row) == row[0] else 0
         return (correct / testTable.rows)
+
+    def predict(self, row):
+        pass
 
     def error(self, testTable=None):
         return 1.0 - self.test(testTable)
@@ -60,23 +62,18 @@ class Regression(Model):
         self.length = length
         self.reset()
 
-    # "Error"
-
-    def test(self, testTable=None):
+    def error(self, testTable=None):
         if testTable == None:
             testTable = self.testing
         error = 0
-        for _, x, y in testTable:
-            error += (y - self.getY(x))**2
+        for row in testTable:
+            error += (y - self.getY(row))**2
         return sqrt(error) / testTable.rows
 
-    def error(self, testTable=None):
-        return self.test(testTable)
-
-    def getY(self, x):
+    def getY(self, row):
         pass
 
-    def getX(self, y):
+    def getX(self, row):
         pass
 
     def reset(self):

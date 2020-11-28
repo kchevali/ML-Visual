@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 class Table:
 
     # input should be (headers + data) or (cols + rows)
-    def __init__(self, data=None, headers=None, filePath=None, params=None, xIndex=0, yIndex=1, canDisplay=True, **kwargs):
+    def __init__(self, data=None, headers=None, filePath=None, params=None, xIndex=0, yIndex=1, **kwargs):
         if(data is not None):
             self.readData(data, headers)
         elif(filePath != None):
@@ -19,7 +19,6 @@ class Table:
         else:
             raise Exception("Invalid Table args")
 
-        self.canDisplay = canDisplay
         self.xIndex = xIndex
         self.yIndex = yIndex
         self.process()

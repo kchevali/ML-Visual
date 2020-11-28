@@ -253,7 +253,7 @@ TODO 11/22
     SVM
         1 Hard line and 2 soft line
         Improvement: Kernel functions
-        2/3 classes - iris
+        Multiple classes - iris (start with 2)
     
     Start Neural Networks
         Visualize training (show forward and back propagation)
