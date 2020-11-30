@@ -7,6 +7,7 @@ from os.path import isfile, join
 import pygame.gfxdraw as pgx
 import json
 import subprocess
+from colorsys import hsv_to_rgb
 
 
 def clear():
@@ -56,6 +57,17 @@ def map(x, a, b, A, B):
 
 def calcAlignment(x, y, dw, dh, isX=False, isY=False):
     return 2.0 * x / dw - 1.0 if isX and dw != 0 else 0.0, 2.0 * y / dh - 1.0 if isY and dh != 0 else 0.0
+
+
+def calmColor(hue):
+    r, g, b = hsv_to_rgb(hue, 0.54, 0.8)
+    return (r * 255, g * 255, b * 255, 0)
+
+
+def blueShade(blue):
+    blue = map(blue, 0, 1, 100, 255)
+    const = 40
+    return (const, const, blue, 0)
 
 
 def randomString():

@@ -1,8 +1,6 @@
 import pygame as pg
 # from pygame import gfxdraw as pgx
 import helper as hp
-from graphics import *
-from gui import g
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -11,142 +9,85 @@ from sklearn.model_selection import train_test_split
 class Table:
 
     # input should be (headers + data) or (cols + rows)
-    def __init__(self, data=None, headers=None, filePath=None, params=None, xIndex=0, yIndex=1, **kwargs):
-        if(data is not None):
-            self.readData(data, headers)
-        elif(filePath != None):
-            self.readFile(filePath, params)
-        else:
-            raise Exception("Invalid Table args")
+    def __init__(self, df=None, param=None, filePath=None, numpy=None):
+        # assert (data != None and param != None) or filePath != None, "Cannot generate table"
+        self.param = hp.loadJSON(filePath + ".json") if not param else param
+        self.yName = self.param['target']
+        self.xNames = self.param['columns']
+        self.mapper = self.param['map'] if "map" in self.param else {}
+        self.colNames = [self.yName] + self.xNames
+        self.data = df if df is not None else (pd.read_csv(filePath + ".csv") if filePath != None else pd.DataFrame(data=numpy.transpose(), columns=self.colNames))
+        self.data = self.data.drop_duplicates(self.colNames)
+        self.data = self.data[self.colNames]
 
-        self.xIndex = xIndex
-        self.yIndex = yIndex
-        self.process()
+        self.yData = self.data[self.yName]
+        self.xData = self.data[self.xNames]
 
-    def readData(self, data, headers):
-        self.data = data
-        self.getSize()
-        self.headers = headers if headers is not None else np.empty([self.cols], dtype=str)
+        self.columns = self.data.columns
+        self.loc = self.data.loc
+        self.classSet = self.yData.unique()
+        self.classCount = self.yData.nunique()
+        self.rowCount = len(self.data)  # total rows of data
+        self.colCount = len(self.columns)
 
-    def readFile(self, filePath, params):
-        file = np.genfromtxt(filePath + ".csv", dtype=float, delimiter=',', names=True)
-        self.headers = np.array(file.dtype.names)
+        self.xs = np.array(self.xData)
+        from sklearn.preprocessing import StandardScaler
+        self.xs = StandardScaler().fit_transform(self.xs)
+        self.y = np.array(self.yData).reshape([self.rowCount, 1])
 
-        self.params = hp.loadJSON(filePath + ".json") if not params else params
-        if self.params != None:
+        self.classColors = {}
+        i = 0
+        for label in sorted(list(self.classSet)):
+            self.classColors[label] = hp.calmColor(i / self.classCount)
+            i += 1
 
-            self.getSize()  # need number of rows to swap
-            # swap cols based on param
-            self.swapCols([np.nonzero(self.headers == header)[0][0] for header in self.params['columns']])
+    def majorityInColumn(self, column):
+        return self.data[column].value_counts().idxmax()
 
-        # update column size
-        self.getSize()
+    def majorityInTargetColumn(self):
+        return self.majorityValue(self.yName)
 
-    def process(self):
-        # move label to column 0
-        np.random.shuffle(self.data)
-        self.getMaxMin([self.xIndex, self.yIndex])
-        self.minX, self.minY = tuple(self.minArr)
-        self.maxX, self.maxY = tuple(self.maxArr)
+    def partition(self, testing=0.3):
+        train, test = train_test_split(self.data, test_size=testing)
 
-    def getSize(self):
-        self.rows, self.cols = self.data.shape[0], len(self.data[0])
+        trainTable = Table(df=train, param=self.param)
+        testTable = Table(df=test, param=self.param)
+        return trainTable, testTable
 
-    def getMaxMin(self, indicies):
-        self.minArr, self.maxArr = [self.data[0][index] for index in indicies], [self.data[0][index] for index in indicies]
-        for i in range(1, self.rows):
-            for j in range(len(indicies)):
-                index = indicies[j]
-                self.minArr[j] = min(self.minArr[j], self.data[i][index])
-                self.maxArr[j] = max(self.maxArr[j], self.data[i][index])
+    def map(self, column, value):
+        return self.mapper[column][value]
 
-    def getUniqueColumn(self, index):
-        col = set()
-        for row in self.data:
-            col.add(row[index])
-        return col
+    def minX(self, xIndex=0):
+        return self.xData.min()[self.xNames[xIndex]]
 
-    def getArray(self, indicies):
-        arr = np.empty([self.rows, len(indicies)], dtype=float)
-        for i in range(self.rows):
-            for j in range(len(indicies)):
-                arr[i][j] = self.data[i][indicies[j]]
-                arr[i][j] = self.data[i][indicies[j]]
-        # print(arr)
-        return arr
+    def maxX(self, xIndex=0):
+        return self.xData.max()[self.xNames[xIndex]]
 
-    def createDisplayDots(self):
-        pass
+    def minY(self):
+        return self.yData.min()
 
-    def createView(self, createCell, **kwargs):
-        return Grid(createView=createCell, cols=self.cols, rows=self.rows, **kwargs)
+    def maxY(self):
+        return self.yData.max()
 
-    def createDisplayX(self, x):
-        return hp.map(x, self.minX, self.maxX, -1, 1)
+    def createXYTable(self, xIndex=0):
+        param = self.param.copy()
+        param['columns'] = [self.xNames[xIndex]]
+        return Table(df=self.data, param=param)
 
-    def createDisplayY(self, y):
-        return hp.map(y, self.minY, self.maxY, -1, 1)
+    def createXXYTable(self, x1=0, x2=1):
+        param = self.param.copy()
+        param['columns'] = [self.xNames[x1], self.xNames[x2]]
+        return Table(df=self.data, param=param)
 
-    def partition(self, testSize=0.5):
-        testLength = int(self.rows * testSize)
-        return Table(data=self.data[testLength:], headers=self.headers, xIndex=self.xIndex, yIndex=self.yIndex), Table(data=self.data[:testLength], headers=self.headers, xIndex=self.xIndex, yIndex=self.yIndex)
+    def iterrows(self):
+        return self.data.iterrows()
 
-    def swapCols(self, indicies):
-        self.headers = self._swap(self.headers, indicies)
-        for i in range(self.rows):
-            self.data[i] = tuple(self._swap(self.data[i], indicies))
-
-    def _swap(self, row, indicies):
-        return [row[indicies[i]] for i in range(len(indicies))]
-
-    def getColumn(self, index):
-        return [row[index] for row in self.data]
-
-    def __iter__(self):
-        return self.data.__iter__()
-
-    def __str__(self):
-        out = self.headers.__str__() + "\n"
-        for row in self.data:
-            out += row.__str__() + "\n"
-        return out
-
-    def __getitem__(self, item):
-        return self.data[item]
-
-
-class LabelledTable(Table):
-
-    # input should be (headers + data) or (cols + rows)
-    def __init__(self, **kwargs):
-        super().__init__(xIndex=1, yIndex=2, **kwargs)
-        self.classSet = self.getUniqueColumn(0)
-        self.classCount = len(self.classSet)
-        self.createDisplayDots()
-
-    def createDisplayDots(self):
-        self.classDots = {}
-        for label in self.classSet:
-            self.classDots[label] = []
-
-        for label, x, y, *_ in self.data:
-            self.classDots[label].append((self.createDisplayX(x), self.createDisplayY(y)))
-
-
-class XYTable(Table):
-
-    # input should be (headers + data) or (cols + rows)
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.createDisplayDots()
-
-    def createDisplayDots(self):
-        self.dots = [(self.createDisplayX(x), self.createDisplayY(y)) for x, y in self.data]
+    def __getitem__(self, key):
+        return self.data[key]
 
 
 if __name__ == '__main__':
     hp.clear()
-    table = LabelledTable(filePath="examples/decisionTree/small")
-    # a, b = table.partition(0.75)
-    # table.swapCols(0, 1)
-    print(table)
+    print("Running TABLE MAIN")
+    table = Table(filePath="examples/decisionTree/animal")
+    print(table.createXYTable().data)

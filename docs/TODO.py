@@ -258,5 +258,9 @@ TODO 11/22
     Start Neural Networks
         Visualize training (show forward and back propagation)
 
+TODO 11/29
+    Add library for SVM - one possibility: libSVM
+        www.csie.ntu.edu.tw/~cjlin/libsvm
+    Create document how and which library to use
 
 """

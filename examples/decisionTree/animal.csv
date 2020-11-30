@@ -6,4 +6,3 @@ target,four_legs,live_farm,is_pink,is_pet,can_fly,is_bug,live_zoo
 3,true,false,false,false,false,false,false
 4,false,true,false,false,true,false,false
 2,false,false,false,false,false,true,false
-5,false,false,false,true,false,false,false

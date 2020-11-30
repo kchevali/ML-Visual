@@ -47,7 +47,7 @@ class SimplePage(ZStack):
 class MainPage(ZStack):
     def __init__(self):
         items = [
-            MenuPage()
+            ExampleSVMPage()
         ]
         super().__init__(items)
 
@@ -256,32 +256,21 @@ class IntroPage(BasePage):
 
 
 class TablePage(TextBoxPage):
-    def __init__(self, filePath, tableClass=LabelledTable, partition=True, **kwargs):
+    def __init__(self, filePath, partition=0.3, **kwargs):
         super().__init__(**kwargs)
         self.filePath = filePath
-        self.fileName = self.filePath.split("/")[-1].split(".")[0] if self.filePath else None
+        self.fileName = self.filePath.split("/")[-1].split(".")[0]
         self.partition = partition
-        if self.partition:
-            self.mainTable = tableClass(filePath=self.filePath)
-            self.trainTable, self.finalTestTable = self.mainTable.partition()
-            self.table, self.localTestTable = self.trainTable.partition()
-        else:
-            self.table = tableClass(filePath=self.filePath)
+        self.table = Table(filePath=self.filePath)
         self.tableView = None
-        self.classColors = {}
-
-        i = 0
-        for label in self.table.classSet:
-            self.classColors[label] = Color.calmColor(i / self.table.classCount)
-            i += 1
-        self.selectedColumns = [False for _ in range(self.cols)]
+        self.selectedColumns = [False for _ in range(self.table.colCount)]
 
     def createTableView(self, **kwargs):
         prevContainer = self.tableView.container if self.tableView != None else None
         self.tableView = self.table.createView(createCell=self.createTableCell, **kwargs)
         if prevContainer != None:
             self.tableView.setContainer(prevContainer)
-        if self.classColors:
+        if self.model.classColors:
             self.colorTableTargets()
         return self.tableView
 
@@ -307,7 +296,7 @@ class TablePage(TextBoxPage):
             if index >= self.tableView.length:
                 break
             rect = self.tableView.getView(index).keyDown("rect")
-            rect.color = self.classColors[item]
+            rect.color = self.model.classColors[item]
             rect.isHidden = False
             index += self.tableView.cols
 
@@ -333,86 +322,89 @@ class TablePage(TextBoxPage):
 
 
 class MLPage(TablePage):
-    def __init__(self, separateByTarget=False, drawModel=False, drawComp=False, **kwargs):
+    def __init__(self, drawModel=False, drawComp=False, **kwargs):
         super().__init__(**kwargs)
         self.models = []
         self.mainModel = None
         self.modelView = None
         self.drawModel = drawModel
         self.drawComp = drawComp
-        self.separateByTarget = separateByTarget
         if self.filePath:
             self.modelMousePoints = []
 
     def createLegendView(self):
-        if self.separateByTarget:
-            legendItems = [Label("Legend", fontSize=30, color=Color.white)] + [
-                Label(str(label), fontSize=30, color=self.classColors[label]) for label in self.table.classSet
-            ]
+        if not self.mainModel.isCategorical:
+            return None
 
-            return ZStack([
-                Rect(color=Color.backgroundColor, strokeWidth=3, strokeColor=Color.steelBlue, cornerRadius=10),
-                VStack(legendItems, ratios=[0.8 / len(legendItems) for item in legendItems], offsetY=10, hideAllContainers=True)
-            ], lockedWidth=150, lockedHeight=180, dx=0.8, dy=-0.8, hideAllContainers=True)
-        return None
+        legendItems = [Label("Legend", fontSize=30, color=Color.white)] + [
+            Label(str(label), fontSize=30, color=self.mainModel.classColors[label]) for label in self.table.classSet
+        ]
+
+        return ZStack([
+            Rect(color=Color.backgroundColor, strokeWidth=3, strokeColor=Color.steelBlue, cornerRadius=10),
+            VStack(legendItems, ratios=[0.8 / len(legendItems) for item in legendItems], offsetY=10, hideAllContainers=True)
+        ], lockedWidth=150, lockedHeight=180, dx=0.8, dy=-0.8, hideAllContainers=True)
 
     def createDots(self):
         items = []
-        for index, row in self.table.normalized.iterrows():
-            items.append(Ellipse(color=self.classColors[row[self.table.targetName]] if self.separateByTarget else Color.steelBlue,
+        for index, row in self.table.iterrows():
+            items.append(Ellipse(color=self.model.classColors[row[self.table.targetName]] if self.mainModel.isCategorical else Color.steelBlue,
                                  strokeColor=Color.white, strokeWidth=3, dx=row[self.table.first()], dy=row[self.table.second()], lockedWidth=15, lockedHeight=15))
         return items
 
-    def createGraphView(self):
-        self.legend = self.createLegendView()
+    def createAxis(self, isY):
+        return ZStack([
+            Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
+            Label(self.table.xNames[1] if isY else self.table.xNames[0], fontSize=25, color=Color.white, angle=90 if isY else 0)
+        ])
 
-        self.modelView = ZStack([
-            Button(self.createDots(), limit=200, run=self.clickGraph),
-            self.legend,
-            self.createIncButton(dx=-1, dy=1)
-        ], limit=100)
+    def createLines(self, color, errorOffset, eqOffset, **kwargs):
+        lines = Lines(color=color)
+        errorLabel = Label("Error: --", color=color, offsetY=errorOffset, **kwargs)
+        eqLabel = Label("Y=--", color=color, offsetY=eqOffset, **kwargs)
+        self.modelView.addAllViews(lines, errorLabel, eqLabel)
+        return lines, errorLabel, eqLabel
+
+    def clickGraph(self, sender):
+        self.function.addPoint((sender.lastClickX, sender.lastClickY))
+        # if self.drawModel:
+        #     points = self.mainModel.addPoint((sender.lastClickX, sender.lastClickY))
+
+        #     if points != None:
+        #         self.modelLine.points = points
+        #         self.modelError.setFont(text="Error: {}".format(round(self.mainModel.getError(), 4)))
+        #         self.modelEq.setFont(text=self.mainModel.getEqString())
+        #     else:
+        #         self.modelLine.points = []
+
+    def createGraphView(self):
+        self.function = Graph(self.mainModel)
+
+        # self.modelView = ZStack([
+        #     Button(self.createDots(), limit=200, run=self.clickGraph),
+        #     self.legend,
+        #     self.createIncButton(dx=-1, dy=1)
+        # ], limit=100)
 
         self.modelGraph = HStack([
             VStack([
-                self.createAxis(self.table.firstIndex, 2),
+                self.createAxis(isY=True),
                 None,
             ], ratios=[0.9, 0.1]),
             VStack([
-                self.modelView,
-                self.createAxis(self.table.secondIndex, 1),
+                Button([
+                    self.function,
+                    self.createLegendView()
+                ], run=self.clickGraph),
+                self.createAxis(isY=False),
             ], ratios=[0.9, 0.1])
         ], ratios=[0.08, 0.92])
-        if self.drawModel:
-            self.modelLine, self.modelError, self.modelEq = self.createLines(color=self.mainModel.color, errorOffset=-120, eqOffset=-90, dx=-1, dy=1)
-        if self.drawComp:
-            self.compLine, self.compError, self.compEq = self.createLines(color=self.compModel.color, errorOffset=90, eqOffset=120, dx=1, dy=-1, offsetX=-150)
+        # if self.drawModel:
+        #     self.modelLine, self.modelError, self.modelEq = self.createLines(color=self.mainModel.color, errorOffset=-120, eqOffset=-90, dx=-1, dy=1)
+        # if self.drawComp:
+        #     self.compLine, self.compError, self.compEq = self.createLines(color=self.compModel.color, errorOffset=90, eqOffset=120, dx=1, dy=-1, offsetX=-150)
 
         return self.modelGraph
-
-    def createAxis(self, column, index):
-        return ZStack([
-            Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
-            Label(self.table.columns[column], fontSize=25, color=Color.white, angle=90 * (2 - index))
-        ])
-
-    def getTotalScore(self):
-        if not self.models:
-            return 0.0
-        correct = 0
-        for index, row in self.finalTestTable.iterrows():
-            answers = {"": -1}
-            bestAnswer = ""
-            for model in self.models:
-                answer = model.predict(row)
-                if answer not in answers:
-                    answers[answer] = 1
-                else:
-                    answers[answer] += 1
-                if answers[answer] > answers[bestAnswer]:
-                    bestAnswer = answer
-            if bestAnswer == row[self.finalTestTable.targetName]:
-                correct += 1
-        return correct / self.finalTestTable.dataRows
 
     def createHeaderButtons(self):
         columns = self.table.columns
@@ -462,25 +454,6 @@ class MLPage(TablePage):
     def incMethod(self, sender):
         pass
 
-    def createLines(self, color, errorOffset, eqOffset, **kwargs):
-        lines = Lines(color=color)
-        errorLabel = Label("Error: --", color=color, offsetY=errorOffset, **kwargs)
-        eqLabel = Label("Y=--", color=color, offsetY=eqOffset, **kwargs)
-        self.modelView.addAllViews(lines, errorLabel, eqLabel)
-        return lines, errorLabel, eqLabel
-
-    def clickGraph(self, sender):
-        if self.drawModel:
-            self.mainModel.setSize(self.modelView)
-            points = self.mainModel.addPoint((sender.lastClickX, sender.lastClickY))
-
-            if points != None:
-                self.modelLine.points = points
-                self.modelError.setFont(text="Error: {}".format(round(self.mainModel.getError(), 4)))
-                self.modelEq.setFont(text=self.mainModel.getEqString())
-            else:
-                self.modelLine.points = []
-
     def createAddCompButton(self):
         self.addCompButton = Button([
             Rect(color=Color.backgroundColor, cornerRadius=10, strokeColor=Color.steelBlue, strokeWidth=3),
@@ -493,12 +466,12 @@ class MLPage(TablePage):
 
     def hoverMouse(self, x, y):
         if self.hoverEnabled:
-            self.mainModel.setSize(self.modelView)
-            points = self.mainModel.addPoint((x, y), storePoint=False)
-            if points != None:
-                self.modelLine.points = points
-                self.modelError.setFont(text="Error: {}".format(round(self.mainModel.getError(), 4)))
-                self.modelEq.setFont(text=self.mainModel.getEqString())
+            pass
+            # points = self.mainModel.addPoint((x, y), storePoint=False)
+            # if points != None:
+            #     self.modelLine.points = points
+            #     self.modelError.setFont(text="Error: {}".format(round(self.mainModel.getError(), 4)))
+            #     self.modelEq.setFont(text=self.mainModel.getEqString())
 
 
 class DTPage(MLPage):
@@ -582,7 +555,7 @@ class DTPage(MLPage):
         items = []
         i = 0
         for index, row in treeNode.table.iterrows():
-            items.append(Ellipse(color=self.classColors[row[treeNode.table.targetName]],
+            items.append(Ellipse(color=self.model.classColors[row[treeNode.table.targetName]],
                                  strokeColor=Color.red, strokeWidth=2,
                                  dx=0.5 * cos(trig * i) if treeNode.table.dataRows > 1 else 0.0,
                                  dy=0.5 * sin(trig * i) if treeNode.table.dataRows > 1 else 0.0,
@@ -657,7 +630,7 @@ class KNNPage(MLPage):
             self.mainModel.k = 1
         self.codingAddLabel.setFont("K: {}".format(self.mainModel.k))
         for rect in self.modelMousePoints:
-            rect.color = self.classColors[self.mainModel.predictPoint(*rect.tag)]
+            rect.color = self.model.classColors[self.mainModel.predictPoint(*rect.tag)]
 
     def createIncButton(self, **kwargs):
         self.codingAddLabel = Label("K: {}".format(self.mainModel.k))
@@ -678,6 +651,13 @@ class LogisticPage(MLPage):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.mainModel = Logistic(table=self.table)
+        self.models.append(self.mainModel)
+
+
+class SVMPage(MLPage):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.mainModel = SVM(table=self.table)
         self.models.append(self.mainModel)
 
 
@@ -990,7 +970,7 @@ class ExampleKNNPage(KNNPage):
     def __init__(self):
         super().__init__(textboxScript=[
             ("Welcome to the KNN Simulator!", 0, 0)
-        ], filePath="examples/linear/iris", partition=False, separateByTarget=True)
+        ], filePath="examples/svm/wine", partition=None)  # examples/linear/iris
 
         items = [
             self.createGraphView(),
@@ -1001,20 +981,21 @@ class ExampleKNNPage(KNNPage):
 
     def clickGraph(self, sender):
         dx, dy = hp.map(sender.lastClickX - self.modelView.x, 0.0, self.modelView.getWidth(), -1.0, 1.0), hp.map(sender.lastClickY - self.modelView.y, 0.0, self.modelView.getHeight(), -1.0, 1.0)
-        view = Rect(color=self.classColors[self.mainModel.predictPoint(dx=dx, dy=dy)], dx=dx, dy=dy, lockedWidth=15, lockedHeight=15, tag=(dx, dy))
+        view = Rect(color=self.model.classColors[self.mainModel.predictPoint(dx=dx, dy=dy)], dx=dx, dy=dy, lockedWidth=15, lockedHeight=15, tag=(dx, dy))
         self.modelMousePoints.append(view)
         self.modelView.addView(view)
 
     def hoverMouse(self, mouseX, mouseY):
         if self.hoverEnabled and self.isWithin(mouseX, mouseY):
-            while self.modelView.peekView().name == "highlight":
-                self.modelView.popView()
-            x, y = hp.map(mouseX - self.modelView.x, 0.0, self.modelView.getWidth(), -1.0, 1.0), hp.map(mouseY - self.modelView.y, 0.0, self.modelView.getHeight(), -1.0, 1.0)
-            for _, index, dx, dy in self.mainModel.getNeighbor(x, y):
-                self.modelView.addView(
-                    Ellipse(color=self.classColors[self.table.loc[index][self.table.targetName]], dx=dx, dy=dy, lockedWidth=20, lockedHeight=20, name="highlight")
-                )
-            self.updateAll()
+            pass
+            # while self.modelView.peekView().name == "highlight":
+            #     self.modelView.popView()
+            # x, y = hp.map(mouseX - self.modelView.x, 0.0, self.modelView.getWidth(), -1.0, 1.0), hp.map(mouseY - self.modelView.y, 0.0, self.modelView.getHeight(), -1.0, 1.0)
+            # for _, index, dx, dy in self.mainModel.getNeighbor(x, y):
+            #     self.modelView.addView(
+            #         Ellipse(color=self.model.classColors[self.table.loc[index][self.table.targetName]], dx=dx, dy=dy, lockedWidth=20, lockedHeight=20, name="highlight")
+            #     )
+            # self.updateAll()
 
 
 class CodingKNNPage(KNNPage, CodingPage):
@@ -1073,7 +1054,6 @@ class ExampleLinearPage(LinearPage):
     def update(self):
         # print("UPDATE")
         if not self.compTrainComplete:
-            self.compModel.setSize(self.modelView)
             self.compTrainComplete = not self.compModel.fit()
             self.compLine.points = self.compModel.getEdgePoints()
             self.compError.setFont(text="ML Error: {}".format(round(self.compModel.getError(), 4)))
@@ -1106,7 +1086,6 @@ class QuadLinearPage(LinearPage):
     def update(self):
         # print("UPDATE")
         if not self.compTrainComplete:
-            self.compModel.setSize(self.modelView)
             self.compTrainComplete = not self.compModel.fit()
             self.compLine.points = self.compModel.getManyPoints()
             self.compError.setFont(text="ML Error: {}".format(round(self.compModel.getError(), 4)))
@@ -1138,7 +1117,6 @@ class SubsetLinearPage(LinearPage):
     def update(self):
         # print("UPDATE")
         if not self.compTrainComplete:
-            self.compModel.setSize(self.modelView)
             self.compTrainComplete = not self.compModel.fit()
             self.compLine.points = self.compModel.getEdgePoints()
             self.compError.setFont(text="ML Error: {}".format(round(self.compModel.getError(), 4)))
@@ -1203,7 +1181,6 @@ class ExampleLogisticPage(LogisticPage):
         # print("UPDATE")
         pass
         # if not self.compTrainComplete:
-        #     self.compModel.setSize(self.modelView)
         #     self.compTrainComplete = not self.compModel.fit()
         #     self.compLine.points = self.compModel.getEdgePoints()
         #     self.compError.setFont(text="ML Error: {}".format(round(self.compModel.getError(), 4)))
@@ -1236,6 +1213,22 @@ class InfoLogisticPage(InfoPage):
             # ("Cross Validation", "assets/general/CrossValidation.pdf")
         ]
         super().__init__(files=files, **kwargs)
+
+# SVM
+
+
+class ExampleSVMPage(SVMPage):
+    def __init__(self):
+        super().__init__(textboxScript=[
+            ("Welcome to the SVM Simulator!", 0, 0)
+        ], filePath="examples/svm/iris", partition=None)  # examples/linear/iris
+
+        items = [
+            self.createGraphView(),
+            self.createNextTextbox()
+        ]
+        ZStack.__init__(self, items=items)
+        # print(view)
 
 
 class CompPage(IntroPage):

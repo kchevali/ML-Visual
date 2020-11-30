@@ -8,6 +8,7 @@ from math import inf
 from random import uniform
 from colorsys import hsv_to_rgb
 from collections import deque
+from table import Table
 
 # ===========================================================
 # FRAMES
@@ -295,17 +296,6 @@ class Shape(Color):
         self.strokeWidth = None if self.strokeColor == None else strokeWidth
 
 
-class Lines(Color):
-    def __init__(self, points=[], **kwargs):
-        super().__init__(**kwargs)
-        self.points = points
-
-    def display(self):
-        if not self.isHidden:
-            for i in range(1, len(self.points)):
-                pg.draw.line(g, self.color, self.points[i - 1], self.points[i], width=5)
-
-
 class Rect(Shape):
 
     def __init__(self, color, cornerRadius=0, border=10, **kwargs):
@@ -342,6 +332,63 @@ class Ellipse(Shape):
 
     def __str__(self, indent=""):
         return "Ellipse:{}".format(self.getID())
+
+
+class Graph(Color):
+    def __init__(self, model=None, **kwargs):
+        super().__init__(color=model.color, **kwargs)
+        self.model = model
+        self.criticalPoints = []
+        self.displayPoints = []
+
+    def updateFrame(self):
+        super().updateFrame()
+        self.displayPoints = self._getTrainingPoints() if self.model.displayRaw else (self._getLinearPoints() if self.model.isLinear else self._getManyPoints())
+        print(self.displayPoints)
+
+    def _createPoint(self, x, y, color):
+        return hp.map(x, self.model.minX, self.model.maxX, self.x, self.x + self.getWidth()), hp.map(y, self.model.minY, self.model.maxY, self.y, self.y + self.getHeight()), color
+
+    def _getLinearPoints(self):
+        allPts = [
+            (self.model.minX, self.model.getY(self.model.minX)),
+            (self.model.maxX, self.model.getY(self.model.maxX)),
+            (self.model.getX(self.model.minY), self.model.minY),
+            (self.model.getX(self.model.maxY), self.model.maxY),
+        ]
+        return [self.createPoint(x, y, self.color) for x, y in allPts if(x >= self.model.minX and x <= self.model.maxX and y >= self.model.minY and y <= self.model.maxY)]
+
+    def _getManyPoints(self):
+        pts = []
+        length, num = 5, self.model.minX
+        delta = (self.model.maxX - self.model.minX) / length
+        for i in range(length):
+            pts.append(self._createPoint(num, self.model.getY(num), self.color))
+            num += delta
+        return pts
+
+    def _getTrainingPoints(self):
+        # check if categorical then use self.model.y[i] instead of self.model.xs[i][1]
+        return [self._createPoint(self.model.xs[i][0], self.model.xs[i][1], self.model.classColors[self.model.y[i]]) for i in range(len(self.model.xs))]
+
+    def addPoint(self, point, storePoint=True):
+        if len(self.criticalPoints) < self.n + 1:
+            self.criticalPoints.append(point)
+            self.model.getEq(self.criticalPoints)
+            self.displayPoints = self._getLinearPoints() if self.model.isLinear else self._getManyPoints()
+            if not storePoint:
+                self.criticalPoints.pop()
+        else:
+            self.criticalPoints = []
+
+    def display(self):
+        if not self.isHidden:
+            if not self.model.isConnected:
+                for i in range(len(self.displayPoints)):
+                    pg.draw.ellipse(g, self.displayPoints[i][2], (self.displayPoints[i][0], self.displayPoints[i][1], 5, 5))
+            else:
+                for i in range(1, len(self.displayPoints)):
+                    pg.draw.line(g, self.color, tuple(self.displayPoints[i - 1][0:2]), tuple(self.displayPoints[i][0:2]), width=5)
 
 
 class Image(ResizableFrame):

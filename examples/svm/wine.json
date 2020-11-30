@@ -1,0 +1,7 @@
+{
+    "target": "quality",
+    "columns": [
+        "citric acid",
+        "volatile acidity"
+    ]
+}

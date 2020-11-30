@@ -14,97 +14,60 @@ import math
 
 
 class Model:
-    def __init__(self, x, y, partition=0.7, color=Color.red, **kwargs):
-        super().__init__(**kwargs)
-        self.training, self.testing = table.partition(partition) if testing is None else (table, testing)
+    def __init__(self, table, color=Color.red, isLinear=False, isCategorical=False, isConnected=False, displayRaw=False, **kwargs):
+        self.xs = table.xs
+        self.y = table.y
+        self.minX, self.maxX = table.minX(), table.maxX()
+        self.minY, self.maxY = table.minX(1), table.maxX(1)
         self.color = color
-        # self.validateData()
-        # self.compModel = None -- maybe should make new class - think how to handle
-
-    # def predict(self, row):
-    #     pass
-
-    # def test(self, testTable=None):
-    #     # use test set
-    #     pass
-
-    # def validateData(self):
-    #     # check conditions - number of x, y, labels...etc per class
-    #     pass
-
-    # def error(self, testTable=None):
-    #     pass
+        self.isLinear = isLinear
+        self.isCategorical = isCategorical
+        self.isConnected = isConnected
+        self.displayRaw = displayRaw
+        self.classColors = table.classColors
 
 
 class Classifier(Model):
     # takes multiple features and outputs a categorical data
+    def __init__(self, isCategorical=True, **kwargs):
+        super().__init__(isLinear=False, isConnected=False, isCategorical=isCategorical, **kwargs)
 
-    def accuracy(self, testTable=None):
-        if testTable == None:
-            testTable = self.testing
+    def accuracy(self, testTable):
         correct = 0
-        for row in testTable:
-            correct += 1 if self.predict(row) == row[0] else 0
-        return (correct / testTable.rows)
+        xs, y = testTable.xs, testTable.y
+        for i in range(testTable.rowCount):
+            correct += 1 if self.predict(xs[i]) == y[i] else 0
+        return (correct / testTable.rowCount)
 
-    def predict(self, row):
+    def predict(self, _xs):
         pass
-
-    def error(self, testTable=None):
-        return 1.0 - self.test(testTable)
 
 
 class Regression(Model):
     # takes multiple features and outputs real data
 
-    def __init__(self, length, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, length, isCategorical=False, **kwargs):
+        super().__init__(isConnected=True, isCategorical=isCategorical, **kwargs)
         self.length = length
         self.reset()
 
-    def error(self, testTable=None):
-        if testTable == None:
-            testTable = self.testing
+    def error(self, testTable):
         error = 0
-        for row in testTable:
-            error += (y - self.getY(row))**2
-        return sqrt(error) / testTable.rows
+        x, y = testTable.getXY()
+        for i in range(testTable.rowCount):
+            error += (y[i] - self.getY(x[i]))**2
+        return sqrt(error) / testTable.rowCount
 
-    def getY(self, row):
+    def getY(self, x):
         pass
 
-    def getX(self, row):
+    def getX(self, y):
         pass
 
     def reset(self):
         self.points = []
         self.cef = [0] * self.length  # highest power first
         self.debug = 0
-
-    def getEdgePoints(self):
-        allPts = [
-            (self.training.minX, self.getY(self.training.minX)),
-            (self.training.maxX, self.getY(self.training.maxX)),
-            (self.getX(self.training.minY), self.training.minY),
-            (self.getX(self.training.maxY), self.training.maxY),
-        ]
-        return [(self.training.createDisplayX(x), self.training.createDisplayY(y)) for x, y in allPts if(x >= self.training.minX and x <= self.training.maxX and y >= self.training.minY and y <= self.training.maxY)]
-
-    def getManyPoints(self):
-        pts = []
-        length, num = 100, -1
-        delta = 2 / length
-        for i in range(length):
-            pts.append((self.training.createDisplayX(num), self.training.createDisplayY(self.getY(num))))
-            num += delta
-        return pts
-
-    def addPoint(self, point, storePoint=True):
-        if storePoint:
-            if len(self.points) < self.n + 1:
-                self.points.append(point)
-            else:
-                self.reset()
 
     def getEqString(self):
         return "EQ"
@@ -233,9 +196,10 @@ class DTNode:
 
 class KNN(Classifier):
 
-    def __init__(self, k=3, bestK=False, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, table, k=3, bestK=False, **kwargs):
+        super().__init__(table=table, displayRaw=True, **kwargs)
         self.k = k
+        self.kdTree = spatial.KDTree(np.array(table.xData))
         if bestK:
             self.findBestK()
 
@@ -243,90 +207,47 @@ class KNN(Classifier):
         # print(xy)
         # self.distTree = spatial.KDTree(xy)
 
-    def getNeighbor(self, x, y):
-        neighbors = []
-        pt = [x, y]
-        out = spatial.KDTree(self.training.getArray([1, 2])).query(pt, k=self.k)[1]
+    def getNeighbor(self, _xs):
+        return np.reshape(self.kdTree.query(_xs, k=self.k)[1], self.k)
+        # return out if out is np.ndarray else np.array([out])
 
-        # out = self.distTree.query(pt, k=self.k)[1]
-        return out if out is np.ndarray else np.array([out])
+    def predict(self, _xs):
+        ys = np.array([self.y[i] for i in self.getNeighbor(_xs)])
+        return np.argmax(np.bincount(ys))
 
-    def predict(self, row):
-        return self.predictPoint(row[1], row[2])
-
-    def predictPoint(self, X, Y):
-        # print("Predicting:", X, Y)
-        record = {}
-        for rowIndex in self.getNeighbor(X, Y):
-            # print("Neighbor:", x2, y2)
-
-            try:
-                label, x, y = self.training.data[rowIndex]
-                # print("M:", x, y)
-                if label in record:
-                    record[label] += 1
-                else:
-                    record[label] = 1
-            except:
-                pass
-
-        maxClassCount = 0
-        bestClass = None
-        for className, classCount in record.items():
-            if classCount > maxClassCount:
-                maxClassCount = classCount
-                bestClass = className
-        return bestClass
-
-    def findBestK(self):
-        self.k = 1
-        acc = self.test()
+    def findBestK(self, testTable):
+        acc = self.accuracy(testTable=testTable)
         bestAcc = 0
         while(acc > bestAcc):
             self.k += 2
             bestAcc = acc
-            acc = self.test()
-        self.k -= 1
-        print("Final:", self.test())
+            acc = self.accuracy(testTable=testTable)
+            if(acc <= bestAcc):
+                self.k -= 2
 
 
 class Linear(Regression):
     def __init__(self, n=1, alpha=0.05, epsilon=1e-5, **kwargs):
-        super().__init__(length=self.n + 1, **kwargs)
+        super().__init__(length=self.n + 1, isLinear=n == 1, **kwargs)
         self.n = n
         self.alpha = alpha
         self.epsilon = epsilon
         self.llamda = 0.1
         self.dJ = self.epsilon
 
-        self.model = linear_model.LinearRegression()
-        self.model.fit([self.x], [self.y])
-
     # incoming point must be pixel coordinates
 
-    def addPoint(self, point, storePoint=True):
-        # point = (hp.map(point[0] - self.offsetX, 0, self.width, -1, 1), hp.map(point[1] - self.offsetY, 0, self.height, -1, 1))
-        super.addPoint(point, storePoint)
-        if len(self.points) > 0:
-            if self.n == 1:
-                x1, y1 = self.points[0]
-                x2, y2 = point if len(self.points) == 1 else self.points[1]
-                if x2 != x1:
+    def getEq(self, points):
+        if len(points) > 0:
+            x1, y1 = points[0]
+            if len(points) > 1:
+                x2, y2 = points[1]
+                if self.n == 1 and x2 != x1:
                     self.getLinearEq(x1, y1, x2, y2)
-                    return self.getEdgePoints()
-            if self.n == 2:
-                x1, y1 = self.points[0]
-                x2, y2 = point if len(self.points) == 1 else self.points[1]
-                x3, y3 = (-point[0], point[1]) if len(self.points) == 1 else (point if len(self.points) == 2 else self.points[2])
-
-                if x2 != x1 and x3 != x1 and x3 != x2:
-                    self.getQuadEq(x1, y1, x2, y2, x3, y3)
-                    return self.getManyPoints()
-
-                    # edgePoints = [(0, self.getY(0)), (width, self.getY(width)), (self.getX(0)[0], 0), (self.getX(height)[0], height)]
-                    # # print("Edge:", edgePoints)
-                    # return [(x + offsetX, y + offsetY) for x, y in edgePoints if(x != None and x >= 0 and x <= width and y >= 0 and y <= height)]
-        return None
+                if len(points) > 2 and self.n == 2:
+                    x3, y3 = points[2]
+                    if x2 != x1 and x3 != x1 and x3 != x2:
+                        self.getQuadEq(x1, y1, x2, y2, x3, y3)
 
     def getX(self, y):
         if self.n == 1:
@@ -346,16 +267,6 @@ class Linear(Regression):
             y += self.cef[i] * x_
             x_ *= x
         return y
-
-    def getModelError(self, testTable):
-        colA, colB = self.training.columns[1], self.training.columns[2]
-        predY = self.model.predict([self.x])
-        # print("COF:")
-        # print(len(self.model.coef_))
-        # print(len(self.model.intercept_))
-        error = mean_squared_error([self.x], predY)
-        # print("ERR:", error)
-        return error
 
     def getQuadEq(self, x1, y1, x2, y2, x3, y3):
         denom = (x1 - x2) * (x1 - x3) * (x2 - x3)
@@ -387,9 +298,9 @@ class Linear(Regression):
         for i in range(self.length):
             localTotal = self.y[i]
             for j in range(self.n + 1):
-                localTotal -= cef[j] * (self.x[i]**(self.n - j))
+                localTotal -= cef[j] * (self.xs[i]**(self.n - j))
 
-            # testTotal += (self.y[i] - cef[0] * self.x[i] - cef[1])**2
+            # testTotal += (self.y[i] - cef[0] * self.xs[i] - cef[1])**2
             total += localTotal * localTotal
         # print("J:", total, testTotal)
         return total
@@ -400,9 +311,9 @@ class Linear(Regression):
         for i in range(self.length):
             localTotal = -self.y[i]
             for j in range(self.n + 1):
-                localTotal += self.cef[j] * (self.x[i]**(self.n - j))
-            total += localTotal * (self.x[i]**degreeX)
-            # testTotal += (self.cef[0] * self.x[i] + self.cef[1] - self.y[i]) * (self.x[i]**degreeX)
+                localTotal += self.cef[j] * (self.xs[i]**(self.n - j))
+            total += localTotal * (self.xs[i]**degreeX)
+            # testTotal += (self.cef[0] * self.xs[i] + self.cef[1] - self.y[i]) * (self.xs[i]**degreeX)
         # print("G:", total, testTotal)
         total /= self.length
         # print("Gradient Step:", total)
@@ -425,9 +336,9 @@ class Linear(Regression):
         for i in range(self.length):
             localTotal = self.y[i]
             for j in range(self.n + 1):
-                localTotal -= cef[j] * (self.x[i]**(self.n - j))
+                localTotal -= cef[j] * (self.xs[i]**(self.n - j))
 
-            # testTotal += (self.y[i] - cef[0] * self.x[i] - cef[1])**2
+            # testTotal += (self.y[i] - cef[0] * self.xs[i] - cef[1])**2
             total += localTotal * localTotal
         for j in range(self.n + 1):
             total += abs(cef[j]) * self.llamda
@@ -440,9 +351,9 @@ class Linear(Regression):
         for i in range(self.length):
             localTotal = -self.y[i]
             for j in range(self.n + 1):
-                localTotal += self.cef[j] * (self.x[i]**(self.n - j))
-            total += localTotal * (self.x[i]**degreeX)
-            # testTotal += (self.cef[0] * self.x[i] + self.cef[1] - self.y[i]) * (self.x[i]**degreeX)
+                localTotal += self.cef[j] * (self.xs[i]**(self.n - j))
+            total += localTotal * (self.xs[i]**degreeX)
+            # testTotal += (self.cef[0] * self.xs[i] + self.cef[1] - self.y[i]) * (self.xs[i]**degreeX)
         for j in range(self.n + 1):
             total -= self.llamda * self.cef[j] / abs(self.cef[j])
         # print("G:", total, testTotal)
@@ -464,7 +375,7 @@ class Linear(Regression):
 class Logistic(Regression):
 
     def __init__(self, **kwargs):
-        super().__init__(length=2, **kwargs)
+        super().__init__(length=2, isLinear=False, **kwargs)
         # self.compModel = linear_model.LogisticRegression()
 
     def addPoint(self, point, storePoint=True):
@@ -514,153 +425,55 @@ class Logistic(Regression):
         return "LOG EQ"
 
 
+class SVM(Regression):
+    def __init__(self, C=0.01, n_iters=100, learning_rate=0.1, **kwargs):
+        super().__init__(length=0, isLinear=False, **kwargs)
+        self.c = C
+        self.iter = n_iters
+        self.eta = learning_rate
+
+        w = np.zeros([1, self.xs.shape[1]])
+        b = 0
+
+        costs = np.zeros(self.iter)
+        for i in range(self.iter):
+            cost = self.xs @ w.T + b
+            b = b - self.eta * self.c * sum(cost - self.y)
+            w = w - self.eta * self.c * sum((cost - self.y) * self.xs)
+            costs[i] = self.c * sum((self.y * cost) + (1 - self.y) * cost) + (1 / 2) * sum(w.T**2)
+
+        self.w = w
+        self.b = b
+        self.costs = costs
+
+    def predict(self, x_test):
+        pred_y = []
+        svm = x_test @ self.w.T + self.b
+        for i in svm:
+            if i >= 0:
+                pred_y.append(1)
+            else:
+                pred_y.append(0)
+
+        return pred_y
+
+    def getY(self, _xs, line=0):
+        y = (line - self.b - _xs * self.w.T[0]) / self.w.T[1]
+        return y[0]
+
+    def getX(self, _xs, line=0):
+        return (line - self.b - _xs * self.w.T[1]) / self.w.T[0]
+
+
 if __name__ == '__main__':
     hp.clear()
     print("Running Models MAIN")
-    table = Table(filePath="examples/decisionTree/small.csv")
-    knn = KNN(table=table, partition=0.8, k=1)
-    print(knn.test())
-
-
-#     fileName = "examples/movie"
-#     # pd.set_option('display.max_rows', None)
-
-#     def createView(sender, index):
-#         return Label(str(index))
-
-#     table = Table(filePath=fileName, createView=createView)
-#     print("Table\n", table.data)
-
-# ==============================================
-# Data Frame Usage
-# ==============================================
-
-# print(end="\nIterate Columns: ")
-# for column in table.colNames:
-#     print(column, end=" ")
-
-# print(end="\nIterate Items in Column: ")
-# for item in table[table.targetName]:
-#     print(item, end=" ")
-
-# print(end="\nIterate Rows: ")
-# for index, row in table.iterrows():
-#     print(row[table.targetName], end=" | ")
-
-# print("\nFirst Item:", table['type'][1])
-# print("Column Count:", table.cols, "Row Count:", table.dataRows)
-# print(end="Unique Values[{}]: ".format(table['type'].nunique()))
-# for item in table['type'].unique():
-#     print(item, end=" ")
-# print(end="\nDirectors of Long Comedies: ")
-# for index, row in table.loc[(table['type'] == 'comedy') & (table['length'] == 'long')].iterrows():
-#     print(row['director'], end=" ")
-
-# featureCols = ['type_animated', 'director_adam', 'director_lass', 'director_singer', 'fam_actors']
-# print("\nFeatures:", featureCols)
-
-# x = table.encodedData[featureCols]
-# print("X:\n", x)
-
-# y = table.targetCol
-# print("Y:\n", y)
-
-# y = table.data['Live Zoo']
-# print("Y:", y, "Shape:", y.shape)
-
-# x = table.data.loc[:, featureCols]
-# print("Shape:", x.shape)
-# X = [[0, 0], [1, 1]]
-# Y = [0, 1]
-# model = DecisionTree(x, y)
-# tree = model.tree
-# tree = DecisionTreeClassifier()
-# tree.fit(x, y)
-
-# value = [[True, False, False, True, True]]
-# result = tree.predict(value)
-# print("Prediction of: {} is {}".format(value, result))
-
-# n_nodes = tree.tree_.node_count
-# children_left = tree.tree_.children_left
-# children_right = tree.tree_.children_right
-# feature = tree.tree_.feature
-# threshold = tree.tree_.threshold
-# value = tree.tree_.value
-# classes = tree.classes_
-
-# # print(y[np.where(value[2].flatten() > 0.5)[0]].tolist())
-
-# # exit()
-
-# # The tree structure can be traversed to compute various properties such
-# # as the depth of each node and whether or not it is a leaf.
-# node_depth = np.zeros(shape=n_nodes, dtype=np.int64)
-# is_leaves = np.zeros(shape=n_nodes, dtype=bool)
-# stack = [(0, -1)]  # seed is the root node id and its parent depth
-# while stack:  # len > 0
-#     node_id, parent_depth = stack.pop()
-#     node_depth[node_id] = parent_depth + 1
-
-#     # If we have a test node
-#     if (children_left[node_id] != children_right[node_id]):
-#         stack.append((children_left[node_id], parent_depth + 1))
-#         stack.append((children_right[node_id], parent_depth + 1))
-#     else:
-#         is_leaves[node_id] = True
-
-# print("The binary tree structure has %s nodes and has the following tree structure:" % n_nodes)
-# for i in range(n_nodes):
-#     if is_leaves[i]:
-#         print("%snode=%s leaf node with value %s" % (node_depth[i] * "\t", i, str(classes[np.where(value[i].flatten() > 0.5)[0]].tolist())))
-#     else:
-#         print("%snode=%s test node: go to node %s if %s <= %s else to node %s." % (node_depth[i] * "\t", i,
-#                                                                                    children_left[i], str(featureCols[feature[i]]), threshold[i], children_right[i],))
-# print()
-
-# First let's retrieve the decision path of each sample. The decision_path
-# method allows to retrieve the node indicator functions. A non zero element of
-# indicator matrix at the position (i, j) indicates that the sample i goes
-# through the node j.
-
-# node_indicator = tree.decision_path(x)
-
-# # Similarly, we can also have the leaves ids reached by each sample.
-
-# leave_id = tree.apply(x)
-
-# # Now, it's possible to get the tests that were used to predict a sample or
-# # a group of samples. First, let's make it for the sample.
-
-# sample_id = 0
-# node_index = node_indicator.indices[node_indicator.indptr[sample_id]:
-#                                     node_indicator.indptr[sample_id + 1]]
-
-# print('Rules used to predict sample %s: ' % sample_id)
-# for node_id in node_index:
-#     if leave_id[sample_id] == node_id:
-#         continue
-
-#     if (x[sample_id, feature[node_id]] <= threshold[node_id]):
-#         threshold_sign = "<="
-#     else:
-#         threshold_sign = ">"
-
-#     print("decision id node %s : (x[%s, %s] (= %s) %s %s)"
-#           % (node_id,
-#              sample_id,
-#              feature[node_id],
-#              x[sample_id, feature[node_id]],
-#              threshold_sign,
-#              threshold[node_id]))
-
-# # For a group of samples, we have the following common node.
-# sample_ids = [0, 1]
-# common_nodes = (node_indicator.toarray()[sample_ids].sum(axis=0) ==
-#                 len(sample_ids))
-
-# common_node_id = np.arange(n_nodes)[common_nodes]
-
-# print("\nThe following samples %s share the node %s in the tree"
-#       % (sample_ids, common_node_id))
-# print("It is %s %% of all nodes." % (100 * len(common_node_id) / n_nodes,))
+    table = Table(filePath="examples/decisionTree/small").createXXYTable()
+    train, test = table.partition()
+    knn = KNN(table=train, partition=0.8, k=3)
+    print("Accuracy:", 100 * knn.accuracy(testTable=test))
+    for _xs in knn.xs:
+        print(_xs, end=" Closest: ")
+        for j in knn.getNeighbor(_xs):
+            print(knn.xs[j], knn.y[j], end=" | ")
+        print()
