@@ -37,7 +37,7 @@ class Table:
         """
         # get data parameters
         self.filePath = filePath
-        self.fileName = self.filePath.split("/")[-1].split(".")[0]
+        self.fileName = self.filePath.split("/")[-1].split(".")[0] if filePath != None else None
         self.param = hp.loadJSON(filePath + ".json") if not param else param
         self.features = features
 
@@ -78,6 +78,10 @@ class Table:
             self.classColors[label] = hp.calmColor(i / self.classCount)
             i += 1
 
+        # self.selectedRow = None
+        self.selectedCol = None
+        self.graphics = []
+
         # Hide Code
         # self.mapper = self.param['map'] if "map" in self.param else {}
         # self.columns = self.data.columns
@@ -117,6 +121,14 @@ class Table:
 
     def flatten(self):
         return np.concatenate([self.colNames, self.flattenValues()])
+
+    def addGraphic(self, graphic):
+        self.graphics.append(graphic)
+
+    def selectCol(self, column, isOn):
+        self.selectedCol = column if isOn else None
+        for graphic in self.graphics:
+            graphic.selectCol(column, isOn)
 
     def __getitem__(self, column):
         return self.data[column]

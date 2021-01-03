@@ -607,9 +607,9 @@ class Stack(ResizableFrame):
         self.canHold = True
         self.isHidingViews = False
 
-        self.selectedRow = None
-        self.selectedCol = None
-        self.selectedDepth = None
+        # self.selectedRow = None
+        # self.selectedCol = None
+        # self.selectedDepth = None
 
         self.containers = []
         # print("total:", self.rows, self.cols, self.depth, self.length)
@@ -629,8 +629,8 @@ class Stack(ResizableFrame):
     def createCellView(self, selfObj, index):
         return self.items[index]
 
-    def isSelected(self, i, j, k):
-        return self.selectedRow == i or self.selectedCol == j or self.selectedDepth == k
+    # def isSelected(self, i, j, k):
+    #     return self.selectedRow == i or self.selectedCol == j or self.selectedDepth == k
 
     def index(self, i, j, k):
         return j + self.cols * (i + self.rows * k) if i >= 0 and i < self.rows and j >= 0 and j < self.cols and k >= 0 and k < self.depth else None
@@ -817,6 +817,7 @@ class Stack(ResizableFrame):
     def __getitem__(self, key):
         return self.containers[key]
 
+
 class HStack(Stack):
 
     def __init__(self, items=[], ratios=None, **kwargs):
@@ -890,11 +891,10 @@ class VStack(Stack):
 class Grid(Stack):
 
     def __init__(self, items=[], rows=1, cols=1, model=None, **kwargs):
-        self.model = model
         if model == None:
             super().__init__(items=items, rows=rows, cols=cols, **kwargs)
         else:
-            super().__init__(items=self.model.table.flatten(), rows=self.model.table.rowCount + 1, cols=self.model.table.colCount + 1, **kwargs)
+            super().__init__(items=model.table.flatten(), rows=model.table.rowCount + 1, cols=model.table.colCount + 1, **kwargs)
 
     def updateFrame(self):
         super().updateFrame()

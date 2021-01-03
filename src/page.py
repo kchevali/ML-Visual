@@ -1,6 +1,5 @@
 from graphics import *
 import helper as hp
-import viewHelper as vp
 from table import *
 from models import *
 from random import shuffle
@@ -175,9 +174,8 @@ class MenuPage(ModelPage):
 
 
 class BasePage:
-    def __init__(self, table=None, testingTable=None):
-        self.table = table
-        self.testingTable = testingTable
+    def __init__(self, table):
+        self.table, self.testingTable = table.partition(testing=0.3)
 
     def getView(self):
         pass
@@ -196,24 +194,24 @@ class MultipleModelPage(BasePage):
 
 
 class CodingPage(SingleModelPage):
-    def __init__(self, codes, codingAddString, codingFilePath, examplePath, **kwargs):
+    def __init__(self, codes, codingAddString, codingFilePath, codingExamplePath, **kwargs):
         super().__init__(**kwargs)
         self.codes = codes
         self.codingAddString = codingAddString
         self.codingFilePath = codingFilePath
-        self.codingExamplePath = examplePath
+        self.codingExamplePath = codingExamplePath
 
         # super().__init__(, table=table, items=items, hoverEnabled=False, **kwargs)
 
     def getView(self):
-        return CodingView(data=self)
+        return CodingView(model=self.model, codes=self.codes, codingAddString=self.codingAddString, codingFilePath=self.codingFilePath, codingExamplePath=self.codingExamplePath)
 
 # =====================================================================
 # MODEL PAGE CLASSES
 # =====================================================================
 
 
-class DTPage(DataPage):
+class DTPage:
     def __init__(self, **kwargs):
         super().__init__(partition=0.3, **kwargs)
         self.model = DecisionTree(table=self.table, testing=self.testingTable)
@@ -338,7 +336,7 @@ class DTPage(DataPage):
         self.modelBranch.getContainer().updateAll()
 
 
-class KNNPage(DataPage):
+class KNNPage:
     def __init__(self, table, testingTable=None, **kwargs):
         super().__init__(table=table, testingTable=testingTable, model=KNN(table=table, testingTable=testingTable, drawTable=True), **kwargs)
 
@@ -366,19 +364,19 @@ class KNNPage(DataPage):
         ], run=self.incMethod, lockedWidth=130, lockedHeight=80, **kwargs)
 
 
-class LinearPage(DataPage):
+class LinearPage:
     def __init__(self, **kwargs):
         super().__init__(partition=0.3, hasAxis=True, features=1, **kwargs)
         self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=2, drawTable=True, isUserSet=True))
 
 
-class LogisticPage(DataPage):
+class LogisticPage:
     def __init__(self, **kwargs):
         super().__init__(partition=0.3, hasAxis=True, features=1, constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), **kwargs)
         self.addModel(Logistic(table=self.table, testingTable=self.testingTable, drawTable=True, isUserSet=True))
 
 
-class SVMPage(DataPage):
+class SVMPage:
     def __init__(self, **kwargs):
         super().__init__(partition=0.3, hasAxis=True, features=1, **kwargs)
         self.models.append(SVM(table=self.table))
@@ -389,7 +387,7 @@ class SVMPage(DataPage):
 # =====================================================================
 
 # Decision Tree
-class IntroDTPage(IntroPage):
+class IntroDTPage(IntroView):
     def __init__(self):
         description = ["    A tree has many analogies in real life and turns out that it has influenced",
                        "a wide area of machine learning, covering both classification and regression.",
@@ -404,13 +402,15 @@ class IntroDTPage(IntroPage):
         super().__init__(label=Label(description))
 
 
-class ExampleDTPage(DTPage, TablePage):
+class ExampleDTPage(ZStack):
     def __init__(self, **kwargs):
+        self.table = Table(filePath="examples/decisionTree/movie")
+        self.model = DecisionTree(table=self.table, testing=self.testingTable)
         items = [
             HStack([
                 VStack([
                     HStack([
-                        self.tableView,
+                        TableView(),
                         self.createTreeRoomView()
 
                     ], ratios=[0.6, 0.4]),
@@ -434,10 +434,10 @@ class ExampleDTPage(DTPage, TablePage):
             ("Finally, click on length to complete the tree", -0.8, 0),
             ("To show the full tree click on group name on the top", -0.8, 0),
             ("Congratulations on completing the tutorial", 0, 0)
-        ], table=Table(filePath="examples/decisionTree/movie"), textboxAudioPath="dt_final/dt", items=items)
+        ], textboxAudioPath="dt_final/dt", items=items)
 
 
-class ExceriseDTPage(DTPage, TablePage):
+class ExceriseDTPage(DTPage):
     def __init__(self):
         items = [
             HStack([
@@ -455,10 +455,10 @@ class ExceriseDTPage(DTPage, TablePage):
         ]
 
         super().__init__(table=Table(filePath="examples/decisionTree/zoo"), items=items)
-        self.models = []  # different from GraphPage
+        self.models = []  # different from GraphView
 
 
-class CodingDTPage(DTPage, CodingPage):
+class CodingDTPage(CodingPage):
     def __init__(self, **kwargs):
         # Codes
         codes = [
@@ -471,7 +471,7 @@ class CodingDTPage(DTPage, CodingPage):
         ]
         table = Table(filePath="examples/decisionTree/medical")
         super().__init__(table=table, model=DecisionTree(table=table), codes=codes, codingAddString="Add Tree", codingFilePath="assets/treeExample.py",
-                         examplePath="examples/decisionTree", **kwargs)
+                         codingExamplePath="examples/decisionTree", **kwargs)
 
     def incMethod(self, sender):
         if len(self.models) >= 100:
@@ -486,7 +486,7 @@ class CodingDTPage(DTPage, CodingPage):
             self.codingAddLabel.setFont("Trees: {}".format(len(self.models)))
 
 
-class InfoDTPage(InfoPage):
+class InfoDTPage(InfoView):
     def __init__(self, **kwargs):
         files = [
             ("Generatation", "assets/decisiontree/GenerateDecisionTree.pdf"),
@@ -496,13 +496,13 @@ class InfoDTPage(InfoPage):
 
 
 # KNN
-class IntroKNNPage(IntroPage):
+class IntroKNNPage(IntroView):
     def __init__(self):
         description = ["Welcome to the KNN Introduction Page"]
         super().__init__(label=Label(description))
 
 
-class ExampleKNNPage(KNNPage, GraphPage):
+class ExampleKNNPage(KNNPage):
     def __init__(self):
         items = [
             self.createGraphView(),
@@ -541,7 +541,7 @@ class CodingKNNPage(KNNPage, CodingPage):
         super().__init__(codes=codes, codingAddString="K: 3", table=Table(filePath="examples/knn/iris"), codingFilePath="assets/treeExample.py", examplePath="examples/knn", **kwargs)
 
 
-class InfoKNNPage(InfoPage):
+class InfoKNNPage(InfoView):
     def __init__(self, **kwargs):
         files = [
             ("Bayes and KNN", "assets/knn/TeachingMaterialsKNN.pdf"),
@@ -552,13 +552,13 @@ class InfoKNNPage(InfoPage):
 # Linear
 
 
-class IntroLinearPage(IntroPage):
+class IntroLinearPage(IntroView):
     def __init__(self):
         description = ["Welcome to the Linear Regression Introduction Page"]
         super().__init__(label=Label(description))
 
 
-class ExampleLinearPage(LinearPage, GraphPage):
+class ExampleLinearPage(LinearPage):
     def __init__(self):
         items = [
             VStack([
@@ -578,7 +578,7 @@ class ExampleLinearPage(LinearPage, GraphPage):
         # print(view)
 
 
-class QuadLinearPage(LinearPage, GraphPage):
+class QuadLinearPage(LinearPage):
     def __init__(self):
         items = [
             VStack([
@@ -598,7 +598,7 @@ class QuadLinearPage(LinearPage, GraphPage):
         # print(view)
 
 
-class SubsetLinearPage(LinearPage, GraphPage):
+class SubsetLinearPage(LinearPage):
     def __init__(self):
         items = [
             VStack([
@@ -630,7 +630,7 @@ class CodingLinearPage(LinearPage, CodingPage):
                          codingFilePath="assets/treeExample.py", examplePath="examples/linear", **kwargs)
 
 
-class InfoLinearPage(InfoPage):
+class InfoLinearPage(InfoView):
     def __init__(self, **kwargs):
         files = [
             ("Linear Regression", "assets/linear/LinearRegression.pdf"),
@@ -640,13 +640,13 @@ class InfoLinearPage(InfoPage):
 
 
 # Logistic
-class IntroLogisticPage(IntroPage):
+class IntroLogisticPage(IntroView):
     def __init__(self):
         description = ["Welcome to the Logisitic Regression Introduction Page"]
         super().__init__(label=Label(description))
 
 
-class ExampleLogisticPage(LogisticPage, GraphPage):
+class ExampleLogisticPage(LogisticPage):
     def __init__(self):
         items = [
             VStack([
@@ -679,7 +679,7 @@ class CodingLogisticPage(LogisticPage, CodingPage):
                          codingFilePath="assets/treeExample.py", examplePath="examples/linear", **kwargs)
 
 
-class InfoLogisticPage(InfoPage):
+class InfoLogisticPage(InfoView):
     def __init__(self, **kwargs):
         files = [
             # ("Linear Regression", "assets/linear/LinearRegression.pdf"),
@@ -690,7 +690,7 @@ class InfoLogisticPage(InfoPage):
 # SVM
 
 
-class ExampleSVMPage(SVMPage, GraphPage):
+class ExampleSVMPage(SVMPage):
     def __init__(self):
         items = [
             self.createGraphView(),
@@ -701,7 +701,7 @@ class ExampleSVMPage(SVMPage, GraphPage):
         ], table=Table(filePath="examples/svm/iris"), items=items)  # examples/linear/iris
 
 
-class CompPage(IntroPage):
+class CompPage(IntroView):
     def __init__(self):
 
         # self.models = [(KNN, {

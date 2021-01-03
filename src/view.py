@@ -1,6 +1,5 @@
 from graphics import *
 import helper as hp
-import viewHelper as vp
 from table import *
 from models import *
 from random import shuffle
@@ -11,9 +10,11 @@ import statistics as stat
 from time import time
 
 # Solo Views
-
+modelTitle = "Temp"
 
 # NO TOUCH unless broken
+
+
 class MouseDebug(ZStack):
     def __init__(self):
         super().__init__([
@@ -60,6 +61,40 @@ class TextboxView(ZStack):
         self.setAlignment(dx=dx, dy=dy)
         self.audio.setSoundName(soundName=soundName)
 
+
+class IntroView(ZStack):
+
+    def __init__(self, label, **kwargs):
+        items = [
+            Label("Description", fontSize=56, dx=-1, dy=-1, offsetX=10, offsetY=10),
+            label
+        ]
+        super().__init__(items=items, **kwargs)
+
+
+class InfoView(VStack):
+    def __init__(self, files, **kwargs):
+        self.files = files
+        buttons = []
+        for label, path in self.files:
+            def setView(sender):
+                labelView = sender.keyDown("label")
+                if sender.isAlt():
+                    labelView.setFont("Opening File...")
+                else:
+                    labelView.setFont("Click here to learn more about: " + labelView.name)
+
+            buttons.append(Button(
+                Label("", dx=-1, offsetX=10, keywords="label", name=label),
+                tag=path,
+                run=hp.openFile,
+                setViewMethod=setView
+            ))
+
+        items = [Label("More Information Below:", fontSize=48, dx=-1)] + buttons + [None] * 8
+        super().__init__(items, hideAllContainers=False, **kwargs)
+
+
 # Need to Work On!
 
 
@@ -91,10 +126,12 @@ class GroupView:
         self.addAllModelViews()
 
 
-class TableView(BaseView):
+class TableView(Grid):
 
-    def createModelView(self, model):
-        return Grid(model=model, createCellViewMethod=self.createCellView)
+    def __init__(self, model, **kwargs):
+        super().__init__(model=model, createCellViewMethod=self.createCellView, **kwargs)
+        self.model = model
+        self.model.table.addGraphic(self)
 
     # def updateTableView(self, **kwargs):
     #     prevContainer = self.tableView.container if self.tableView != None else None
@@ -102,7 +139,7 @@ class TableView(BaseView):
     #     if prevContainer != None:
     #         self.tableView.setContainer(prevContainer)
 
-    # need ref to tableview since it is not created yet
+    # need ref to grid since it is not created yet
     def createCellView(self, grid, index):
         if index == None:
             return None
@@ -126,8 +163,8 @@ class TableView(BaseView):
     def shiftTable(self, dy):
         for model in self.models:
             self.shift(dy=dy)
-            self.colorTableTargets()
-            self.updateHeaderSelectionButtons()
+            # self.colorTableTargets()
+            # self.updateHeaderSelectionButtons()
             self.updateAll()
 
     def scrollUp(self):
@@ -136,23 +173,26 @@ class TableView(BaseView):
     def scrollDown(self):
         self.shiftTable(dy=-1)
 
+    def selectCol(self, column, isOn):
+        raise Exception("Implement the Table method now KEVIN")
 
-class HeaderView(BaseView):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.selectedCol = None
 
-    def createModelView(self, model):
-        return HStack([
+class HeaderButtons(HStack):
+    def __init__(self, model, **kwargs):
+        super().__init__([
             Button([
                 Rect(color=Color.steelBlue, strokeColor=Color.white, strokeWidth=4, cornerRadius=10),
                 Label(model.table.xNames[i], fontSize=25, color=Color.white)
-            ], isOn=False, tag=(model, i + 1), run=self.selectColumn) for i in range(model.table.colCount)
-        ])
+            ], isOn=False, tag=i + 1, run=self.pressButton) for i in range(model.table.colCount)
+        ], **kwargs)
+        self.model = model
+        # self.selectedCol=None
 
-    def selectColumn(self, sender):
-        model, colIndex = sender.tag
+    def pressButton(self, sender):
+        self.model.table.selectCol(sender.tag, sender.isOn)
 
+    def selectCol(self, column, isOn):
+        colIndex = sender.tag
         self.selectedCol, prevCol = colIndex if sender.isOn else None, self.selectedCol
 
         # terminate if table doesn't exist or no change is needed
@@ -163,11 +203,10 @@ class HeaderView(BaseView):
             # self.updateTableCol(buttons=buttons, prevCol)
             # self.updateTableCol(buttons=buttons, self.selectedCol)
 
-    def updateButtons(self, buttons, model):
-        for view in buttons.getViews():
-            rect = view.getView(0)
-            button = view.getView(1)
-            column = model.table.xNames[button.tag - 1]
+    def updateButtons(self):
+        for button in self.getViews():
+            rect = button.getView(0)
+            column = self.model.table.xNames[button.tag - 1]
 
             if self.model.isLockedColumn(column):
                 rect.strokeColor = Color.gray
@@ -175,7 +214,7 @@ class HeaderView(BaseView):
                 button.setOn(isOn=False)
             else:
                 button.isDisabled = False
-                if self.selectedCol == button.tag:
+                if self.model.table.selectedCol == button.tag:
                     rect.strokeColor = Color.yellow
                     button.setOn(isOn=True)
                 else:
@@ -183,9 +222,11 @@ class HeaderView(BaseView):
                     button.setOn(isOn=False)
 
 
-class GraphView(BaseView):
-    def __init__(self, hasAxis=False, enableUserPts=False, **kwargs):
+# Complicated Section
+class GraphView:
+    def __init__(self, model, hasAxis=False, enableUserPts=False, **kwargs):
         super().__init__(**kwargs)
+        self.model = model
         self.hasAxis = hasAxis
         self.userPts = Points(maxPts=100) if enableUserPts else None
         self.compModels = []
@@ -328,41 +369,13 @@ class GraphView(BaseView):
             #     self.modelEq.setFont(text=self.model.getEqString())
 
 
-class IntroView(ZStack):
-
-    def __init__(self, label, **kwargs):
-        items = [
-            Label("Description", fontSize=56, dx=-1, dy=-1, offsetX=10, offsetY=10),
-            label
-        ]
-        super().__init__(items=items, **kwargs)
-
-
-class InfoView(VStack):
-    def __init__(self, files, **kwargs):
-        self.files = files
-        buttons = []
-        for label, path in self.files:
-            def setView(sender):
-                labelView = sender.keyDown("label")
-                if sender.isAlt():
-                    labelView.setFont("Opening File...")
-                else:
-                    labelView.setFont("Click here to learn more about: " + labelView.name)
-
-            buttons.append(Button(
-                Label("", dx=-1, offsetX=10, keywords="label", name=label),
-                tag=path,
-                run=hp.openFile,
-                setViewMethod=setView
-            ))
-
-        items = [Label("More Information Below:", fontSize=48, dx=-1)] + buttons + [None] * 8
-        super().__init__(items, hideAllContainers=False, **kwargs)
-
-
 class CodingView(ZStack):
-    def __init__(self, **kwargs):
+    def __init__(self, model, codes, codingAddString, codingFilePath, codingExamplePath, **kwargs):
+        self.model = model
+        self.codes = codes
+        self.codingAddString = codingAddString
+        self.codingFilePath = codingFilePath
+        self.codingExamplePath = codingExamplePath
         super().__init__([
             VStack([
                 self.createCodingHeader(),
