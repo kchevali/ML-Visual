@@ -9,68 +9,22 @@ from elements import *
 from comp import *
 import statistics as stat
 from time import time
+from view import *
 
 
 modelTitle = ""
 
 
-def createMouseDebug():
-    return ZStack([
-        Rect(color=Color.white, keywords="mRect", border=0),
-        Label(text="", fontSize=15, color=Color.black, keywords="text")
-    ], lockedWidth=80, lockedHeight=20, dx=-1, dy=1)
-
-
 # =====================================================================
-# Start Up Classes
+# Screen Objects
 # =====================================================================
 
-class DefaultPage(ZStack):
-    def __init__(self):
-        items = [
-            Color(Color.backgroundColor)
-        ]
-        super().__init__(items)
+# =====================================================================
+# START UP CLASSES
+# =====================================================================
 
 
-class SimplePage(ZStack):
-    def __init__(self):
-        def createView(sender, index):
-            return Label(str(index))
-
-        items = [
-            Table(filePath="examples/decisionTree/shape", createView=createView)
-        ]
-        super().__init__(items)
-
-
-class MainPage(ZStack):
-    def __init__(self):
-        items = [
-            ExampleSVMPage()
-        ]
-        super().__init__(items)
-
-    def canDragView(self, view, container):
-        canDrag = False
-        for c in self.containers:
-            canDrag = canDrag or c.view.canDragView(view=view, container=container)
-        return canDrag
-
-    def draggedView(self, view):
-        for c in self.containers:
-            c.view.draggedView(view=view)
-
-    def hoverMouse(self, x, y):
-        for c in self.containers:
-            c.view.hoverMouse(x, y)
-
-    def update(self):
-        for c in self.containers:
-            c.view.update()
-
-
-class ModelPage(ZStack):
+class ModelPage(VStack):
     def __init__(self, content, title, pages=[], includeTaskList=True):
 
         self.content = content
@@ -82,33 +36,34 @@ class ModelPage(ZStack):
         self.content.modelPage = self
 
         items = [
-            VStack([
-                createLabel(self.title, views=[Button(Label("<"), run=self.replaceSelf, tag=MenuPage, lockedWidth=40, lockedHeight=40, dx=-1, offsetX=20) if type(self) != MenuPage else None]),
-                HStack([
-                    self.createTaskList(),
-                    self.content
-                ], ratios=[0.15, 0.85]) if self.includeTaskList else self.content
-            ], ratios=[0.08, 0.92])
+            createLabel(self.title, views=[Button(Label("<"), run=self.replaceSelf, tag=MenuPage, lockedWidth=40, lockedHeight=40, dx=-1, offsetX=20) if type(self) != MenuPage else None]),
+            HStack([
+                self.createTaskList(),
+                self.content
+            ], ratios=[0.15, 0.85]) if self.includeTaskList else self.content
 
         ]
-        super().__init__(items)
+        super().__init__(items, ratios=[0.08, 0.92])
 
     def createTaskList(self):
         return VStack([
             createButton(text=task, color=Color.orange, tag=page, run=self.replaceContent) for task, page in self.pages
         ] + [None] * (self.taskListLength - len(self.pages)), ratios=[1.0 / self.taskListLength] * self.taskListLength)
 
-    def canDragView(self, view, container):
-        return self.content.canDragView(view=view, container=container)
-
     def draggedView(self, view):
         return self.content.draggedView(view=view)
+
+    def canDragView(self, view, container):
+        return self.content.canDragView(view, container)
 
     def scrollUp(self):
         self.content.scrollUp()
 
     def scrollDown(self):
         self.content.scrollDown()
+
+    def update(self):
+        self.content.update()
 
     def replaceContent(self, sender):
         self.content = sender.tag().replaceView(self.content)
@@ -120,12 +75,10 @@ class ModelPage(ZStack):
             self.content = sender.tag().replaceView(self)
             modelTitle = self.content.title
             self.content.container.updateAll()
+            # self.content.updateAll()
 
     def hoverMouse(self, x, y):
         self.content.hoverMouse(x, y)
-
-    def update(self):
-        self.content.update()
 
 
 class MenuPage(ModelPage):
@@ -144,7 +97,7 @@ class MenuPage(ModelPage):
                     VStack([
                         createLabel("Modern Models", color=Color.green),
                         self.createMenuButton(text="Decision Tree", color=Color.blue, tag=self.createDecisionTree),
-                        self.createMenuButton(text="SVM", color=Color.gray),
+                        self.createMenuButton(text="SVM", color=Color.blue, tag=self.createSVM),
                         self.createMenuButton(text="Neural Networks", color=Color.gray),
                         None
                     ], hideAllContainers=True)
@@ -198,6 +151,15 @@ class MenuPage(ModelPage):
             # ("More Info", InfoLogisticPage)
         ])
 
+    def createSVM(self):
+        return ModelPage(content=ExampleLogisticPage(), title="Support Vector Machine",
+                         pages=[
+            # ("Intro", IntroLogisticPage),
+            ("Example", ExampleSVMPage)
+            # ("Coding", CodingLogisticPage),
+            # ("More Info", InfoLogisticPage)
+        ])
+
     def createComp(self):
         return ModelPage(content=CompPage(), title="Model Comparsions",
                          pages=[
@@ -212,279 +174,57 @@ class MenuPage(ModelPage):
 # =====================================================================
 
 
-class BasePage(ZStack):
+class BasePage:
+    def __init__(self, table=None, testingTable=None):
+        self.table = table
+        self.testingTable = testingTable
+
+    def getView(self):
+        pass
+
+
+class SingleModelPage(BasePage):
+    def __init__(self, model, **kwargs):
+        super().__init__(**kwargs)
+        self.model = model
+
+
+class MultipleModelPage(BasePage):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Add things from ZStack that don't really belong to here
-
-
-class TextBoxPage(BasePage):
-
-    def __init__(self, textboxScript=None, textboxAudioPath=None, **kwargs):
-        super().__init__(**kwargs)
-        self.textboxScript = textboxScript
-        self.textboxIndex = 0
-        self.textboxAudioPath = textboxAudioPath
-
-    def pressTextBox(self, sender):
-        self.popView()
-        self.textboxIndex += 1
-        if self.textboxIndex < len(self.textboxScript):
-            self.addView(self.createNextTextbox())
-        self.updateAll()
-
-    def createNextTextbox(self):
-        text, dx, dy = self.textboxScript[self.textboxIndex]
-        soundName = self.textboxAudioPath + str(self.textboxIndex + 1) if self.textboxAudioPath != None and self.textboxIndex != None else None
-        return ZStack([
-            Button([
-                Rect(color=Color.white, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
-                Label(text=text, color=Color.black, fontSize=25)
-            ], run=self.pressTextBox),
-            Button(Image(imageName="audio.png", lockedWidth=50, lockedHeight=50), soundName=soundName, dx=1, dy=1, offsetX=-20, offsetY=-20, lockedWidth=60, lockedHeight=60)
-        ], dx=dx, dy=dy, lockedWidth=450, lockedHeight=200, hideAllContainers=True)
-
-
-class IntroPage(BasePage):
-
-    def __init__(self, description, **kwargs):
-        items = [
-            Label("Description", fontSize=56, dx=-1, dy=-1, offsetX=10, offsetY=10),
-            Label(description)
-        ]
-        super().__init__(items=items, **kwargs)
-
-
-class TablePage(TextBoxPage):
-    def __init__(self, filePath, partition=0.3, **kwargs):
-        super().__init__(**kwargs)
-        self.filePath = filePath
-        self.fileName = self.filePath.split("/")[-1].split(".")[0]
-        self.partition = partition
-        self.table = Table(filePath=self.filePath)
-        self.tableView = None
-        self.selectedColumns = [False for _ in range(self.table.colCount)]
-
-    def createTableView(self, **kwargs):
-        prevContainer = self.tableView.container if self.tableView != None else None
-        self.tableView = self.table.createView(createCell=self.createTableCell, **kwargs)
-        if prevContainer != None:
-            self.tableView.setContainer(prevContainer)
-        if self.model.classColors:
-            self.colorTableTargets()
-        return self.tableView
-
-    def createTableCell(self, tableView, index):
-        if index != None:
-            i, j = index // tableView.cols, index % tableView.cols
-            if self.tableView != None and self.selectedColumns[j]:
-                self.selectTableViewColumn(True, j)
-
-            column = self.table.colNames[j]
-            return ZStack([
-                Rect(color=Color.steelBlue if index < tableView.cols else Color.lightSteelBlue, border=3, cornerRadius=5, keywords="rect"),
-                Label(text=column if i == 0 else str(self.table[column][self.table.dataIndex[i - 1]]), fontSize=20, color=Color.white, keywords="label")
-            ])
-
-    def colorTableTargets(self):
-        index = self.tableView.cols
-        startRow = self.tableView.ci
-        for item in self.table.targetCol:
-            if startRow > 0:
-                startRow -= 1
-                continue
-            if index >= self.tableView.length:
-                break
-            rect = self.tableView.getView(index).keyDown("rect")
-            rect.color = self.model.classColors[item]
-            rect.isHidden = False
-            index += self.tableView.cols
-
-    def selectTableViewColumn(self, value, column):
-        self.selectedColumns[column] = value
-        if self.tableView != None:
-            for i in range(1, self.tableView.rows):
-                view = self.tableView.getView(i * self.tableView.cols + column)
-                if view != None:
-                    view.keyDown("rect").color = Color.steelBlue if value else Color.lightSteelBlue
-
-    def shiftTable(self, dy):
-        self.tableView.shift(dy=dy)
-        self.colorTableTargets()
-        self.updateHeaderSelectionButtons()
-        self.tableView.updateAll()
-
-    def scrollUp(self):
-        self.shiftTable(dy=1)
-
-    def scrollDown(self):
-        self.shiftTable(dy=-1)
-
-
-class MLPage(TablePage):
-    def __init__(self, drawModel=False, drawComp=False, **kwargs):
         super().__init__(**kwargs)
         self.models = []
-        self.mainModel = None
-        self.modelView = None
-        self.drawModel = drawModel
-        self.drawComp = drawComp
-        if self.filePath:
-            self.modelMousePoints = []
-
-    def createLegendView(self):
-        if not self.mainModel.isCategorical:
-            return None
-
-        legendItems = [Label("Legend", fontSize=30, color=Color.white)] + [
-            Label(str(label), fontSize=30, color=self.mainModel.classColors[label]) for label in self.table.classSet
-        ]
-
-        return ZStack([
-            Rect(color=Color.backgroundColor, strokeWidth=3, strokeColor=Color.steelBlue, cornerRadius=10),
-            VStack(legendItems, ratios=[0.8 / len(legendItems) for item in legendItems], offsetY=10, hideAllContainers=True)
-        ], lockedWidth=150, lockedHeight=180, dx=0.8, dy=-0.8, hideAllContainers=True)
-
-    def createDots(self):
-        items = []
-        for index, row in self.table.iterrows():
-            items.append(Ellipse(color=self.model.classColors[row[self.table.targetName]] if self.mainModel.isCategorical else Color.steelBlue,
-                                 strokeColor=Color.white, strokeWidth=3, dx=row[self.table.first()], dy=row[self.table.second()], lockedWidth=15, lockedHeight=15))
-        return items
-
-    def createAxis(self, isY):
-        return ZStack([
-            Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
-            Label(self.table.xNames[1] if isY else self.table.xNames[0], fontSize=25, color=Color.white, angle=90 if isY else 0)
-        ])
-
-    def createLines(self, color, errorOffset, eqOffset, **kwargs):
-        lines = Lines(color=color)
-        errorLabel = Label("Error: --", color=color, offsetY=errorOffset, **kwargs)
-        eqLabel = Label("Y=--", color=color, offsetY=eqOffset, **kwargs)
-        self.modelView.addAllViews(lines, errorLabel, eqLabel)
-        return lines, errorLabel, eqLabel
-
-    def clickGraph(self, sender):
-        self.function.addPoint((sender.lastClickX, sender.lastClickY))
-        # if self.drawModel:
-        #     points = self.mainModel.addPoint((sender.lastClickX, sender.lastClickY))
-
-        #     if points != None:
-        #         self.modelLine.points = points
-        #         self.modelError.setFont(text="Error: {}".format(round(self.mainModel.getError(), 4)))
-        #         self.modelEq.setFont(text=self.mainModel.getEqString())
-        #     else:
-        #         self.modelLine.points = []
-
-    def createGraphView(self):
-        self.function = Graph(self.mainModel)
-
-        # self.modelView = ZStack([
-        #     Button(self.createDots(), limit=200, run=self.clickGraph),
-        #     self.legend,
-        #     self.createIncButton(dx=-1, dy=1)
-        # ], limit=100)
-
-        self.modelGraph = HStack([
-            VStack([
-                self.createAxis(isY=True),
-                None,
-            ], ratios=[0.9, 0.1]),
-            VStack([
-                Button([
-                    self.function,
-                    self.createLegendView()
-                ], run=self.clickGraph),
-                self.createAxis(isY=False),
-            ], ratios=[0.9, 0.1])
-        ], ratios=[0.08, 0.92])
-        # if self.drawModel:
-        #     self.modelLine, self.modelError, self.modelEq = self.createLines(color=self.mainModel.color, errorOffset=-120, eqOffset=-90, dx=-1, dy=1)
-        # if self.drawComp:
-        #     self.compLine, self.compError, self.compEq = self.createLines(color=self.compModel.color, errorOffset=90, eqOffset=120, dx=1, dy=-1, offsetX=-150)
-
-        return self.modelGraph
-
-    def createHeaderButtons(self):
-        columns = self.table.columns
-        self.headerSelection = HStack([
-            ZStack([
-                Rect(color=Color.steelBlue, strokeColor=Color.white, strokeWidth=4, cornerRadius=10),
-                Button(Label(columns[i], fontSize=25, color=Color.white),
-                       isOn=False, tag=i, run=self.selectColumn)
-            ]) for i in range(1, len(columns))
-
-        ])
-        return self.headerSelection
-
-    def selectColumn(self, sender):
-        self.table.setColumnIndex(sender.tag)
-        self.selectTableViewColumn(value=sender.isOn, column=sender.tag)
-        self.updateHeaderSelectionButtons()
-
-        container = self.modelGraph.container
-        self.createGraphView()
-        self.modelGraph.setContainer(container)
-        container.updateAll()
-
-    def updateHeaderSelectionButtons(self):
-        for c in self.headerSelection.containers:
-            rect = c.view.getView(0)
-            button = c.view.getView(1)
-            column = self.table.columns[button.tag]
-
-            if self.mainModel.isLockedColumn(column):
-                rect.strokeColor = Color.gray
-                button.isDisabled = True
-                button.setOn(isOn=False)
-            else:
-                button.isDisabled = False
-                if self.mainModel.isCurrentColumn(column):
-                    rect.strokeColor = Color.yellow
-                    button.setOn(isOn=True)
-                else:
-                    rect.strokeColor = Color.darkGray
-                    button.setOn(isOn=False)
-                    self.selectTableViewColumn(value=False, column=button.tag)
-
-    def createIncButton(self, **kwargs):
-        pass
-
-    def incMethod(self, sender):
-        pass
-
-    def createAddCompButton(self):
-        self.addCompButton = Button([
-            Rect(color=Color.backgroundColor, cornerRadius=10, strokeColor=Color.steelBlue, strokeWidth=3),
-            Label("ML Results")
-        ], lockedWidth=150, lockedHeight=80, dx=1, dy=-1, offsetX=-10, offsetY=10, run=self.startComp)
-        return self.addCompButton
-
-    def startComp(self, sender):
-        self.compTrainComplete = False
-
-    def hoverMouse(self, x, y):
-        if self.hoverEnabled:
-            pass
-            # points = self.mainModel.addPoint((x, y), storePoint=False)
-            # if points != None:
-            #     self.modelLine.points = points
-            #     self.modelError.setFont(text="Error: {}".format(round(self.mainModel.getError(), 4)))
-            #     self.modelEq.setFont(text=self.mainModel.getEqString())
 
 
-class DTPage(MLPage):
-    def __init__(self, **kwargs):
+class CodingPage(SingleModelPage):
+    def __init__(self, codes, codingAddString, codingFilePath, examplePath, **kwargs):
         super().__init__(**kwargs)
-        self.mainModel = DecisionTree(table=self.table)
-        self.models.append(self.mainModel)
-        if self.filePath:
-            self.bagIndex = 0
+        self.codes = codes
+        self.codingAddString = codingAddString
+        self.codingFilePath = codingFilePath
+        self.codingExamplePath = examplePath
+
+        # super().__init__(, table=table, items=items, hoverEnabled=False, **kwargs)
+
+    def getView(self):
+        return CodingView(data=self)
+
+# =====================================================================
+# MODEL PAGE CLASSES
+# =====================================================================
+
+
+class DTPage(DataPage):
+    def __init__(self, **kwargs):
+        super().__init__(partition=0.3, **kwargs)
+        self.model = DecisionTree(table=self.table, testing=self.testingTable)
+        self.modelView = None
+        # self.models.append(self.model)
+        # if self.table.filePath:
+        #     self.bagIndex = 0
 
     def createTreeRoomView(self):
         treeViewContainer = self.modelView.container if self.modelView != None else None
-        self.modelView = self.createDotViews(self.mainModel.current)
+        self.modelView = Points(pts=self.model.getPts())
         if treeViewContainer != None:
             self.modelView.setContainer(treeViewContainer)
         self.modelBranch = Branch(view=self.modelView, disjoint=Container())
@@ -506,27 +246,27 @@ class DTPage(MLPage):
         return self.bag
 
     def goForward(self, sender):
-        if self.mainModel.hasChildren():
+        if self.model.hasChildren():
             self.goToIndexTree(index=sender.tag)
-            self.table = self.mainModel.getTable()
-            self.createTableView()
+            self.table = self.model.getTable()
+            self.updateTableView()
             self.updateHeaderSelectionButtons()
             self.modelBranch.getContainer().updateAll()
             self.tableView.container.updateAll()
             # self.updateContainers()
 
     def goBack(self, sender):
-        if not self.mainModel.isRoot():
+        if not self.model.isRoot():
             self.goBackTree()
-            self.table = self.mainModel.getTable()
-            self.createTableView()
+            self.table = self.model.getTable()
+            self.updateTableView()
             self.updateHeaderSelectionButtons()
             self.modelBranch.getContainer().updateAll()
             self.tableView.container.updateAll()
 
     def saveTree(self, sender):
-        accuracy = round(self.mainModel.test(self.localTestTable) * 100)
-        self.mainModel.modelTest(self.finalTestTable)
+        accuracy = round(self.model.test(self.localTestTable) * 100)
+        self.model.modelTest(self.finalTestTable)
 
         bagItem = ZStack([
             Rect(color=Color.steelBlue),
@@ -538,69 +278,49 @@ class DTPage(MLPage):
         self.totalScoreLabel.setFont(text="Total: [{}%]".format(round(100 * self.getTotalScore())))
         self.table, self.localTestTable = self.trainTable.partition()
 
-        self.mainModel = DecisionTree(table=self.table)
-        self.models.append(self.mainModel)
+        self.model = DecisionTree(table=self.table)
+        self.models.append(self.model)
         self.createTreeRoomView()
-        self.createTableView()
+        self.updateTableView()
 
         self.bag.updateAll()
         self.modelView.container.updateAll()
         self.tableView.container.updateAll()
         self.updateHeaderSelectionButtons()
 
-    def createDotViews(self, treeNode):
-        if treeNode.table.dataRows > 0:
-            trig = 2.0 * pi / treeNode.table.dataRows
-
-        items = []
-        i = 0
-        for index, row in treeNode.table.iterrows():
-            items.append(Ellipse(color=self.model.classColors[row[treeNode.table.targetName]],
-                                 strokeColor=Color.red, strokeWidth=2,
-                                 dx=0.5 * cos(trig * i) if treeNode.table.dataRows > 1 else 0.0,
-                                 dy=0.5 * sin(trig * i) if treeNode.table.dataRows > 1 else 0.0,
-                                 border=0,
-                                 lockedWidth=20, lockedHeight=20
-                                 ))
-            i += 1
-
-        if treeNode.parent != None:
-            items.append(Label(text="{}:{}".format(treeNode.parent.column, treeNode.value), fontSize=20, color=Color.white, dx=-0.95, dy=-1))
-        return ZStack(items=items, keywords="dotStack", limit=150)
-
     def splitTree(self, column):
-        self.mainModel.add(column=column)
+        self.model.add(column=column)
         container = self.modelBranch.getContainer()
         prevStack = type(self.modelBranch.disjoint.keyUp("div"))
         stack = VStack if prevStack != VStack else HStack
-        label = [Button(Label(text="{}:{}".format(self.mainModel.getParentColumn(), self.mainModel.getValue()), fontSize=20,
-                              color=Color.white, dx=-0.95, dy=-1), run=self.goBack)] if self.mainModel.getParent() != None else []
-        treeChildren = self.mainModel.getChildren()
+        label = [Button(Label(text="{}:{}".format(self.model.getParentColumn(), self.model.getValue()), fontSize=20,
+                              color=Color.white, dx=-0.95, dy=-1), run=self.goBack)] if self.model.getParent() != None else []
+        treeChildren = self.model.getChildren()
         totalClassCount = len(treeChildren)
         for child in treeChildren:
             totalClassCount += child.table.classCount
 
         self.modelView = ZStack(items=label + [
             stack(items=[
-                Button(self.createDotViews(self.mainModel.getChild(i)), run=self.goForward, tag=i) for i in range(len(treeChildren))
+                Button(Points(pts=self.model.getChild(i).table.getPts(), isConnected=False), run=self.goForward, tag=i) for i in range(len(treeChildren))
             ], ratios=[
                 (child.table.classCount + 1) / totalClassCount for child in treeChildren
-            ], border=20 if self.mainModel.getParent() != None else 0, keywords="div")
+            ], border=20 if self.model.getParent() != None else 0, keywords="div")
         ], keywords=["z"])
         self.modelBranch.setView(view=self.modelView)
 
     def removeNodeTree(self):
-        self.mainModel.remove()
-        self.modelView = self.createDotViews(self.mainModel.current)
+        self.model.remove()
+        self.modelView = self.createDotViews(self.model.curr)
         self.modelBranch.setView(view=self.modelView)
 
     def goBackTree(self):
-        self.mainModel.goBack()
+        self.model.goBack()
         self.modelView = self.modelBranch.disjoint.keyUp("z")
         self.modelBranch.move(self.modelView)
 
     def goToIndexTree(self, index):
-        self.mainModel.go(index=index)
+        self.model.go(index=index)
         container = self.modelBranch.view.keyDown("div")[index]
         stack = container.keyDown("z")
         self.modelView = stack if stack != None else container.keyDown("dotStack")
@@ -610,242 +330,62 @@ class DTPage(MLPage):
         super().selectColumn(sender)
         rect = sender.getCousin(0)
         if sender.isOn:
-            self.splitTree(column=self.mainModel.getColName(sender.tag))
+            self.splitTree(column=self.model.getColName(sender.tag))
             rect.strokeColor = Color.white
         else:
-            self.mainModel.remove()
+            self.model.remove()
             rect.strokeColor = Color.gray
         self.modelBranch.getContainer().updateAll()
 
 
-class KNNPage(MLPage):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.mainModel = KNN(table=self.table)
-        self.models.append(self.mainModel)
+class KNNPage(DataPage):
+    def __init__(self, table, testingTable=None, **kwargs):
+        super().__init__(table=table, testingTable=testingTable, model=KNN(table=table, testingTable=testingTable, drawTable=True), **kwargs)
+
+    def clickGraph(self, sender):
+        super().clickGraph(sender)
+        if self.userPts != None:
+            x = [
+                hp.map(sender.lastClickX, sender.x, sender.x + sender.getWidth(), self.models[0].minX1, self.models[0].maxX1),
+                hp.map(sender.lastClickY, sender.y, sender.y + sender.getHeight(), self.models[0].minX2, self.models[0].maxX2),
+            ]
+            pred = self.models[0].predict(x)
+            self.userPts.setColor(-1, self.table.classColors[pred])
 
     def incMethod(self, sender):
-        self.mainModel.k += 2
-        if self.mainModel.k > 10:
-            self.mainModel.k = 1
-        self.codingAddLabel.setFont("K: {}".format(self.mainModel.k))
-        for rect in self.modelMousePoints:
-            rect.color = self.model.classColors[self.mainModel.predictPoint(*rect.tag)]
+        self.model.k += 2
+        if self.model.k > 10:
+            self.model.k = 1
+        self.codingAddLabel.setFont("K: {}".format(self.model.k))
 
     def createIncButton(self, **kwargs):
-        self.codingAddLabel = Label("K: {}".format(self.mainModel.k))
+        self.codingAddLabel = Label("K: {}".format(self.model.k))
         return Button([
             Rect(color=Color.backgroundColor, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
             self.codingAddLabel
         ], run=self.incMethod, lockedWidth=130, lockedHeight=80, **kwargs)
 
 
-class LinearPage(MLPage):
+class LinearPage(DataPage):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.mainModel = Linear(table=self.table)
-        self.models.append(self.mainModel)
+        super().__init__(partition=0.3, hasAxis=True, features=1, **kwargs)
+        self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=2, drawTable=True, isUserSet=True))
 
 
-class LogisticPage(MLPage):
+class LogisticPage(DataPage):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.mainModel = Logistic(table=self.table)
-        self.models.append(self.mainModel)
+        super().__init__(partition=0.3, hasAxis=True, features=1, constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), **kwargs)
+        self.addModel(Logistic(table=self.table, testingTable=self.testingTable, drawTable=True, isUserSet=True))
 
 
-class SVMPage(MLPage):
+class SVMPage(DataPage):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.mainModel = SVM(table=self.table)
-        self.models.append(self.mainModel)
-
-
-class CodingPage(MLPage):
-    def __init__(self, codes, codingAddString, codingFilePath, codingIncMethod, examplePath, isAccuracy=True, **kwargs):
-        self.codes = codes
-        self.codingAddString = codingAddString
-        self.codingFilePath = codingFilePath
-        self.codingIncMethod = codingIncMethod
-        self.codingExamplePath = examplePath
-        self.isAccuracy = isAccuracy
-
-        super().__init__(textboxScript=[
-            ("Welcome to the Coding Tutorial!", 0, 0),
-            (["On this page, we will show the basics on how to",
-                "run a " + modelTitle + " on Python"], 0, 0),
-            (["Lets begin by dragging the code labels on the",
-                "left column to the correct spots on right"], 0.5, 0),
-            ("Can you figure out the correct order?", 0, 0),
-            (["Once you successfully set the code blocks,",
-                "add some trees and run your code!"], 0, 0)
-        ], **kwargs)
-
-        items = [
-            VStack([
-                self.createCodingHeader(),
-                self.createCodingTable(),
-                self.createCodingOptions()
-            ], ratios=[0.1, 0.8, 0.1]),
-            self.createNextTextbox()
-
-        ]
-        ZStack.__init__(self, items=items, hoverEnabled=False)
-
-    def createCodingHeader(self):
-        self.codingRunRect = Rect(color=Color.gray, cornerRadius=10)
-        self.codingRunButton = Button([
-            self.codingRunRect,
-            Label("Run")
-        ], hideAllContainers=True, lockedWidth=240, run=self.runCodingTest, isDisabled=True)
-
-        self.codingAccLabel = Label("Accuracy: --" if self.isAccuracy else "Error: --")
-        self.codingAddLabel = Label(self.codingAddString)
-        self.codingHeader = HStack([
-            self.codingRunButton,
-            self.codingAccLabel,
-            Button([
-                Rect(color=Color.steelBlue, cornerRadius=10),
-                self.codingAddLabel
-            ], run=self.codingIncMethod)
-        ], ratios=[0.5, 0.25, 0.25])
-        return self.codingHeader
-
-    def createCodingTable(self):
-        codeViews = [
-            ZStack([
-                Rect(color=Color.steelBlue, keywords="rect", cornerRadius=10),
-                Label(code.label, keywords="label")
-            ], isDraggable=True, tag=code, keywords="codeStack", lockedWidth=200, lockedHeight=60, hideAllContainers=True)for code in self.codes
-        ]
-        shuffle(codeViews)
-
-        self.codingTable = HStack([
-            VStack(codeViews, name="question", containerArgs=[{"showEmpty": True}]),
-            VStack([None] * len(self.codes), name="answer", containerArgs=[{"showEmpty": True, "tag": code.order} for code in self.codes])
-        ], ratios=[0.3, 0.7])
-        return self.codingTable
-
-    def createCodingOptions(self):
-        self.codingOptions = ZStack([
-            self.createFileNameView(),
-            HStack([
-                None,
-                self.createOpenSpreadsheetView(),
-                self.createCodingFileView(),
-                self.createOpenFilePath(),
-                None
-            ], hideAllContainers=True)
-        ])
-        return self.codingOptions
-
-    def canDragView(self, view, container):
-        return container.getParentStack().name == "question" or container.tag == view.tag.order
-
-    def draggedView(self, view):
-
-        stack = view.getParentStack()
-        label = view.keyDown("label")
-        success = stack.name == "answer"
-        if stack.name == "answer":
-            view.lock(lockedWidth=400)
-            label.setFont(text=view.tag.line, fontSize=22)
-
-            for container in stack.containers:
-                success = success and container.view != None
-        else:
-            view.lock(lockedWidth=200)
-            label.setFont(text=view.tag.label, fontSize=32)
-        self.codingRunRect.color = Color.green if success else Color.gray
-        self.codingRunButton.isDisabled = not success
-
-    def createFileNameView(self):
-        return Label("File: " + self.fileName, fontSize=18)
-
-    def createOpenSpreadsheetView(self):
-        return Button([
-            Rect(Color.green, cornerRadius=10),
-            Label("Open Excel")
-        ], run=hp.openFile, tag=self.filePath + ".csv", lockedWidth=200)
-
-    def createCodingFileView(self):
-        return Button([
-            Rect(Color.green, cornerRadius=10),
-            Label("Open Code")
-        ], run=hp.openFile, tag=self.codingFilePath, lockedWidth=200)
-
-    def createOpenFilePath(self):
-        return Button([
-            Rect(Color.green, cornerRadius=10),
-            Label("Select Data File")
-        ], run=self.showFileExplorer, lockedWidth=200)
-
-    def showFileExplorer(self, sender):
-        view = ZStack([
-            self.createFileExplorerView(),
-            Button([
-                Rect(Color.red, cornerRadius=10),
-                Label("Close", fontSize=25)
-            ], dy=1, lockedWidth=80, lockedHeight=60, offsetY=-50, run=self.hideFileExplorer)
-        ])
-        self.addView(view)
-        self.updateAll()
-
-    def createFileExplorerView(self):
-        files = hp.getFiles(self.codingExamplePath, ".csv")
-        length = 10
-        self.fileExplorer = ZStack([
-            Rect(Color.backgroundColor, border=0),
-            VStack([
-                ZStack([
-                    Rect(color=Color.steelBlue, cornerRadius=10),
-                    Label("Files", fontSize=35)
-                ])] + [
-                Button([
-                    Rect(color=Color.steelBlue, cornerRadius=10),
-                    Label(fileName.split(".")[0], fontSize=25)
-                ], name=fileName, lockedWidth=150) for fileName in files
-            ] + [None] * (10 - len(files) - 1), ratios=[1.0 / length] * length)
-        ], lockedWidth=350, lockedHeight=600)
-        return self.fileExplorer
-
-    def hideFileExplorer(self, sender):
-        self.popView()
-        self.updateAll()
-
-    def runCodingTest(self, sender):
-        self.codingAccLabel.setFont(text="Accuracy: {}%".format(round(100 * self.getTotalScore()))
-                                    if self.isAccuracy else "Error: {}".format(round(self.mainModel.getModelError(self.finalTestTable), 4)))
-        self.codingAccLabel.container.updateAll()
-
-
-class InfoPage(BasePage):
-    def __init__(self, files, **kwargs):
-        self.files = files
-        buttons = []
-        for label, path in self.files:
-            def setView(sender):
-                labelView = sender.keyDown("label")
-                if sender.isAlt():
-                    labelView.setFont("Opening File...")
-                else:
-                    labelView.setFont("Click here to learn more about: " + labelView.name)
-
-            buttons.append(Button(
-                Label("", dx=-1, offsetX=10, keywords="label", name=label),
-                tag=path,
-                run=hp.openFile,
-                setViewMethod=setView
-            ))
-
-        items = [VStack(
-            [Label("More Information Below:", fontSize=48, dx=-1)] + buttons + [None] * 8, hideAllContainers=False
-        )]
-        super().__init__(items, **kwargs)
+        super().__init__(partition=0.3, hasAxis=True, features=1, **kwargs)
+        self.models.append(SVM(table=self.table))
 
 
 # =====================================================================
-# Model Pages
+# CUSTOM MODEL PAGES
 # =====================================================================
 
 # Decision Tree
@@ -861,11 +401,24 @@ class IntroDTPage(IntroPage):
                        "       1) internal nodes corresponding to attributes (features)",
                        "       2) leaf nodes corresponding to the classification outcome",
                        "       3) edge denoting the assignment of the attribute."]
-        super().__init__(description=description)
+        super().__init__(label=Label(description))
 
 
-class ExampleDTPage(DTPage):
+class ExampleDTPage(DTPage, TablePage):
     def __init__(self, **kwargs):
+        items = [
+            HStack([
+                VStack([
+                    HStack([
+                        self.tableView,
+                        self.createTreeRoomView()
+
+                    ], ratios=[0.6, 0.4]),
+                    self.createHeaderButtons()
+                ], ratios=[0.9, 0.1])
+            ]),
+            self.createNextTextbox()
+        ]
         super().__init__(textboxScript=[
             ("Welcome to the Decision Tree Simulator!", 0, 0),
             (["To begin we will use a Decision Tree to",
@@ -881,34 +434,17 @@ class ExampleDTPage(DTPage):
             ("Finally, click on length to complete the tree", -0.8, 0),
             ("To show the full tree click on group name on the top", -0.8, 0),
             ("Congratulations on completing the tutorial", 0, 0)
-        ], filePath="examples/decisionTree/movie", partition=False, textboxAudioPath="dt_final/dt")
-
-        items = [
-            HStack([
-                VStack([
-                    HStack([
-                        self.createTableView(),
-                        self.createTreeRoomView()
-
-                    ], ratios=[0.6, 0.4]),
-                    self.createHeaderButtons()
-                ], ratios=[0.9, 0.1])
-            ]),
-            self.createNextTextbox()
-        ]
-
-        ZStack.__init__(self, items=items)
+        ], table=Table(filePath="examples/decisionTree/movie"), textboxAudioPath="dt_final/dt", items=items)
 
 
-class ExceriseDTPage(DTPage):
+class ExceriseDTPage(DTPage, TablePage):
     def __init__(self):
-        super().__init__(filePath="examples/decisionTree/zoo")
         items = [
             HStack([
                 VStack([
                     HStack([
                         self.createTreeListView(),
-                        self.createTableView(),
+                        self.tableView,
                         self.createTreeRoomView()
 
                     ], ratios=[0.15, 0.55, 0.3]),
@@ -917,11 +453,12 @@ class ExceriseDTPage(DTPage):
                 ], ratios=[0.9, 0.1])
             ])
         ]
-        # print(view)
-        ZStack.__init__(self, items=items)
+
+        super().__init__(table=Table(filePath="examples/decisionTree/zoo"), items=items)
+        self.models = []  # different from GraphPage
 
 
-class CodingDTPage(CodingPage):
+class CodingDTPage(DTPage, CodingPage):
     def __init__(self, **kwargs):
         # Codes
         codes = [
@@ -932,12 +469,11 @@ class CodingDTPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingAddString="Add Tree", filePath="examples/decisionTree/medical", codingFilePath="assets/treeExample.py",
-                         codingIncMethod=self.incTrees, examplePath="examples/decisionTree", **kwargs)
-        self.mainModel = DecisionTree(table=self.table)
-        self.models.append(self.mainModel)
+        table = Table(filePath="examples/decisionTree/medical")
+        super().__init__(table=table, model=DecisionTree(table=table), codes=codes, codingAddString="Add Tree", codingFilePath="assets/treeExample.py",
+                         examplePath="examples/decisionTree", **kwargs)
 
-    def incTrees(self, sender):
+    def incMethod(self, sender):
         if len(self.models) >= 100:
             self.models = []
             self.codingAddLabel.setFont("Add Trees")
@@ -945,8 +481,8 @@ class CodingDTPage(CodingPage):
         else:
             for _ in range(10):
                 train, test = self.trainTable.partition()
-                self.mainModel = DecisionTree(table=train)
-                self.models.append(self.mainModel)
+                self.model = DecisionTree(table=train)
+                self.addModel(self.model)
             self.codingAddLabel.setFont("Trees: {}".format(len(self.models)))
 
 
@@ -963,27 +499,20 @@ class InfoDTPage(InfoPage):
 class IntroKNNPage(IntroPage):
     def __init__(self):
         description = ["Welcome to the KNN Introduction Page"]
-        super().__init__(description=description)
+        super().__init__(label=Label(description))
 
 
-class ExampleKNNPage(KNNPage):
+class ExampleKNNPage(KNNPage, GraphPage):
     def __init__(self):
-        super().__init__(textboxScript=[
-            ("Welcome to the KNN Simulator!", 0, 0)
-        ], filePath="examples/svm/wine", partition=None)  # examples/linear/iris
-
         items = [
             self.createGraphView(),
             self.createNextTextbox()
         ]
-        ZStack.__init__(self, items=items)
-        # print(view)
+        super().__init__(textboxScript=[
+            ("Welcome to the KNN Simulator!", 0, 0)
+        ], table=Table(filePath="examples/knn/iris"), hasAxis=True, enableUserPts=True, items=items)  # examples/linear/iris
 
-    def clickGraph(self, sender):
-        dx, dy = hp.map(sender.lastClickX - self.modelView.x, 0.0, self.modelView.getWidth(), -1.0, 1.0), hp.map(sender.lastClickY - self.modelView.y, 0.0, self.modelView.getHeight(), -1.0, 1.0)
-        view = Rect(color=self.model.classColors[self.mainModel.predictPoint(dx=dx, dy=dy)], dx=dx, dy=dy, lockedWidth=15, lockedHeight=15, tag=(dx, dy))
-        self.modelMousePoints.append(view)
-        self.modelView.addView(view)
+        # print(view)
 
     def hoverMouse(self, mouseX, mouseY):
         if self.hoverEnabled and self.isWithin(mouseX, mouseY):
@@ -991,7 +520,7 @@ class ExampleKNNPage(KNNPage):
             # while self.modelView.peekView().name == "highlight":
             #     self.modelView.popView()
             # x, y = hp.map(mouseX - self.modelView.x, 0.0, self.modelView.getWidth(), -1.0, 1.0), hp.map(mouseY - self.modelView.y, 0.0, self.modelView.getHeight(), -1.0, 1.0)
-            # for _, index, dx, dy in self.mainModel.getNeighbor(x, y):
+            # for _, index, dx, dy in self.model.getNeighbor(x, y):
             #     self.modelView.addView(
             #         Ellipse(color=self.model.classColors[self.table.loc[index][self.table.targetName]], dx=dx, dy=dy, lockedWidth=20, lockedHeight=20, name="highlight")
             #     )
@@ -1009,7 +538,7 @@ class CodingKNNPage(KNNPage, CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingAddString="K: 3", filePath="examples/linear/iris", codingFilePath="assets/treeExample.py", codingIncMethod=self.incMethod, examplePath="examples/knn", **kwargs)
+        super().__init__(codes=codes, codingAddString="K: 3", table=Table(filePath="examples/knn/iris"), codingFilePath="assets/treeExample.py", examplePath="examples/knn", **kwargs)
 
 
 class InfoKNNPage(InfoPage):
@@ -1026,50 +555,31 @@ class InfoKNNPage(InfoPage):
 class IntroLinearPage(IntroPage):
     def __init__(self):
         description = ["Welcome to the Linear Regression Introduction Page"]
-        super().__init__(description=description)
+        super().__init__(label=Label(description))
 
 
-class ExampleLinearPage(LinearPage):
+class ExampleLinearPage(LinearPage, GraphPage):
     def __init__(self):
-        super().__init__(textboxScript=[
-            ("Welcome to the Linear Regression Simulator!", 0, 0)
-        ], filePath="examples/linear/iris", partition=False, drawModel=True, drawComp=True)
-
-        self.compModel = Linear(table=self.table, color=Color.blue)
-        self.compTrainComplete = True
-
         items = [
             VStack([
-                self.createGraphView(),
-                self.createHeaderButtons()
+                self.createGraphView()
+                # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             self.createAddCompButton(),
             self.createNextTextbox()  # must be last item
         ]
+        super().__init__(textboxScript=[
+            ("Welcome to the Linear Regression Simulator!", 0, 0)
+        ], table=Table(filePath="examples/linear/iris"), items=items)
 
-        ZStack.__init__(self, items=items)
-        self.updateHeaderSelectionButtons()
+        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, color=Color.blue, n=2))
+
+        # self.updateHeaderSelectionButtons()
         # print(view)
 
-    def update(self):
-        # print("UPDATE")
-        if not self.compTrainComplete:
-            self.compTrainComplete = not self.compModel.fit()
-            self.compLine.points = self.compModel.getEdgePoints()
-            self.compError.setFont(text="ML Error: {}".format(round(self.compModel.getError(), 4)))
-            self.compEq.setFont(text=self.compModel.getEqString())
 
-            # print("COMP:", self.compModel.cef, "ERROR:", self.compModel.dJ)
-
-
-class QuadLinearPage(LinearPage):
+class QuadLinearPage(LinearPage, GraphPage):
     def __init__(self):
-        super().__init__(textboxScript=[
-            ("Welcome to the Linear Regression Simulator!", 0, 0)
-        ], filePath="examples/linear/test", partition=False, drawModel=True, drawComp=True)
-        self.mainModel.n = 2
-        self.compModel = Linear(table=self.table, color=Color.blue, n=2, alpha=0.05)
-        self.compTrainComplete = True
         items = [
             VStack([
                 self.createGraphView(),
@@ -1079,29 +589,17 @@ class QuadLinearPage(LinearPage):
             self.createNextTextbox()  # must be last item
         ]
 
-        ZStack.__init__(self, items=items)
-        self.updateHeaderSelectionButtons()
+        super().__init__(textboxScript=[
+            ("Welcome to the Linear Regression Simulator!", 0, 0)
+        ], table=Table(filePath="examples/linear/test"), items=items)
+        self.model.n = 2
+        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, color=Color.blue, n=2))
+        # self.updateHeaderSelectionButtons()
         # print(view)
 
-    def update(self):
-        # print("UPDATE")
-        if not self.compTrainComplete:
-            self.compTrainComplete = not self.compModel.fit()
-            self.compLine.points = self.compModel.getManyPoints()
-            self.compError.setFont(text="ML Error: {}".format(round(self.compModel.getError(), 4)))
-            self.compEq.setFont(text=self.compModel.getEqString())
 
-            # print("COMP:", self.compModel.cef, "ERROR:", self.compModel.dJ)
-
-
-class SubsetLinearPage(LinearPage):
+class SubsetLinearPage(LinearPage, GraphPage):
     def __init__(self):
-        super().__init__(textboxScript=[
-            ("Welcome to the Linear Regression Simulator!", 0, 0)
-        ], filePath="examples/linear/iris", partition=False, drawComp=True)
-        self.compTrainComplete = True
-        self.compModel = Linear(table=self.table, color=Color.blue)
-
         items = [
             VStack([
                 self.createGraphView(),
@@ -1111,21 +609,13 @@ class SubsetLinearPage(LinearPage):
             self.createNextTextbox()  # must be last item
         ]
 
-        ZStack.__init__(self, items=items)
-        self.updateHeaderSelectionButtons()
-
-    def update(self):
-        # print("UPDATE")
-        if not self.compTrainComplete:
-            self.compTrainComplete = not self.compModel.fit()
-            self.compLine.points = self.compModel.getEdgePoints()
-            self.compError.setFont(text="ML Error: {}".format(round(self.compModel.getError(), 4)))
-            self.compEq.setFont(text=self.compModel.getEqString())
-
-            # print("COMP:", self.compModel.cef, "ERROR:", self.compModel.dJ)
+        super().__init__(textboxScript=[
+            ("Welcome to the Linear Regression Simulator!", 0, 0)
+        ], table=Table(filePath="examples/linear/iris"), drawComp=True, item=items)
+        # self.updateHeaderSelectionButtons()
 
 
-class CodingLinearPage(CodingPage):
+class CodingLinearPage(LinearPage, CodingPage):
     def __init__(self, **kwargs):
         # Codes
         codes = [
@@ -1136,10 +626,8 @@ class CodingLinearPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingAddString="--", filePath="examples/linear/iris",
-                         codingFilePath="assets/treeExample.py", codingIncMethod=self.incMethod, examplePath="examples/linear", isAccuracy=False, **kwargs)
-        self.mainModel = Linear(table=self.table)
-        self.models.append(self.mainModel)
+        super().__init__(codes=codes, codingAddString="--", table=Table(filePath="examples/linear/iris", features=1),
+                         codingFilePath="assets/treeExample.py", examplePath="examples/linear", **kwargs)
 
 
 class InfoLinearPage(InfoPage):
@@ -1155,41 +643,28 @@ class InfoLinearPage(InfoPage):
 class IntroLogisticPage(IntroPage):
     def __init__(self):
         description = ["Welcome to the Logisitic Regression Introduction Page"]
-        super().__init__(description=description)
+        super().__init__(label=Label(description))
 
 
-class ExampleLogisticPage(LogisticPage):
+class ExampleLogisticPage(LogisticPage, GraphPage):
     def __init__(self):
-        super().__init__(textboxScript=[
-            ("Welcome to the Logistic Regression Simulator!", 0, 0)
-        ], filePath="examples/logistic/diabetes", partition=False, drawModel=True)
-
         items = [
             VStack([
-                self.createGraphView(),
-                self.createHeaderButtons()
+                self.createGraphView()
+                # ,
+                # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             # self.createAddCompButton(),
             self.createNextTextbox()  # must be last item
         ]
-
-        ZStack.__init__(self, items=items)
-        self.updateHeaderSelectionButtons()
+        super().__init__(textboxScript=[
+            ("Welcome to the Logistic Regression Simulator!", 0, 0)
+        ], table=Table(filePath="examples/logistic/sigmoid"), items=items)
+        # self.updateHeaderSelectionButtons()
         # print(view)
 
-    def update(self):
-        # print("UPDATE")
-        pass
-        # if not self.compTrainComplete:
-        #     self.compTrainComplete = not self.compModel.fit()
-        #     self.compLine.points = self.compModel.getEdgePoints()
-        #     self.compError.setFont(text="ML Error: {}".format(round(self.compModel.getError(), 4)))
-        #     self.compEq.setFont(text=self.compModel.getEqString())
 
-        # print("COMP:", self.compModel.cef, "ERROR:", self.compModel.dJ)
-
-
-class CodingLogisticPage(CodingPage):
+class CodingLogisticPage(LogisticPage, CodingPage):
     def __init__(self, **kwargs):
         # Codes
         codes = [
@@ -1200,10 +675,8 @@ class CodingLogisticPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingAddString="--", filePath="examples/linear/iris",
-                         codingFilePath="assets/treeExample.py", codingIncMethod=self.incMethod, examplePath="examples/linear", isAccuracy=False, **kwargs)
-        self.mainModel = Linear(table=self.table)
-        self.models.append(self.mainModel)
+        super().__init__(codes=codes, codingAddString="--", table=Table(filePath="examples/linear/iris", features=1),
+                         codingFilePath="assets/treeExample.py", examplePath="examples/linear", **kwargs)
 
 
 class InfoLogisticPage(InfoPage):
@@ -1217,18 +690,15 @@ class InfoLogisticPage(InfoPage):
 # SVM
 
 
-class ExampleSVMPage(SVMPage):
+class ExampleSVMPage(SVMPage, GraphPage):
     def __init__(self):
-        super().__init__(textboxScript=[
-            ("Welcome to the SVM Simulator!", 0, 0)
-        ], filePath="examples/svm/iris", partition=None)  # examples/linear/iris
-
         items = [
             self.createGraphView(),
             self.createNextTextbox()
         ]
-        ZStack.__init__(self, items=items)
-        # print(view)
+        super().__init__(textboxScript=[
+            ("Welcome to the SVM Simulator!", 0, 0)
+        ], table=Table(filePath="examples/svm/iris"), items=items)  # examples/linear/iris
 
 
 class CompPage(IntroPage):
@@ -1287,9 +757,9 @@ class CompPage(IntroPage):
             # ], trainCount=50, testCount=50, p=0.5)
 
             self.models = [
-                KNN(bestK=True, table=data.training, testing=data.testing),
-                KNN(k=1, table=data.training, testing=data.testing),
-                Logistic(table=data.training)
+                KNN(bestK=True, table=data.training, testingTable=data.testing),
+                KNN(k=1, table=data.training, testingTable=data.testing),
+                Logistic(table=data.training, testingTable=self.testingTable)
             ]
 
             # print("PREDICTION:", self.models[0].predictPoint(10, 10))
@@ -1318,7 +788,7 @@ class CompPage(IntroPage):
         plt.show()
 
         description = ["Welcome to the Comparsion Model Page"]
-        super().__init__(description=description)
+        super().__init__(errorLabel=Label(description))
 
 # =====================================================================
 # Support Classes

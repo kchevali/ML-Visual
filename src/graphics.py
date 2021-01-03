@@ -3,12 +3,14 @@ from time import time
 import helper as hp
 import pygame as pg
 from pygame.mixer import Sound
+import pygame.freetype
 # import pygame.gfxdraw as pgx
 from math import inf
 from random import uniform
 from colorsys import hsv_to_rgb
 from collections import deque
 from table import Table
+import numpy as np
 
 # ===========================================================
 # FRAMES
@@ -45,7 +47,7 @@ class Frame:
         self.scrollY = 0.0
         self.border = 0.0  # unused by fixed frames
         self.isExpanded = False
-        self.setup = []
+        # self.setup = []
         self.id = Frame.idCounter
         Frame.idCounter += 1
 
@@ -71,8 +73,8 @@ class Frame:
         if dy != None:
             self.dy = dy
 
-    def addInstruction(self, method, args):
-        self.setup.append((method, args))
+    # def addInstruction(self, method, args):
+    #     self.setup.append((method, args))
 
     def delink(self, allowButtonUpdate=True):
         if self.container != None:
@@ -196,8 +198,16 @@ class Frame:
     def hoverMouse(self, x, y):
         "Empty Method"
 
+    def update(self):
+        pass
+
     def getSize(self):
         return (self.getWidth(), self.getHeight())
+
+    # Does not depend on isDraggable - this is asking if the container will accept the view
+    # See gui.py
+    def canDragView(self, view, container):
+        return False
 
     def display(self):
         "Empty Method"
@@ -334,61 +344,62 @@ class Ellipse(Shape):
         return "Ellipse:{}".format(self.getID())
 
 
-class Graph(Color):
-    def __init__(self, model=None, **kwargs):
-        super().__init__(color=model.color, **kwargs)
-        self.model = model
-        self.criticalPoints = []
-        self.displayPoints = []
+class Points(Ellipse):
+    # pts should be between -1 and 1
+    def __init__(self, pts=[], color=None, isConnected=False, maxPts=0, radius=5, **kwargs):
+        super().__init__(color=color, **kwargs)
+        self.setPts(pts)  # [-1,1]
+        self.isConnected = isConnected
+        self.maxPts = maxPts
+        self.radius = radius
+        self.displayPts = []  # pixel coordinates
 
     def updateFrame(self):
         super().updateFrame()
-        self.displayPoints = self._getTrainingPoints() if self.model.displayRaw else (self._getLinearPoints() if self.model.isLinear else self._getManyPoints())
-        print(self.displayPoints)
+        self.displayPts = [self.map(pt) for pt in self.pts]
+        # print(self.displayPts)
 
-    def _createPoint(self, x, y, color):
-        return hp.map(x, self.model.minX, self.model.maxX, self.x, self.x + self.getWidth()), hp.map(y, self.model.minY, self.model.maxY, self.y, self.y + self.getHeight()), color
+    # def _getTrainingPoints(self):
+    #     # check if categorical then use self.model.y[i] instead of self.model.x[i][1]
+    #     x, y = self.model.table.x, self.model.table.y
+    #     return [self._createPoint(x[i][0], x[i][1], self.model.table.classColors[y[i]]) for i in range(len(x))]
 
-    def _getLinearPoints(self):
-        allPts = [
-            (self.model.minX, self.model.getY(self.model.minX)),
-            (self.model.maxX, self.model.getY(self.model.maxX)),
-            (self.model.getX(self.model.minY), self.model.minY),
-            (self.model.getX(self.model.maxY), self.model.maxY),
-        ]
-        return [self.createPoint(x, y, self.color) for x, y in allPts if(x >= self.model.minX and x <= self.model.maxX and y >= self.model.minY and y <= self.model.maxY)]
-
-    def _getManyPoints(self):
-        pts = []
-        length, num = 5, self.model.minX
-        delta = (self.model.maxX - self.model.minX) / length
-        for i in range(length):
-            pts.append(self._createPoint(num, self.model.getY(num), self.color))
-            num += delta
-        return pts
-
-    def _getTrainingPoints(self):
-        # check if categorical then use self.model.y[i] instead of self.model.xs[i][1]
-        return [self._createPoint(self.model.xs[i][0], self.model.xs[i][1], self.model.classColors[self.model.y[i]]) for i in range(len(self.model.xs))]
-
-    def addPoint(self, point, storePoint=True):
-        if len(self.criticalPoints) < self.n + 1:
-            self.criticalPoints.append(point)
-            self.model.getEq(self.criticalPoints)
-            self.displayPoints = self._getLinearPoints() if self.model.isLinear else self._getManyPoints()
-            if not storePoint:
-                self.criticalPoints.pop()
+    def addPt(self, pt):
+        if len(self.pts) < self.maxPts:
+            self.pts.append(pt)
+            # self.model.getEq(self.pts)
+            # self.displayPts = self._getLinearPoints() if self.model.isLinear else self._getManyPoints()
+            self.displayPts.append(self.map(pt))
         else:
-            self.criticalPoints = []
+            self.reset()
+
+    def setPts(self, pts):
+        self.pts = pts
+        self.displayPts = [self.map(pt) for pt in self.pts]
+
+    def map(self, pt):
+        return (
+            hp.map(pt[0], -1, 1, self.x, self.x + self.getWidth()),
+            hp.map(pt[1], -1, 1, self.y, self.y + self.getHeight()),
+            pt[2]
+        )
 
     def display(self):
         if not self.isHidden:
-            if not self.model.isConnected:
-                for i in range(len(self.displayPoints)):
-                    pg.draw.ellipse(g, self.displayPoints[i][2], (self.displayPoints[i][0], self.displayPoints[i][1], 5, 5))
+            if not self.isConnected:
+                for i in range(len(self.displayPts)):
+                    pg.draw.ellipse(g, self.displayPts[i][2], (self.displayPts[i][0], self.displayPts[i][1], self.radius, self.radius))
             else:
-                for i in range(1, len(self.displayPoints)):
-                    pg.draw.line(g, self.color, tuple(self.displayPoints[i - 1][0:2]), tuple(self.displayPoints[i][0:2]), width=5)
+                for i in range(1, len(self.displayPts)):
+                    pg.draw.line(g, self.color, tuple(self.displayPts[i - 1][0:2]), tuple(self.displayPts[i][0:2]), width=self.radius)
+
+    def setColor(self, index, color):
+        self.pts[index] = (self.pts[index][0], self.pts[index][1], color)
+        self.displayPts[index] = (self.displayPts[index][0], self.displayPts[index][1], color)
+
+    def reset(self):
+        self.pts = []
+        self.displayPts = []
 
 
 class Image(ResizableFrame):
@@ -416,12 +427,12 @@ class Label(Frame):
     # border has no effect on
     fontCache = {}
 
-    def __init__(self, text, fontName="Comic Sans MS", fontSize=32, color=Color.white, autoFontSize=False, angle=0.0, **kwargs):
+    def __init__(self, text, fontName="Sans", fontSize=24, color=Color.white, autoFontSize=False, isVertical=False, **kwargs):
         super().__init__(**kwargs)
         self.autoFontSize = autoFontSize
-        self.setFont(text=text, fontName=fontName, fontSize=fontSize, color=color, angle=angle)
+        self.setFont(text=text, fontName=fontName, fontSize=fontSize, color=color, isVertical=isVertical)
 
-    def setFont(self, text=None, fontName=None, fontSize=None, color=None, angle=None):
+    def setFont(self, text=None, fontName=None, fontSize=None, color=None, isVertical=None):
         if text != None:
             self.text = [text] if type(text) != list else text
         if fontName != None:
@@ -430,49 +441,63 @@ class Label(Frame):
             self.fontSize = fontSize
         if color != None:
             self.color = color
-        if angle != None:
-            self.angle = angle
+        if isVertical != None:
+            self.isVertical = isVertical
 
-        fontKey = self.fontName + str(self.fontSize)
+        fontKey = self.fontName + str(self.fontSize) + str(self.isVertical)
         if fontKey in Label.fontCache:
             self.font = Label.fontCache[fontKey]
         else:
-            self.font = pg.font.SysFont(self.fontName, self.fontSize)
+            self.font = pg.freetype.SysFont(self.fontName, self.fontSize)
             Label.fontCache[fontKey] = self.font
 
-        self.render(self.text)
-        self.threeDots = False
+        self.font.vertical = self.isVertical
+        self.updateFrame()
+        # self.render(self.text)
+        # self.threeDots = False
 
     def render(self, lines):
-        surfaces, heights = [], [0]
+        self.rects = []
         width, height = 0.0, 0.0
+        x, y = self.pos
         for i, line in enumerate(lines):
-            surface = self.font.render(line, True, self.color)
-            # lineWidth, lineHeight = self.font.size(line)
-            lineWidth, lineHeight = surface.get_size()
-            width = max(width, lineWidth)
-            height += lineHeight
-            surfaces.append(surface)
-            heights.append(lineHeight + heights[-1])
+            rect = self.font.get_rect(line)
+            rect.topleft = (x, y)
+            self.rects.append(rect)
+            width = max(width, rect.width)
+            height += rect.height
+            y += rect.height
+        self._setSize(width, height)
 
-        self.surface = pg.Surface((width, height), pg.SRCALPHA)
+        #     surface = self.font.render(line, True, self.color)
+        #     # lineWidth, lineHeight = self.font.size(line)
+        #     lineWidth, lineHeight = surface.get_size()
+        #     width = max(width, lineWidth)
+        #     height += lineHeight
+        #     surfaces.append(surface)
+        #     heights.append(lineHeight + heights[-1])
 
-        for i in range(len(surfaces)):
-            self.surface.blit(surfaces[i], (0, heights[i]))
-        if self.angle != 0.0:
-            self.surface = pg.transform.rotate(self.surface, self.angle)
-        self._setSize(*self.surface.get_size())
+        # self.surface = pg.Surface((width, height), pg.SRCALPHA)
+
+        # for i in range(len(surfaces)):
+        #     self.surface.blit(surfaces[i], (0, heights[i]))
+        # if self.angle != 0.0:
+        #     self.surface = pg.transform.rotate(self.surface, self.angle)
+        # self._setSize(*self.surface.get_size())
 
     def updateFrame(self):
         super().updateFrame()
-        if not self.threeDots and not self.doesFit():
-            self.threeDots = True
-            self.render("...")
+        self.render(self.text)
+        # if not self.threeDots and not self.doesFit():
+        #     self.threeDots = True
+        #     self.render("...")
 
     def display(self):
         if not self.isHidden:
             super().display()
-            g.blit(self.surface, self.pos)
+            for i in range(len(self.text)):
+                self.font.render_to(g, self.rects[i].topleft, self.text[i], self.color, size=self.fontSize)
+            # g.blit(self.surface, self.pos)
             # for i, surface in enumerate(self.surfaces):
             #     g.blit(surface, (self.x, self.y + self.fontSize * i))
 
@@ -483,13 +508,18 @@ class Label(Frame):
 # CONTAINERS
 # ===========================================================
 
+# Why containers? A container is a fixed frame relative to its view. The view can scale and position itself freely within the container
 
-class Holder(ResizableFrame):
 
-    def __init__(self, view=None, **kwargs):
+class Container(ResizableFrame):
+
+    def __init__(self, view=None, ratioX=1.0, ratioY=1.0, showEmpty=False, **kwargs):
         super().__init__(**kwargs)
         self.view = view
         self.canHold = True
+        self.ratioX = ratioX
+        self.ratioY = ratioY
+        self.showEmpty = showEmpty
         if view != None:
             view.setContainer(container=self)
 
@@ -499,9 +529,12 @@ class Holder(ResizableFrame):
             self.view.setSize(width=self.getWidth() - 2 * self.view.border, height=self.getHeight() - 2 * self.view.border)
 
     def display(self):
-        if not self.isHidden and self.view != None:
+        if not self.isHidden:
+            if (self.view == None and self.showEmpty) or (self.view != None and not self.view.hideContainer and (self.container == None or not self.container.hideAllContainers)):
+                pg.draw.rect(g, Color.darkGray, (self.x, self.y, self.getWidth(), self.getHeight()), 2)
             super().display()
-            self.view.display()
+            if self.view != None:
+                self.view.display()
 
     def clicked(self, x, y):
         if self.isClicked(x, y):
@@ -534,15 +567,6 @@ class Holder(ResizableFrame):
     def __str__(self, indent=""):
         return "<{}>".format(self.view.__str__(indent=indent) if self.view != None else None)
 
-
-class Container(Holder):
-
-    def __init__(self, ratioX=1.0, ratioY=1.0, showEmpty=False, **kwargs):
-        super().__init__(**kwargs)
-        self.ratioX = ratioX
-        self.ratioY = ratioY
-        self.showEmpty = showEmpty
-
     def updateRatios(self, ratioX=None, ratioY=None):
         if ratioX != None:
             self.ratioX = ratioX
@@ -555,11 +579,6 @@ class Container(Holder):
     def delink(self):
         raise Exception("Cannot delink a container")
 
-    def display(self):
-        if not self.isHidden:
-            if (self.view == None and self.showEmpty) or (self.view != None and not self.view.hideContainer and (self.container == None or not self.container.hideAllContainers)):
-                pg.draw.rect(g, Color.darkGray, (self.x, self.y, self.getWidth(), self.getHeight()), 2)
-            super().display()
 
 # ===========================================================
 # STACKS
@@ -569,17 +588,16 @@ class Container(Holder):
 class Stack(ResizableFrame):
 
     # init args have default values for ZStack()
-    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=None, ratiosY=None, createView=None, containerArgs=[], **kwargs):
+    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=None, ratiosY=None, containerArgs=[], createCellViewMethod=None, **kwargs):
         super().__init__(**kwargs)
-        self.items = items if type(items) == list else [items]
+        self.items = items if type(items) == list or type(items) == np.ndarray else [items]
         self.limit = limit
         self.totalRows = rows
         self.totalCols = cols
         self.totalDepth = depth
         self.totalLength = self.totalRows * self.totalCols * self.totalDepth
-
-        if createView != None:
-            self.createView = createView
+        if createCellViewMethod != None:
+            self.createCellView = createCellViewMethod
 
         self.ci, self.cj, self.ck = 0, 0, 0
         self.rows = min(self.totalRows, self.limit)
@@ -589,26 +607,44 @@ class Stack(ResizableFrame):
         self.canHold = True
         self.isHidingViews = False
 
+        self.selectedRow = None
+        self.selectedCol = None
+        self.selectedDepth = None
+
         self.containers = []
+        # print("total:", self.rows, self.cols, self.depth, self.length)
+        # print("Items:", self.items)
         for i in range(self.rows):
             for j in range(self.cols):
                 for k in range(self.depth):
                     index = self.index(i, j, k)
-                    view = self.createView(self, self.totalIndex(i, j, k))
+                    # print("Index:", i, j, k, index)
+                    view = self.createCellView(self, self.totalIndex(i, j, k))
                     container = Container(view=view, container=self,
                                           ratioX=1.0 / self.cols if ratiosX == None else ratiosX[index],
                                           ratioY=1.0 / self.rows if ratiosY == None else ratiosY[index],
                                           **containerArgs[index] if index < len(containerArgs) else {})
                     self.containers.append(container)
 
-    def createView(self, table, index):
+    def createCellView(self, selfObj, index):
         return self.items[index]
+
+    def isSelected(self, i, j, k):
+        return self.selectedRow == i or self.selectedCol == j or self.selectedDepth == k
 
     def index(self, i, j, k):
         return j + self.cols * (i + self.rows * k) if i >= 0 and i < self.rows and j >= 0 and j < self.cols and k >= 0 and k < self.depth else None
 
     def totalIndex(self, i, j, k):
         return j + self.totalCols * (i + self.totalRows * k) if i >= 0 and i < self.totalRows and j >= 0 and j < self.totalCols and k >= 0 and k < self.totalDepth else None
+
+    def coord(self, index):
+        div = index // self.cols
+        return div % self.rows, index % self.cols, div // self.rows
+
+    def totalCoord(self, index):
+        div = index // self.totalCols
+        return div % self.totalRows, index % self.totalCols, div // self.totalRows
 
     def display(self):
         if not self.isHidden:
@@ -693,7 +729,7 @@ class Stack(ResizableFrame):
                     if a != None and 2 * y != dy + 1:
                         x2, y2, z2 = x + self.cj, y + self.ci, z + self.ck
                         index = self.totalIndex(y2 - 2 * dy, x2 - 2 * dx, z2 - 2 * dz)
-                        newView = self.createView(self, index)
+                        newView = self.createCellView(self, index)
                         if newView != None:
                             if b != None:
                                 view = self.getView(a)
@@ -717,10 +753,22 @@ class Stack(ResizableFrame):
                 return view
 
     def canDragView(self, view, container):
+        if(super().canDragView(view, container)):
+            return True
+        for c in self.containers:
+            if c.view != None and c.view.canDragView(view, container):
+                return True
         return False
 
     def draggedView(self, view):
-        "Empty Method"
+        for c in self.containers:
+            if c.view != None:
+                c.view.draggedView(view=view)
+
+    def hoverMouse(self, x, y):
+        for c in self.containers:
+            if c.view != None:
+                c.view.hoverMouse(x, y)
 
     def getView(self, key):
         return self.containers[key].view
@@ -737,17 +785,28 @@ class Stack(ResizableFrame):
 
         self.items.append(item)
         if len(self.items) <= self.limit:
-            self.containers.append(Container(view=self.createView(self, len(self.items) - 1), container=self, ratioX=ratioX, ratioY=ratioY))
+            self.containers.append(Container(view=self.createCellView(self, len(self.items) - 1), container=self, ratioX=ratioX, ratioY=ratioY))
 
     def popView(self):
         self.items.pop()
         return self.containers.pop().view
 
+    def getViews(self):
+        for c in self.containers:
+            if c.view != None:
+                yield c.view
+
+    def clear(self):
+        for _ in range(len(self.items)):
+            self.popView()
+
     def peekView(self):
         return self.containers[-1].view
 
     def update(self):  # used in linear regression example page
-        pass
+        for c in self.containers:
+            if c.view != None:
+                c.view.update()
 
     def __len__(self):
         return len(self.containers)
@@ -757,7 +816,6 @@ class Stack(ResizableFrame):
 
     def __getitem__(self, key):
         return self.containers[key]
-
 
 class HStack(Stack):
 
@@ -831,8 +889,12 @@ class VStack(Stack):
 
 class Grid(Stack):
 
-    def __init__(self, items=[], rows=1, cols=1, **kwargs):
-        super().__init__(items=items, rows=rows, cols=cols, **kwargs)
+    def __init__(self, items=[], rows=1, cols=1, model=None, **kwargs):
+        self.model = model
+        if model == None:
+            super().__init__(items=items, rows=rows, cols=cols, **kwargs)
+        else:
+            super().__init__(items=self.model.table.flatten(), rows=self.model.table.rowCount + 1, cols=self.model.table.colCount + 1, **kwargs)
 
     def updateFrame(self):
         super().updateFrame()
@@ -906,8 +968,8 @@ class ZStack(Stack):
     def scrollDown(self):
         pass
 
-    def display(self):
-        super().display()
+    # def display(self):
+    #     super().display()
         # if self.findKey("codeStack"):
         #     pg.draw.rect(g, Color.red, (self.x, self.y, self.getWidth(), self.getHeight()))
 
@@ -927,9 +989,12 @@ class Button(ZStack):
         self.clickHoldTime = clickHoldTime
         self.isOn = None
         self.setOn(isOn=isOn)
-        self.sound = Sound("assets/audio/" + soundName + ".wav") if soundName != None else None
         self.lastClickX = 0
         self.lastClickY = 0
+        self.setSoundName(soundName=soundName)
+
+    def setSoundName(self, soundName):
+        self.sound = Sound("assets/audio/" + soundName + ".wav") if soundName != None else None
 
     def display(self):
         if not self.isHidden:
@@ -973,3 +1038,21 @@ class Button(ZStack):
 
     def __str__(self, indent=""):
         return "Button-{}".format(super().__str__(indent=indent))
+
+
+if __name__ == '__main__':
+    def createCellView(selfObj, index):
+        return Rect(color=Color.blue)
+
+    table = Table(filePath="examples/decisionTree/movie")
+    grid = Grid(table=table)
+    index = 5
+    coords = grid.coord(index)
+    index2 = grid.index(*coords)
+    print("Rows:", grid.rows, "Cols:", grid.cols, "Depth:", grid.depth)
+    count = 0
+    # print("Match:", index, index2, coords)
+    for i in range(grid.length):
+        if index == index2:
+            count += 1
+    print("PASS" if count == grid.length else str(100 * count / grid.length))

@@ -9,31 +9,68 @@ from sklearn.model_selection import train_test_split
 class Table:
 
     # input should be (headers + data) or (cols + rows)
-    def __init__(self, df=None, param=None, filePath=None, numpy=None):
-        # assert (data != None and param != None) or filePath != None, "Cannot generate table"
+    def __init__(self, df=None, param=None, filePath=None, numpy=None, features=None, constrainX=None, constrainY=None):
+        """
+        Create a Table to store data.
+
+        Args 1:
+        ----------
+        - filePath: String - path to csv & param file
+        - param: Dict? - overwrites param file
+
+        Args 2:
+        ----------
+        - df: pandas.DataFrame - references dataframe w/o copy
+        - filePath: String? - path to param file only
+        - param: Dict? - overwrites param file
+
+        Args 3:
+        ----------
+        - numpy: numpy.ndarray - generate DataFrame from numpy
+        - filePath: String? - path to param file only
+        - param: Dict? - overwrites param file
+
+        Optional Args
+        - features: int - number of x columns to keep. None=all
+        - constrainX: (minX, maxX) - constrain all x cols to range
+        - constrainY: (minY, maxY) - constrain y col to range
+        """
+        # get data parameters
+        self.filePath = filePath
+        self.fileName = self.filePath.split("/")[-1].split(".")[0]
         self.param = hp.loadJSON(filePath + ".json") if not param else param
+        self.features = features
+
+        # get column names
         self.yName = self.param['target']
         self.xNames = self.param['columns']
-        self.mapper = self.param['map'] if "map" in self.param else {}
+        if self.features != None:
+            self.xNames = self.xNames[:self.features]
         self.colNames = [self.yName] + self.xNames
+        self.constrainX = constrainX
+        self.constrainY = constrainY
+
+        # process data frame
         self.data = df if df is not None else (pd.read_csv(filePath + ".csv") if filePath != None else pd.DataFrame(data=numpy.transpose(), columns=self.colNames))
         self.data = self.data.drop_duplicates(self.colNames)
         self.data = self.data[self.colNames]
 
-        self.yData = self.data[self.yName]
-        self.xData = self.data[self.xNames]
+        # constraining is used for logistic model to map range min,max to 0,1
+        if(self.constrainX != None):
+            x = self.data[self.xNames]
+            self.data[self.xNames] = self.constrainX[1] * (x - x.min()) / x.max() + self.constrainX[0]
 
-        self.columns = self.data.columns
-        self.loc = self.data.loc
-        self.classSet = self.yData.unique()
-        self.classCount = self.yData.nunique()
-        self.rowCount = len(self.data)  # total rows of data
-        self.colCount = len(self.columns)
+        if(self.constrainY != None):
+            y = self.data[self.yName]
+            self.data[self.yName] = self.constrainY[1] * (y - y.min()) / y.max() + self.constrainY[0]
 
-        self.xs = np.array(self.xData)
-        from sklearn.preprocessing import StandardScaler
-        self.xs = StandardScaler().fit_transform(self.xs)
-        self.y = np.array(self.yData).reshape([self.rowCount, 1])
+        self.y = self.data[self.yName].to_numpy()
+        self.x = self.data[self.xNames].to_numpy()
+
+        self.classSet = self.data[self.yName].unique()
+        self.classCount = len(self.classSet)
+        self.rowCount = len(self.data.index)  # total rows of data
+        self.colCount = len(self.xNames)  # does not include target
 
         self.classColors = {}
         i = 0
@@ -41,53 +78,80 @@ class Table:
             self.classColors[label] = hp.calmColor(i / self.classCount)
             i += 1
 
+        # Hide Code
+        # self.mapper = self.param['map'] if "map" in self.param else {}
+        # self.columns = self.data.columns
+        # self.loc = self.data.loc
+        # self.x = np.array(self.x)
+        # from sklearn.preprocessing import StandardScaler
+        # self.x = StandardScaler().fit_transform(self.x)
+        # self.y = np.array(self.y).reshape([self.rowCount, 1])
+
     def majorityInColumn(self, column):
         return self.data[column].value_counts().idxmax()
 
     def majorityInTargetColumn(self):
-        return self.majorityValue(self.yName)
+        return self.majorityInColumn(self.yName)
 
-    def partition(self, testing=0.3):
+    def partition(self, testing=0.3) -> tuple:
         train, test = train_test_split(self.data, test_size=testing)
 
-        trainTable = Table(df=train, param=self.param)
-        testTable = Table(df=test, param=self.param)
+        trainTable = Table(df=train, param=self.param, features=self.features, constrainX=self.constrainX, constrainY=self.constrainY)
+        testTable = Table(df=test, param=self.param, features=self.features, constrainX=self.constrainX, constrainY=self.constrainY)
         return trainTable, testTable
 
-    def map(self, column, value):
-        return self.mapper[column][value]
+    def minX(self, column=None):
+        return self.data[self.xNames].min()[column if column != None else self.xNames[0]]
 
-    def minX(self, xIndex=0):
-        return self.xData.min()[self.xNames[xIndex]]
-
-    def maxX(self, xIndex=0):
-        return self.xData.max()[self.xNames[xIndex]]
+    def maxX(self, column=None):
+        return self.data[self.xNames].max()[column if column != None else self.xNames[0]]
 
     def minY(self):
-        return self.yData.min()
+        return self.y.min()
 
     def maxY(self):
-        return self.yData.max()
+        return self.y.max()
 
-    def createXYTable(self, xIndex=0):
-        param = self.param.copy()
-        param['columns'] = [self.xNames[xIndex]]
-        return Table(df=self.data, param=param)
+    def flattenValues(self):
+        return self.data.values.flatten()
 
-    def createXXYTable(self, x1=0, x2=1):
-        param = self.param.copy()
-        param['columns'] = [self.xNames[x1], self.xNames[x2]]
-        return Table(df=self.data, param=param)
+    def flatten(self):
+        return np.concatenate([self.colNames, self.flattenValues()])
 
-    def iterrows(self):
-        return self.data.iterrows()
+    def __getitem__(self, column):
+        return self.data[column]
 
-    def __getitem__(self, key):
-        return self.data[key]
+    # Hidden Methods
+        # def map(self, column, value):
+    #     return self.mapper[column][value]
+    # def createXYTable(self, xIndex=0):
+    #     param = self.param.copy()
+    #     param['columns'] = [self.xNames[xIndex]]
+    #     return Table(df=self.data, param=param)
+    # def createXXYTable(self, x1=0, x2=1):
+    #     param = self.param.copy()
+    #     param['columns'] = [self.xNames[x1], self.xNames[x2]]
+    #     return Table(df=self.data, param=param)
 
 
 if __name__ == '__main__':
     hp.clear()
     print("Running TABLE MAIN")
-    table = Table(filePath="examples/decisionTree/animal")
-    print(table.createXYTable().data)
+    table = Table(filePath="examples/logistic/sigmoid", constrainX=(0, 1), constrainY=(0, 1))
+    print("Row Count:", table.rowCount)
+    print("Target:", table.yName)
+    print("Features:", table.xNames)
+    print("Classes(" + str(table.classCount) + "):", table.classSet)
+    print()
+
+    colName = table.xNames[0]
+    print("Majority in", colName, "is", table.majorityInColumn(colName))
+    print("Majority in", table.yName, "is", table.majorityInTargetColumn())
+    print(colName, "Min:", table.minX(colName), "Max:", table.maxX(colName))
+    print(table.yName, "Min:", table.minY(), "Max:", table.maxY())
+    print("Head:")
+    print(table.data.head())
+    print("Flatten:")
+    print(table.flatten())
+
+    # print(table.createXYTable().data)

@@ -8,190 +8,282 @@ import helper as hp
 import pandas as pd
 from table import Table
 from graphics import *
-from math import inf, sqrt, log
+from math import inf, sqrt, log, pi, sin, cos
 import math
 # from random import uniform
 
 
 class Model:
-    def __init__(self, table, color=Color.red, isLinear=False, isCategorical=False, isConnected=False, displayRaw=False, **kwargs):
-        self.xs = table.xs
-        self.y = table.y
-        self.minX, self.maxX = table.minX(), table.maxX()
-        self.minY, self.maxY = table.minX(1), table.maxX(1)
+    def __init__(self, table, testingTable=None, color=Color.red, drawTable=False, isUserSet=False, **kwargs):
+        self.table = table
+        self.testingTable = testingTable
         self.color = color
-        self.isLinear = isLinear
-        self.isCategorical = isCategorical
-        self.isConnected = isConnected
-        self.displayRaw = displayRaw
-        self.classColors = table.classColors
+        self.drawTable = drawTable
+        # isLinear=False, isCategorical=False, isConnected=False, displayRaw=False
+        # self.isLinear = isLinear
+        # self.isCategorical = isCategorical
+        # self.isConnected = isConnected
+        # self.displayRaw = displayRaw
+        self.minX1, self.maxX1 = None, None
+        self.minX2, self.maxX2 = None, None
+        self.colNameA, self.colNameB = None, None
+        self.graphics = []  # stores Point objects
+        self.graphicsDict = {}
+        self.isUserSet = isUserSet
+
+    def getTablePtsXX(self):
+        return [self.getPt(self.table.x[i][0], self.table.x[i][1], self.table.classColors[self.table.y[i]]) for i in range(self.table.rowCount)]
+
+    def getTablePtsXY(self):
+        return [self.getPt(self.table.x[i][0], self.table.y[i], self.color) for i in range(self.table.rowCount)]
+
+    def getPt(self, x, y, color):  # get many points
+        return (hp.map(x, self.minX1, self.maxX1, -1, 1), hp.map(y, self.minX2, self.maxX2, -1, 1), color)
+
+    def addGraphics(self, *args):
+        for graphic in args:
+            if type(graphic) == tuple:
+                key, graphic = graphic
+                self.graphicsDict[key] = graphic
+            self.graphics.append(graphic)
+
+    def getGraphic(self, key):
+        return self.graphicsDict[key] if key in self.graphicsDict else None
+
+    def getScoreString(self):
+        raise NotImplementedError("Please Implement getScoreString")
+
+    def defaultScoreString(self):
+        raise NotImplementedError("Please Implement defaultScoreString")
 
 
 class Classifier(Model):
     # takes multiple features and outputs a categorical data
-    def __init__(self, isCategorical=True, **kwargs):
-        super().__init__(isLinear=False, isConnected=False, isCategorical=isCategorical, **kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(isLinear=False, isConnected=False, **kwargs)
+        self.minX1, self.maxX1 = self.table.minX(), self.table.maxX()
+        self.minX2, self.maxX2 = self.table.minX(self.table.xNames[1]), self.table.maxX(self.table.xNames[1])
+        self.colNameA, self.colNameB = self.table.xNames[0], self.table.xNames[1]
 
     def accuracy(self, testTable):
         correct = 0
-        xs, y = testTable.xs, testTable.y
+        x, y = testTable.x, testTable.y
         for i in range(testTable.rowCount):
-            correct += 1 if self.predict(xs[i]) == y[i] else 0
+            correct += 1 if self.predict(x[i]) == y[i] else 0
         return (correct / testTable.rowCount)
 
-    def predict(self, _xs):
+    def predict(self, _x):
         pass
+
+    def getScoreString(self):
+        return str(round(100 * self.accuracy(testTable=self.testingTable), 2)) + "%"
+
+    def defaultScoreString(self):
+        return "Accuracy: --"
+
+    def getCircleLabelPts(self):  # circle
+        rowCount = self.curr.table.rowCount
+        if rowCount > 0:
+            trig = 2.0 * pi / rowCount
+
+        pts = []
+        i = 0
+        for label in self.table.y:
+            pts.append((0.5 * cos(trig * i) if rowCount > 1 else 0.0,
+                        0.5 * sin(trig * i) if rowCount > 1 else 0.0,
+                        self.curr.table.classColors[label]))
+            i += 1
+
+        # if treeNode.parent != None:
+        #     items.append(Label(text="{}:{}".format(treeNode.parent.column, treeNode.value), fontSize=20, color=Color.white, dx=-0.95, dy=-1))
+        # return ZStack(items=items, keywords="dotStack", limit=150)
+        return pts
 
 
 class Regression(Model):
     # takes multiple features and outputs real data
 
-    def __init__(self, length, isCategorical=False, **kwargs):
-        super().__init__(isConnected=True, isCategorical=isCategorical, **kwargs)
+    def __init__(self, length, **kwargs):
+        super().__init__(isConnected=True, **kwargs)
         self.length = length
+        self.minX1, self.maxX1 = self.table.minX(), self.table.maxX()
+        self.minX2, self.maxX2 = self.table.minY(), self.table.maxY()
+        self.colNameA, self.colNameB = self.table.xNames[0], self.table.yName
+        if self.drawTable:
+            self.graphics.append(Points(pts=self.getTablePtsXY(), color=self.color, isConnected=False))
+        self.isRunning = False
         self.reset()
 
     def error(self, testTable):
         error = 0
-        x, y = testTable.getXY()
         for i in range(testTable.rowCount):
-            error += (y[i] - self.getY(x[i]))**2
+            error += (testTable.y[i] - self.getY(testTable.x[i]))**2
         return sqrt(error) / testTable.rowCount
 
-    def getY(self, x):
-        pass
-
-    def getX(self, y):
-        pass
-
     def reset(self):
-        self.points = []
+        self.critPts = []
         self.cef = [0] * self.length  # highest power first
         self.debug = 0
 
+        pts = self.getGraphic("pts")
+        if pts != None:
+            pts.reset()
+
+    def getY(self, x):
+        raise NotImplementedError("Please Implement getY")
+
+    def getX(self, y):
+        raise NotImplementedError("Please Implement getX")
+
     def getEqString(self):
-        return "EQ"
+        raise NotImplementedError("Please Implement getEqString")
+
+    def getEq(self):
+        raise NotImplementedError("Please Implement getEq")
+
+    def getScoreString(self):
+        return str(round(self.error(testTable=self.testingTable), 4))
+
+    def defaultScoreString(self):
+        return "Error: --"
+
+    def getPts(self, start=None, end=None, count=40):  # get many points
+        if start == None:
+            start = self.minX1
+        if end == None:
+            end = self.maxX1
+        return [self.getPt(num, self.getY(num), self.color) for num in hp.rangx(start, end, (end - start) / count, outputEnd=True)]
+
+    def addPt(self, x, y, storePt=True):
+        if len(self.critPts) == 0 and not storePt:
+            return
+        if len(self.critPts) < self.length:
+            self.critPts.append((x, y))
+            self.getEq()
+
+            # update graphics
+            self.getGraphic("pts").setPts(self.getPts())
+            self.getGraphic("eq").setFont(text=self.getEqString())
+            self.getGraphic("err").setFont(text="Error: " + self.getScoreString())
+            if not storePt:
+                self.critPts.pop()
+        elif storePt:
+            self.reset()
 
 
 class DecisionTree(Classifier):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.current = DTNode(table=self.training, tree=self)
-        self.training = None
-
-        self.model = DecisionTreeClassifier()
-        self.model.fit(self.getTable().encodedData, self.getTable().encodeTargetCol)
+        self.curr = DTNode(table=self.table)
+        self.graphics.append(Points(pts=self.getCircleLabelPts(), color=self.color, isConnected=False))
+        # self = DecisionTreeClassifier()
+        # self.fit(self.getTable().encodedData, self.getTable().encodeTargetCol)
 
     def getTable(self):
-        return self.current.table
+        return self.curr.table
 
     def getClassCount(self):
-        return self.current.table.classCount
+        return self.curr.table.classCount
 
     def getClass(self, index):
-        return self.current.table.classes[index]
+        return self.curr.table.classSet[index]
 
     def getColName(self, index):
-        return self.current.table.colNames[index]
+        return self.curr.table.colNames[index]
 
     def getChildren(self):
-        return self.current.children
+        return self.curr.children
 
     def getParent(self):
-        return self.current.parent
+        return self.curr.parent
 
     def getParentColumn(self):
-        return self.current.parent.column
+        return self.curr.parent.column
 
     def getValue(self):
-        return self.current.value
+        return self.curr.value
 
     def isLockedColumn(self, column):
-        if self.current == None or self.current.parent == None:
+        if self.curr == None or self.curr.parent == None:
             return False
-        return self.current.parent.containsColumn(column)
+        return self.curr.parent.containsColAbove(column)
 
     def isCurrentColumn(self, column):
-        return self.current and self.current.column == column
+        return self.curr and self.curr.column == column
 
     def isVertical(self):
         return type(self.getView().keyDown("div")) != HStack
 
     def add(self, column):
-        self.current.add(column)
+        self.curr.setCol(column)
 
     def remove(self):
-        self.current.remove()
+        self.curr.reset()
 
     def goBack(self):
-        self.current = self.current.parent
+        self.curr = self.curr.parent
 
     def go(self, index):
-        self.current = self.current.children[index]
+        self.curr = self.curr.children[index]
 
     def predict(self, row):
-        return self.current.predict(row)
+        return self.curr.predict(row)
 
     def modelPredict(self, row):
-        return self.model.predict([row])[0]
+        return self.predict([row])[0]
 
     def modelTest(self, testData):
-        y_pred = self.model.predict(testData.encodedData)
+        y_pred = self.predict(testData.encodedData)
         y_test = testData.targetCol
         return metrics.accuracy_score(y_test, y_pred)
 
     def isRoot(self):
-        return self.current and not self.current.parent
+        return self.curr and not self.curr.parent
 
     def hasChildren(self):
-        return self.current and len(self.current.children) > 0
+        return self.curr and len(self.curr.children) > 0
 
     def getChild(self, index):
-        return self.current.children[index]
+        return self.curr.children[index]
 
 
 class DTNode:
 
-    def __init__(self, table, tree, parent=None, value=None):
-        self.column = None
-        self.children = []
-        self.training = table
-        self.tree = tree
+    def __init__(self, table, parent=None, value=None):
+        self.table = table
         self.parent = parent
         self.value = value
+        self.column = None
+        self.children = []
+        # self.tree = tree
 
-        # print("CREATE NODE")
-        # print(self.dataFrame.head())
-
-    def add(self, column):
+    def setCol(self, column):
         self.column = column
         self.children = []
-        for item in self.training[column].unique():
+        for item in self.table[column].unique():
             self.children.append(DTNode(
-                table=Table(data=self.training[self.training[self.column] == item], param=self.training.param),
-                tree=self.tree, parent=self, value=item
+                table=Table(df=self.table[self.table[self.column] == item], param=self.table.param),
+                parent=self, value=item
             ))
 
-    def remove(self):
+    def reset(self):
         self.column = None
         self.children = []
 
-    def containsColumn(self, column):
+    def containsColAbove(self, column):
         if self.column == column:
             return True
         if self.parent != None:
-            return self.parent.containsColumn(column)
+            return self.parent.containsColAbove(column)
         return False
 
-    def predict(self, row):
+    def predict(self, x):
         if self.children:
             for child in self.children:
-                # print("Row:", row)
-                # print("C:", child.column)
-                if child.value == row[self.column]:
-                    return child.predict(row)
+                if child.value == x[self.column]:
+                    return child.predict(x)
             return None
-        return self.training.commonTarget()
+        return self.table.majorityInTargetColumn()
 
 
 class KNN(Classifier):
@@ -199,20 +291,21 @@ class KNN(Classifier):
     def __init__(self, table, k=3, bestK=False, **kwargs):
         super().__init__(table=table, displayRaw=True, **kwargs)
         self.k = k
-        self.kdTree = spatial.KDTree(np.array(table.xData))
+        self.kdTree = spatial.KDTree(np.array(table.x))
+        if self.drawTable:
+            self.graphics.append(Points(pts=self.getTablePtsXX(), color=self.color, isConnected=False))
         if bestK:
             self.findBestK()
 
-        # xy = self.training.getArray([1, 2])
+        # xy = self.table.getArray([1, 2])
         # print(xy)
         # self.distTree = spatial.KDTree(xy)
 
-    def getNeighbor(self, _xs):
-        return np.reshape(self.kdTree.query(_xs, k=self.k)[1], self.k)
-        # return out if out is np.ndarray else np.array([out])
+    def getNeighbor(self, _x):
+        return np.reshape(self.kdTree.query(_x, k=self.k)[1], self.k)  # if type(_x) == np.ndarray else np.array(_x)
 
-    def predict(self, _xs):
-        ys = np.array([self.y[i] for i in self.getNeighbor(_xs)])
+    def predict(self, _x):
+        ys = np.array([self.table.y[i] for i in self.getNeighbor(_x)])
         return np.argmax(np.bincount(ys))
 
     def findBestK(self, testTable):
@@ -227,8 +320,8 @@ class KNN(Classifier):
 
 
 class Linear(Regression):
-    def __init__(self, n=1, alpha=0.05, epsilon=1e-5, **kwargs):
-        super().__init__(length=self.n + 1, isLinear=n == 1, **kwargs)
+    def __init__(self, n=1, alpha=1e-3, epsilon=1e-3, **kwargs):
+        super().__init__(length=n + 1, isLinear=n == 1, **kwargs)
         self.n = n
         self.alpha = alpha
         self.epsilon = epsilon
@@ -237,15 +330,15 @@ class Linear(Regression):
 
     # incoming point must be pixel coordinates
 
-    def getEq(self, points):
-        if len(points) > 0:
-            x1, y1 = points[0]
-            if len(points) > 1:
-                x2, y2 = points[1]
+    def getEq(self):
+        if len(self.critPts) > 0:
+            x1, y1 = self.critPts[0]
+            if len(self.critPts) > 1:
+                x2, y2 = self.critPts[1]
                 if self.n == 1 and x2 != x1:
                     self.getLinearEq(x1, y1, x2, y2)
-                if len(points) > 2 and self.n == 2:
-                    x3, y3 = points[2]
+                if len(self.critPts) > 2 and self.n == 2:
+                    x3, y3 = self.critPts[2]
                     if x2 != x1 and x3 != x1 and x3 != x2:
                         self.getQuadEq(x1, y1, x2, y2, x3, y3)
 
@@ -255,7 +348,8 @@ class Linear(Regression):
             return (y - intercept) / slope if slope != 0 else inf
         elif self.n == 2:
             a, b, c = tuple(self.cef)
-            delta = b * b - 4 * a * c
+            delta = b * b - 4 * a * (c - y)
+            # print("Y:", y, "Delta:", delta)
             if delta < 0 or a == 0:
                 return None, None
             return (-b + sqrt(delta)) / (2 * a), (-b - sqrt(delta)) / (2 * a)
@@ -287,20 +381,22 @@ class Linear(Regression):
             # b = self.cef[1] - self.alpha * self.getJGradient(multX=False) / self.length
             self.dJ = self.getJ(self.cef) - self.getJ(newCefs)
             self.cef = newCefs
-            # print("NUMS:", self.cef, self.dJ)
-            return True
+            self.getGraphic("pts").setPts(self.getPts())
+            self.getGraphic("eq").setFont(text=self.getEqString())
+            self.getGraphic("err").setFont(text="Error: " + self.getScoreString())
+            return
         print("FIT DONE")
-        return False
+        self.isRunning = False
 
     def getJ(self, cef):
         total = 0
         # testTotal = 0
-        for i in range(self.length):
-            localTotal = self.y[i]
+        for i in range(self.table.rowCount):
+            localTotal = self.table.y[i]
             for j in range(self.n + 1):
-                localTotal -= cef[j] * (self.xs[i]**(self.n - j))
+                localTotal -= cef[j] * (self.table.x[i][0]**(self.n - j))
 
-            # testTotal += (self.y[i] - cef[0] * self.xs[i] - cef[1])**2
+            # testTotal += (self.table.y[i] - cef[0] * self.table.x[i] - cef[1])**2
             total += localTotal * localTotal
         # print("J:", total, testTotal)
         return total
@@ -308,22 +404,22 @@ class Linear(Regression):
     def getJGradient(self, degreeX):
         total = 0
         # testTotal = 0
-        for i in range(self.length):
-            localTotal = -self.y[i]
+        for i in range(self.table.rowCount):
+            localTotal = -self.table.y[i]
             for j in range(self.n + 1):
-                localTotal += self.cef[j] * (self.xs[i]**(self.n - j))
-            total += localTotal * (self.xs[i]**degreeX)
-            # testTotal += (self.cef[0] * self.xs[i] + self.cef[1] - self.y[i]) * (self.xs[i]**degreeX)
+                localTotal += self.cef[j] * (self.table.x[i][0]**(self.n - j))
+            total += localTotal * (self.table.x[i][0]**degreeX)
+            # testTotal += (self.cef[0] * self.table.x[i] + self.cef[1] - self.table.y[i]) * (self.table.x[i]**degreeX)
         # print("G:", total, testTotal)
-        total /= self.length
+        total /= self.table.rowCount
         # print("Gradient Step:", total)
         return total
 
     def fitLasso(self):
         if self.dJ >= self.epsilon:
-            newCefs = [self.cef[i] - self.alpha * self.getJGradient(degreeX=self.n - i) / self.length for i in range(self.n + 1)]
-            # a = self.cef[0] - self.alpha * self.getJGradient(multX=True) / self.length
-            # b = self.cef[1] - self.alpha * self.getJGradient(multX=False) / self.length
+            newCefs = [self.cef[i] - self.alpha * self.getJGradient(degreeX=self.n - i) / self.table.rowCount for i in range(self.n + 1)]
+            # a = self.cef[0] - self.alpha * self.getJGradient(multX=True) / self.table.rowCount
+            # b = self.cef[1] - self.alpha * self.getJGradient(multX=False) / self.table.rowCount
             self.dJ = self.getJ(self.cef) - self.getJ(newCefs)
             self.cef = newCefs
             # print(self.cef, self.dJ)
@@ -333,12 +429,12 @@ class Linear(Regression):
     def getJLasso(self, cef):
         total = 0
         # testTotal = 0
-        for i in range(self.length):
-            localTotal = self.y[i]
+        for i in range(self.table.rowCount):
+            localTotal = self.table.y[i]
             for j in range(self.n + 1):
-                localTotal -= cef[j] * (self.xs[i]**(self.n - j))
+                localTotal -= cef[j] * (self.table.x[i]**(self.n - j))
 
-            # testTotal += (self.y[i] - cef[0] * self.xs[i] - cef[1])**2
+            # testTotal += (self.table.y[i] - cef[0] * self.table.x[i] - cef[1])**2
             total += localTotal * localTotal
         for j in range(self.n + 1):
             total += abs(cef[j]) * self.llamda
@@ -348,12 +444,12 @@ class Linear(Regression):
     def getJGradientLasso(self, degreeX):
         total = 0
         # testTotal = 0
-        for i in range(self.length):
-            localTotal = -self.y[i]
+        for i in range(self.table.rowCount):
+            localTotal = -self.table.y[i]
             for j in range(self.n + 1):
-                localTotal += self.cef[j] * (self.xs[i]**(self.n - j))
-            total += localTotal * (self.xs[i]**degreeX)
-            # testTotal += (self.cef[0] * self.xs[i] + self.cef[1] - self.y[i]) * (self.xs[i]**degreeX)
+                localTotal += self.cef[j] * (self.table.x[i]**(self.n - j))
+            total += localTotal * (self.table.x[i]**degreeX)
+            # testTotal += (self.cef[0] * self.table.x[i] + self.cef[1] - self.table.y[i]) * (self.table.x[i]**degreeX)
         for j in range(self.n + 1):
             total -= self.llamda * self.cef[j] / abs(self.cef[j])
         # print("G:", total, testTotal)
@@ -367,9 +463,45 @@ class Linear(Regression):
             out += ("" if val < 0 or i == 0 else "+") + \
                 (str(val) if val != 0 or n == 0 else "") + \
                 ("x" if n > 0 else "") + \
-                (("^" + str(n)) if n > 1 else "")
+                (hp.superscript(str(n)) if n > 1 else "")
             n -= 1
         return out
+
+    def getPts(self):
+        edgePts = [
+            (self.minX1, self.getY(self.minX1)),
+            (self.maxX1, self.getY(self.maxX1)),
+            (self.getX(self.minX2), self.minX2),
+            (self.getX(self.maxX2), self.maxX2),
+        ]
+        if self.n == 1:
+            return [self.getPt(x, y, self.color) for x, y in edgePts if(x >= self.minX1 and x <= self.maxX1 and y >= self.minX2 and y <= self.maxX2)]
+        # print("Edge:", edgePts)
+        edges = []
+        for x, y in edgePts:
+            if type(x) != tuple:
+                x = [x]
+            if type(y) != tuple:
+                y = [y]
+            edges += [(x_, y_) for x_ in x for y_ in y if x_ != None and y_ != None and x_ >= self.minX1 and x_ <= self.maxX1 and y_ >= self.minX2 and y_ <= self.maxX2]
+        edgePts = edges
+        edgePts.sort()
+        # print("X1:", self.minX1, self.maxX1)
+        # print("X2:", self.minX2, self.maxX2)
+        # print("Edge:", edgePts)
+        # if(self.n > 1):
+        #     edgePts = [
+
+        #     ]
+        # print("COEFFs:", self.cef)
+        # print("Processed:", edgePts)
+        # print()
+        out = []
+        for i in range(1, len(edgePts), 2):
+            # sweep
+            out += super().getPts(start=edgePts[i - 1][0], end=edgePts[i][0], count=20)
+        return out
+        # return [self.getPt(x, y, self.color) for x, y in edgePts]
 
 
 class Logistic(Regression):
@@ -378,27 +510,12 @@ class Logistic(Regression):
         super().__init__(length=2, isLinear=False, **kwargs)
         # self.compModel = linear_model.LogisticRegression()
 
-    def addPoint(self, point, storePoint=True):
-        # point = (hp.map(point[0] - self.offsetX, 0, self.width, 0, 1), hp.map(point[1] - self.offsetY, 0, self.height, 0, 1))
-        super.addPoint(point, storePoint)
-
-        if len(self.points) > 0:
-            x1, y1 = self.points[0]
-            x2, y2 = point if len(self.points) == 1 else self.points[1]
+    def getEq(self):
+        if len(self.critPts) > 1:
+            x1, y1 = self.critPts[0]
+            x2, y2 = self.critPts[1]
             if x2 != x1:
                 self.getSigmoidEq(x1, y1, x2, y2)
-                # pts = []
-                # # print("")
-                # length, num = 100, 0
-                # delta = 1.0 / length
-                # for i in range(length):
-                #     pts.append((hp.map(num, 0, 1, 0, self.width) + self.offsetX, hp.map(self.getY(num), 0, 1, 0, self.height) + self.offsetY))
-                #     num += delta
-                #     # print(i + self.offsetX, self.getY(i) + self.offsetY)
-                # return pts
-                return self.getManyPoints()
-
-        return None
 
     # y = height / (1 + e^(ax+b))
 
@@ -432,19 +549,20 @@ class SVM(Regression):
         self.iter = n_iters
         self.eta = learning_rate
 
-        w = np.zeros([1, self.xs.shape[1]])
+        w = np.zeros([1, self.table.x.shape[1]])
         b = 0
 
         costs = np.zeros(self.iter)
         for i in range(self.iter):
-            cost = self.xs @ w.T + b
-            b = b - self.eta * self.c * sum(cost - self.y)
-            w = w - self.eta * self.c * sum((cost - self.y) * self.xs)
-            costs[i] = self.c * sum((self.y * cost) + (1 - self.y) * cost) + (1 / 2) * sum(w.T**2)
+            cost = self.table.x @ w.T + b
+            b = b - self.eta * self.c * sum(cost - self.table.y)
+            w = w - self.eta * self.c * sum((cost - self.table.y) * self.table.x)
+            costs[i] = self.c * sum((self.table.y * cost) + (1 - self.table.y) * cost) + (1 / 2) * sum(w.T**2)
 
         self.w = w
         self.b = b
         self.costs = costs
+        self.graphics.append(Points(pts=[], color=self.color, isConnected=True))
 
     def predict(self, x_test):
         pred_y = []
@@ -457,12 +575,12 @@ class SVM(Regression):
 
         return pred_y
 
-    def getY(self, _xs, line=0):
-        y = (line - self.b - _xs * self.w.T[0]) / self.w.T[1]
+    def getY(self, _x, line=0):
+        y = (line - self.b - _x * self.w.T[0]) / self.w.T[1]
         return y[0]
 
-    def getX(self, _xs, line=0):
-        return (line - self.b - _xs * self.w.T[1]) / self.w.T[0]
+    def getX(self, _x, line=0):
+        return (line - self.b - _x * self.w.T[1]) / self.w.T[0]
 
 
 if __name__ == '__main__':
@@ -472,8 +590,8 @@ if __name__ == '__main__':
     train, test = table.partition()
     knn = KNN(table=train, partition=0.8, k=3)
     print("Accuracy:", 100 * knn.accuracy(testTable=test))
-    for _xs in knn.xs:
-        print(_xs, end=" Closest: ")
-        for j in knn.getNeighbor(_xs):
-            print(knn.xs[j], knn.y[j], end=" | ")
+    for _x in knn.x:
+        print(_x, end=" Closest: ")
+        for j in knn.getNeighbor(_x):
+            print(knn.x[j], knn.y[j], end=" | ")
         print()

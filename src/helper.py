@@ -16,6 +16,7 @@ def clear():
 
 fonts = []
 fontInc = 3
+ssDict = dict(zip(u"0123456789", u"⁰¹²³⁴⁵⁶⁷⁸⁹"))
 
 
 # def initFontSizer(fontName, minSize, maxSize):
@@ -52,7 +53,27 @@ def findPosition(width, height, containerX, containerY, containerWidth, containe
 
 
 def map(x, a, b, A, B):
+    if(x <= a):
+        return A
+    if(x >= b):
+        return B
     return((B - A) * (x - a) / (b - a)) + A
+
+
+def rangx(start, end=None, delta=1, outputEnd=False):
+    if(end == None):
+        start, end = 0, start
+    if(type(end) == float or type(delta) == float):
+        start = float(start)
+    while(start < end):
+        yield start
+        start += delta
+    if outputEnd:
+        yield end
+
+
+def superscript(s):
+    return u''.join(ssDict.get(c, c) for c in s)
 
 
 def calcAlignment(x, y, dw, dh, isX=False, isY=False):
@@ -158,5 +179,5 @@ def draw_bordered_rounded_rect(surface, rect, color, border_color, corner_radius
 
 if __name__ == '__main__':
     clear()
-    print("Running HELPER MAIN")
-    print("Files:", getFiles("examples", ".csv"))
+    print("RUNNING Helper")
+    print("x", superscript("23"))

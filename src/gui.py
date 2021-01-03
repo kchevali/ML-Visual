@@ -1,47 +1,75 @@
 import pygame as pg
+import pygame.freetype
 # from pygame import gfxdraw as pgx
 import helper as hp
 
-FPS = 50
-width = 1050
-height = 700
-title = "Teaching APP"
-isDebug = False
-
-# Cannot import from graphics
-backgroundColor = ((50, 50, 50))
-dragObj = None
+if not 'g' in globals():
+    g = None
+    width, height = 0, 0
 
 
-def update():
-    global mouseDebug, dragObj, g
+def createGUI():
+    global width, height, g
+    width = 1050
+    height = 700
+    pg.init()
+    # pg.font.init()
+    pg.freetype.init()
+    g = pg.display.set_mode((width, height), pg.RESIZABLE)
+
+
+def runGUI(page):
+    print("Loading...", end="\r")
+    title = "Teaching APP"
+    pg.display.set_caption(title)
+    clock = pg.time.Clock()
+
+    FPS = 50
+    isDebug = False
+    mouseDebug = None
+    dragObj = None
+
+    # Cannot import from graphics
+    backgroundColor = ((50, 50, 50))
+
+    if isDebug:
+        from page import createMouseDebug
+        mouseDebug = createMouseDebug()
+        page.addView(mouseDebug)
+    page.setSize(width=width, height=height)
+    page.updateAll()
+    print("Loading Complete!")
+
     # print("START")
-    # background = pg.Surface(self.size)
+    # background = pg.Surface(size)
     # background.fill(hp.red)
 
     # INPUT======================================
-    mouseX, mouseY = pg.mouse.get_pos()
-    if isDebug and page:
-        dx, dy = hp.calcAlignment(x=mouseX, y=mouseY, dw=page.getWidth(), dh=page.getHeight(), isX=True, isY=True)
-        mouseDebug.keyDown("text").setFont(text="({},{})".format(round(dx, 2), round(dy, 2)))
-        mouseDebug.updateAll()
-    if dragObj != None:
-        dx, dy = hp.calcAlignment(x=mouseX - dragObj.container.x - dragObj.getWidth() // 2, y=mouseY - dragObj.container.y - dragObj.getHeight() // 2, dw=dragObj.container.getWidth() -
-                                  dragObj.getWidth(), dh=dragObj.container.getHeight() - dragObj.getHeight(), isX=True, isY=True)
-        dragObj.setAlignment(dx=dx, dy=dy)
-        dragObj.updateAll()
+    isRun = True
+    while isRun:
+        mouseX, mouseY = pg.mouse.get_pos()
+        if isDebug:
+            dx, dy = hp.calcAlignment(x=mouseX, y=mouseY, dw=width, dh=height, isX=True, isY=True)
+            mouseDebug.keyDown("text").setFont(text="({},{})".format(round(dx, 2), round(dy, 2)))
+            mouseDebug.updateAll()
 
-    if page != None:
         page.update()
+        # moves drag obj to mouse
+        if dragObj != None:
+            dx, dy = hp.calcAlignment(x=mouseX - dragObj.container.x - dragObj.getWidth() // 2, y=mouseY - dragObj.container.y - dragObj.getHeight() // 2, dw=dragObj.container.getWidth() -
+                                      dragObj.getWidth(), dh=dragObj.container.getHeight() - dragObj.getHeight(), isX=True, isY=True)
+            dragObj.setAlignment(dx=dx, dy=dy)
+            dragObj.updateAll()
+
         page.hoverMouse(mouseX, mouseY)
         for event in pg.event.get():
             if event.type == pg.QUIT:
-                return False
+                isRun = False
 
             if event.type == pg.VIDEORESIZE:
                 page.setSize(width=event.w, height=event.h)
                 page.updateAll()
-            #     g = pg.display.set_mode((event.w, event.h), pg.RESIZABLE)
+                g = pg.display.set_mode((event.w, event.h), pg.RESIZABLE)
             elif event.type == pg.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     view = page.clicked(mouseX, mouseY)
@@ -62,47 +90,23 @@ def update():
                     dragObj.container.updateAll()
                     dragObj = None
 
-    # DRAW=======================================
-    g.fill(backgroundColor)
-    # g.blit(background, (0, 0))
-    if page != None:
+        # DRAW=======================================
+        g.fill(backgroundColor)
+        # g.blit(background, (0, 0))
         page.display()
-
-    # -----======================================
-    pg.display.update()
-    clock.tick(FPS)
-    return True
-
-
-def setPage(p):
-    global page, mouseDebug
-    page = p
-    if page != None:
-        if isDebug:
-            from page import createMouseDebug
-            mouseDebug = createMouseDebug()
-            page.addView(mouseDebug)
-        page.setSize(width=width, height=height)
-        page.updateAll()
-
-
-def close(self):
+        # -----======================================
+        pg.display.update()
+        clock.tick(FPS)
     pg.quit()
-
-
-pg.init()
-pg.font.init()
-# hp.initFontSizer('Comic Sans MS', 1, 128)
-size = (width, height)
-pg.display.set_caption(title)
-clock = pg.time.Clock()
-g = pg.display.set_mode(size, pg.RESIZABLE)
-setPage(None)
+    pg.font.quit()
+    pg.freetype.quit()
 
 
 if __name__ == '__main__':
     hp.clear()
     print("RUNNING GUI Main")
+    pg.init()
+    pg.font.init()
 
 
 """

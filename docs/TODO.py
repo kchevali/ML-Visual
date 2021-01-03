@@ -1,5 +1,9 @@
 
 """
+============================================================
+See Trello: https://trello.com/b/h3OzsIph/teachapp-python
+See LucidChart:https://lucid.app/lucidchart/be7b3673-68dc-4245-a12f-ce1caa733f3f/edit?beaconFlowId=247D6DF1EC4CD06A&page=0_0#
+============================================================
 SYMBOLS: ✓☐☒
 TODO 8/5
 ✓Animal Example Online: https://archive.ics.uci.edu/ml/datasets/Zoo
@@ -262,5 +266,33 @@ TODO 11/29
     Add library for SVM - one possibility: libSVM
         www.csie.ntu.edu.tw/~cjlin/libsvm
     Create document how and which library to use
+
+TODO 12/13
+    Website
+        Add about page - how to use and what this is about
+        Allow download of python application
+            In Future: Same as python application
+        Think about using username and password
+        Add a way to download the further resources
+            Remove the links from the application
+        Hosting??
+    
+    Second Priority: SVM, ANN
+        Add acknowledgements to data sources.
+        Models should reflect the book (chapters)
+            KNN(2), Linear(3), Logistic(4), DT(5),SVM(6), ANN(7)
+
+    Last Priority: Writing (May go in book or website)
+        Write demo so Zhu and decide where it goes.
+        Maybe have an entire lab section to book
+        
+        1) Introduce libraries we will be using in Python (pandas, numpy - not ML Libraries)
+        2) How to install libraries
+        3) Specific code translations from book's math
+    
+    General Project
+        Move this document to trello
+        https://trello.com/b/h3OzsIph/teachapp-python
+
 
 """
