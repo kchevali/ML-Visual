@@ -11,7 +11,7 @@ if __name__ == '__main__':
     try:
         createGUI()
         from page import *
-        runGUI(ZStack(items=CodingDTPage().getView()))
+        runGUI(ZStack(items=ExampleDTPage()))
 
     except:
         print("ERROR - program terminated")

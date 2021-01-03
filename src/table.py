@@ -79,7 +79,8 @@ class Table:
             i += 1
 
         # self.selectedRow = None
-        self.selectedCol = None
+        self.selectedCol = None  # index
+        self.lockedCols = []
         self.graphics = []
 
         # Hide Code
@@ -100,8 +101,8 @@ class Table:
     def partition(self, testing=0.3) -> tuple:
         train, test = train_test_split(self.data, test_size=testing)
 
-        trainTable = Table(df=train, param=self.param, features=self.features, constrainX=self.constrainX, constrainY=self.constrainY)
-        testTable = Table(df=test, param=self.param, features=self.features, constrainX=self.constrainX, constrainY=self.constrainY)
+        trainTable = Table(df=train, param=self.param, filePath=self.filePath, features=self.features, constrainX=self.constrainX, constrainY=self.constrainY)
+        testTable = Table(df=test, param=self.param, filePath=self.filePath, features=self.features, constrainX=self.constrainX, constrainY=self.constrainY)
         return trainTable, testTable
 
     def minX(self, column=None):
@@ -125,10 +126,29 @@ class Table:
     def addGraphic(self, graphic):
         self.graphics.append(graphic)
 
-    def selectCol(self, column, isOn):
-        self.selectedCol = column if isOn else None
+    def tableChange(self, column, isSelect=None, isLock=None):
+        """
+        column: index (x values starting at 1)
+        isSelect: True, False or None(no change)
+        isLock:True, False or None(no change)
+        """
+        # can't lock/select a none column or unlock nothing
+        if ((isLock or isSelect) and column == None) or (isLock == False and len(self.lockedCols) == 0) or (isSelect == False and self.selectedCol == None):
+            return
+
+        if isSelect != None:
+            self.selectedCol = column if isSelect else None
+
+        if isLock:
+            self.lockedCols.append(column)
+        elif isLock == False:
+            column = self.lockedCols.pop()
+
+        # Change None value to previous values
+        # isSelect = self.selectedCol != None and self.selectedCol == column
+        # isLock = column in self.lockedCols
         for graphic in self.graphics:
-            graphic.selectCol(column, isOn)
+            graphic.tableChange(column, isSelect, isLock)
 
     def __getitem__(self, column):
         return self.data[column]

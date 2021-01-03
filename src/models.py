@@ -47,6 +47,11 @@ class Model:
                 self.graphicsDict[key] = graphic
             self.graphics.append(graphic)
 
+    def setTable(self, table):
+        self.table = table
+        # for graphic in self.graphics:
+        #     graphic.newTable()
+
     def getGraphic(self, key):
         return self.graphicsDict[key] if key in self.graphicsDict else None
 
@@ -81,17 +86,20 @@ class Classifier(Model):
     def defaultScoreString(self):
         return "Accuracy: --"
 
-    def getCircleLabelPts(self):  # circle
-        rowCount = self.curr.table.rowCount
+    def getCircleLabelPts(self, table=None):  # circle
+        if table == None:
+            table = self.table
+
+        rowCount = table.rowCount
         if rowCount > 0:
             trig = 2.0 * pi / rowCount
 
         pts = []
         i = 0
-        for label in self.table.y:
+        for label in table.y:
             pts.append((0.5 * cos(trig * i) if rowCount > 1 else 0.0,
                         0.5 * sin(trig * i) if rowCount > 1 else 0.0,
-                        self.curr.table.classColors[label]))
+                        table.classColors[label]))
             i += 1
 
         # if treeNode.parent != None:
@@ -203,10 +211,10 @@ class DecisionTree(Classifier):
     def getValue(self):
         return self.curr.value
 
-    def isLockedColumn(self, column):
-        if self.curr == None or self.curr.parent == None:
-            return False
-        return self.curr.parent.containsColAbove(column)
+    # def isLockedColumn(self, column):
+    #     if self.curr == None or self.curr.parent == None:
+    #         return False
+    #     return self.curr.parent.containsColAbove(column)
 
     def isCurrentColumn(self, column):
         return self.curr and self.curr.column == column
@@ -214,17 +222,21 @@ class DecisionTree(Classifier):
     def isVertical(self):
         return type(self.getView().keyDown("div")) != HStack
 
-    def add(self, column):
-        self.curr.setCol(column)
+    def add(self, colIndex):
+        self.curr.setCol(colIndex)
 
     def remove(self):
         self.curr.reset()
 
     def goBack(self):
         self.curr = self.curr.parent
+        self.setTable(self.curr.table)
 
     def go(self, index):
+        print("Index:", index, "Children Length Before Go:", len(self.curr.children))
+
         self.curr = self.curr.children[index]
+        self.setTable(self.curr.table)
 
     def predict(self, row):
         return self.curr.predict(row)
@@ -253,34 +265,35 @@ class DTNode:
         self.table = table
         self.parent = parent
         self.value = value
-        self.column = None
+        self.colIndex = None
         self.children = []
         # self.tree = tree
 
-    def setCol(self, column):
-        self.column = column
+    def setCol(self, colIndex):
+        self.colIndex = colIndex
         self.children = []
-        for item in self.table[column].unique():
+        for item in self.table[self.table.xNames[self.colIndex]].unique():
             self.children.append(DTNode(
-                table=Table(df=self.table[self.table[self.column] == item], param=self.table.param),
+                table=Table(df=self.table[self.table[self.table.xNames[self.colIndex]] == item], param=self.table.param),
                 parent=self, value=item
             ))
+        print("Children Length after Split:", len(self.children))
 
     def reset(self):
-        self.column = None
+        self.colIndex = None
         self.children = []
 
-    def containsColAbove(self, column):
-        if self.column == column:
+    def containsColAbove(self, colIndex):
+        if self.colIndex == colIndex:
             return True
         if self.parent != None:
-            return self.parent.containsColAbove(column)
+            return self.parent.containsColAbove(colIndex)
         return False
 
     def predict(self, x):
         if self.children:
             for child in self.children:
-                if child.value == x[self.column]:
+                if child.value == x[self.colIndex]:
                     return child.predict(x)
             return None
         return self.table.majorityInTargetColumn()

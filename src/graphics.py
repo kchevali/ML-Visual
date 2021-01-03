@@ -21,7 +21,7 @@ class Frame:
 
     idCounter = 0
 
-    def __init__(self, name="", tag=0, keywords="", dx=0.0, dy=0.0, offsetX=0.0, offsetY=0.0, isHidden=False, hideContainer=False, hideAllContainers=False, isDraggable=False, isDisabled=False, container=None):
+    def __init__(self, name="", tag=0, keywords="", dx=0.0, dy=0.0, offsetX=0.0, offsetY=0.0, isHidden=False, hideContainer=False, hideAllContainers=False, isDraggable=False, isDisabled=False, container=None, **kwargs):
         # INPUTS
         self.name = name
         self.tag = tag
@@ -452,8 +452,10 @@ class Label(Frame):
             Label.fontCache[fontKey] = self.font
 
         self.font.vertical = self.isVertical
-        self.updateFrame()
-        # self.render(self.text)
+        # self.updateFrame() -- most current/ removed since causing extra updates
+        # however, better calls are still needed
+
+        self.render(self.text)
         # self.threeDots = False
 
     def render(self, lines):
@@ -656,12 +658,10 @@ class Stack(ResizableFrame):
         if self.isClicked(x, y):
             if self.isDraggable:
                 return self
-            for i in range(len(self.containers) - 1, -1, -1):
-                view = self.getView(i)
-                if view != None:
-                    clickedObj = view.clicked(x, y)
-                    if clickedObj != None:
-                        return clickedObj
+            for view in self.getRevViews():
+                clickedObj = view.clicked(x, y)
+                if clickedObj != None:
+                    return clickedObj
             return self
 
     def updateDown(self):
@@ -793,6 +793,11 @@ class Stack(ResizableFrame):
 
     def getViews(self):
         for c in self.containers:
+            if c.view != None:
+                yield c.view
+
+    def getRevViews(self):
+        for c in reversed(self.containers):
             if c.view != None:
                 yield c.view
 

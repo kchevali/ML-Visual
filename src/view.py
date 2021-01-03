@@ -60,6 +60,7 @@ class TextboxView(ZStack):
         self.label.setFont(text=text)
         self.setAlignment(dx=dx, dy=dy)
         self.audio.setSoundName(soundName=soundName)
+        self.updateAll()
 
 
 class IntroView(ZStack):
@@ -129,9 +130,9 @@ class GroupView:
 class TableView(Grid):
 
     def __init__(self, model, **kwargs):
-        super().__init__(model=model, createCellViewMethod=self.createCellView, **kwargs)
         self.model = model
         self.model.table.addGraphic(self)
+        super().__init__(model=model, createCellViewMethod=self.createCellView, **kwargs)
 
     # def updateTableView(self, **kwargs):
     #     prevContainer = self.tableView.container if self.tableView != None else None
@@ -140,6 +141,7 @@ class TableView(Grid):
     #         self.tableView.setContainer(prevContainer)
 
     # need ref to grid since it is not created yet
+
     def createCellView(self, grid, index):
         if index == None:
             return None
@@ -150,15 +152,6 @@ class TableView(Grid):
                                                                  if colIndex == 0 else Color.lightSteelBlue), border=3, cornerRadius=5, keywords="rect"),
             Label(text=str(grid.items[index]), fontSize=20, color=Color.white, keywords="label")
         ])
-
-    def updateTableCol(self, colIndex):
-        if colIndex == None:
-            return
-        isSelected = self.selectedCol == colIndex
-        for index in range(colIndex + self.cols, self.length, self.cols):
-            view = self.getView(index)
-        if view != None:
-            view.keyDown("rect").color = self.model.table.classColors[self.items[index]] if colIndex == 0 else (Color.steelBlue if isSelected else Color.lightSteelBlue)
 
     def shiftTable(self, dy):
         for model in self.models:
@@ -173,8 +166,13 @@ class TableView(Grid):
     def scrollDown(self):
         self.shiftTable(dy=-1)
 
-    def selectCol(self, column, isOn):
-        raise Exception("Implement the Table method now KEVIN")
+    def tableChange(self, colIndex, isSelect, isLock):
+        if colIndex == None or isSelect == None:
+            return
+        for index in range(colIndex + self.cols, self.length, self.cols):
+            view = self.getView(index)
+            if view != None:
+                view.keyDown("rect").color = self.model.table.classColors[self.items[index]] if colIndex == 0 else (Color.steelBlue if isSelect else Color.lightSteelBlue)
 
 
 class HeaderButtons(HStack):
@@ -186,43 +184,195 @@ class HeaderButtons(HStack):
             ], isOn=False, tag=i + 1, run=self.pressButton) for i in range(model.table.colCount)
         ], **kwargs)
         self.model = model
+        self.model.table.addGraphic(self)
         # self.selectedCol=None
 
     def pressButton(self, sender):
-        self.model.table.selectCol(sender.tag, sender.isOn)
+        self.model.table.tableChange(self.model.table.selectedCol, isSelect=False)
+        self.model.table.tableChange(sender.tag, isSelect=sender.isOn)
 
-    def selectCol(self, column, isOn):
-        colIndex = sender.tag
-        self.selectedCol, prevCol = colIndex if sender.isOn else None, self.selectedCol
-
-        # terminate if table doesn't exist or no change is needed
-        if self.selectedCol == prevCol:
+    def tableChange(self, column, isSelect, isLock):
+        if column == None:
             return
-        for buttons in self.getViews():
-            self.updateButtons(buttons=buttons, model=model)
-            # self.updateTableCol(buttons=buttons, prevCol)
-            # self.updateTableCol(buttons=buttons, self.selectedCol)
 
-    def updateButtons(self):
-        for button in self.getViews():
-            rect = button.getView(0)
-            column = self.model.table.xNames[button.tag - 1]
-
-            if self.model.isLockedColumn(column):
-                rect.strokeColor = Color.gray
-                button.isDisabled = True
-                button.setOn(isOn=False)
+        button = self.getView(column - 1)
+        rect = button.getView(0)
+        if isLock:
+            rect.strokeColor = Color.gray
+            button.isDisabled = True
+            button.setOn(isOn=False)
+        else:
+            button.isDisabled = False
+            if isSelect:
+                rect.strokeColor = Color.yellow
+                button.setOn(isOn=True)
             else:
-                button.isDisabled = False
-                if self.model.table.selectedCol == button.tag:
-                    rect.strokeColor = Color.yellow
-                    button.setOn(isOn=True)
-                else:
-                    rect.strokeColor = Color.darkGray
-                    button.setOn(isOn=False)
+                rect.strokeColor = Color.darkGray
+                button.setOn(isOn=False)
+
+    def newTable(self):
+        pass
+
+        # def updateButtons(self):
+        #     for button in self.getViews():
+        #         rect = button.getView(0)
+        #         column = self.model.table.xNames[button.tag - 1]
+
+        #         if self.model.isLockedColumn(column):
+        #             rect.strokeColor = Color.gray
+        #             button.isDisabled = True
+        #             button.setOn(isOn=False)
+        #         else:
+        #             button.isDisabled = False
+        #             if self.model.table.selectedCol == button.tag:
+        #                 rect.strokeColor = Color.yellow
+        #                 button.setOn(isOn=True)
+        #             else:
+        #                 rect.strokeColor = Color.darkGray
+        #                 button.setOn(isOn=False)
+
+
+class TreeRoom(ZStack):
+    def __init__(self, model):
+        self.model = model
+        self.model.table.addGraphic(self)
+        view = Points(pts=self.model.getCircleLabelPts())
+        super().__init__(items=[view])
+        self.modelBranch = Branch(view=view, disjoint=Container())
+
+    # def updateRoom(self):
+    #     self.setPts(pts=self.model.getCircleLabelPts())
+    #     self.modelBranch = Branch(view=self, disjoint=Container())
+
+    def tableChange(self, colIndex, isSelect, isLock):
+        if isSelect == None:
+            return
+        # rect = sender.getCousin(0)
+        if isSelect:  # True
+            self.splitTree(colIndex - 1)
+            # rect.strokeColor = Color.white
+        else:  # False
+            self.model.remove()
+            self.goBackTree()
+            # rect.strokeColor = Color.gray
+        self.modelBranch.getContainer().updateAll()
+
+    # def newTable(self):
+    #     self.modelBranch.getContainer().updateAll()
+
+    def splitTree(self, colIndex):
+        self.model.add(colIndex)
+        container = self.modelBranch.getContainer()
+        prevStack = type(self.modelBranch.disjoint.keyUp("div"))
+
+        stack = VStack if prevStack != VStack else HStack
+        label = [
+            Button(
+                Label(text="{}:{}".format(self.model.getParentColumn(), self.model.getValue()), fontSize=20,
+                      color=Color.white, dx=-0.95, dy=-1),
+                run=self.goBack)
+        ] if self.model.getParent() != None else []
+
+        treeChildren = self.model.getChildren()
+        totalClassCount = len(treeChildren)
+        for child in treeChildren:
+            totalClassCount += child.table.classCount
+        print("Total Class Count:", totalClassCount)
+
+        self.modelBranch.setView(view=ZStack(items=label + [
+            stack(items=[
+                Button(Points(pts=self.model.getCircleLabelPts(self.model.getChild(i).table), isConnected=False), run=self.goForward, tag=i) for i in range(len(treeChildren))
+            ], ratios=[
+                (child.table.classCount + 1) / totalClassCount for child in treeChildren
+            ], border=20 if self.model.getParent() != None else 0, keywords="div")
+        ], keywords=["z"]))
+
+    def goForward(self, sender):
+        if self.model.hasChildren():
+            self.model.table.tableChange(self.model.table.selectedCol, isLock=True, isSelect=False)
+            self.goToIndexTree(index=sender.tag)
+
+            # self.updateContainers()
+
+    def goBack(self, sender):
+        if not self.model.isRoot():
+            self.model.table.tableChange(None, isLock=False, isSelect=True)
+            self.goBackTree()
+            self.modelBranch.getContainer().updateAll()
+
+    def removeNodeTree(self):
+        self.model.remove()
+        self.modelBranch.setView(view=Points(pts=self.model.getCircleLabelPts()))
+
+    def goBackTree(self):
+        self.model.goBack()
+        self.modelBranch.move(self.modelBranch.disjoint.keyUp("z"))
+
+    def goToIndexTree(self, index):
+        self.model.go(index=index)
+        container = self.modelBranch.view.keyDown("div")[index]
+        stack = container.keyDown("z")
+        self.modelBranch.move(stack if stack != None else container.keyDown("dotStack"))
+
+    # def selectColumn(self, sender):
+    #     super().selectColumn(sender)
+    #     rect = sender.getCousin(0)
+    #     if sender.isOn:
+    #         self.splitTree(column=self.model.getColName(sender.tag))
+    #         rect.strokeColor = Color.white
+    #     else:
+    #         self.model.remove()
+    #         rect.strokeColor = Color.gray
+    #     self.modelBranch.getContainer().updateAll()
+
+
+class TreeList(VStack):
+    def __init__(self, model):
+        self.model = model
+        self.model.table.addGraphic(self)
+
+        self.totalScoreLabel = Label("Total: [0%]", fontSize=20)
+        self.totalScore = ZStack([
+            Rect(color=Color.steelBlue),
+            self.totalScoreLabel
+        ], lockedHeight=50, dy=1)
+
+        super().__init__([None] * 9 + [
+            self.totalScore,
+            Button([
+                Rect(color=Color.steelBlue, cornerRadius=10),
+                Label("Save Tree")
+            ], run=self.saveTree, lockedHeight=50, dy=1)
+        ])
+
+    def saveTree(self, sender):
+        accuracy = round(self.model.test(self.localTestTable) * 100)
+        self.model.modelTest(self.finalTestTable)
+
+        bagItem = ZStack([
+            Rect(color=Color.steelBlue),
+            Label(text="T:{} [{}%]".format(len(self.models), accuracy), fontSize=20)
+        ], dy=1)
+        bagItem.setContainer(self.bag[self.bagIndex])
+        self.bagIndex += 1
+
+        self.totalScoreLabel.setFont(text="Total: [{}%]".format(round(100 * self.getTotalScore())))
+        self.table, self.localTestTable = self.trainTable.partition()
+
+        self.model = DecisionTree(table=self.table)
+        self.models.append(self.model)
+        self.createTreeRoomView()
+        self.updateTableView()
+
+        self.bag.updateAll()
+        self.modelView.container.updateAll()
+        self.tableView.container.updateAll()
+        self.updateHeaderSelectionButtons()
 
 
 # Complicated Section
+
+
 class GraphView:
     def __init__(self, model, hasAxis=False, enableUserPts=False, **kwargs):
         super().__init__(**kwargs)
@@ -369,152 +519,22 @@ class GraphView:
             #     self.modelEq.setFont(text=self.model.getEqString())
 
 
-class CodingView(ZStack):
-    def __init__(self, model, codes, codingAddString, codingFilePath, codingExamplePath, **kwargs):
-        self.model = model
-        self.codes = codes
-        self.codingAddString = codingAddString
-        self.codingFilePath = codingFilePath
-        self.codingExamplePath = codingExamplePath
-        super().__init__([
-            VStack([
-                self.createCodingHeader(),
-                self.createCodingTable(),
-                self.createCodingOptions(table=table)
-            ], ratios=[0.1, 0.8, 0.1]),
-            TextboxView(textboxScript=[
-                ("Welcome to the Coding Tutorial!", 0, 0),
-                (["On this page, we will show the basics on how to",
-                    "run a " + modelTitle + " on Python"], 0, 0),
-                (["Lets begin by dragging the code labels on the",
-                    "left column to the correct spots on right"], 0.5, 0),
-                ("Can you figure out the correct order?", 0, 0),
-                (["Once you successfully set the code blocks,",
-                    "add some trees and run your code!"], 0, 0)
-            ])
-        ], **kwargs)
+class Branch:
+    def __init__(self, view, disjoint):
+        self.disjoint = disjoint  # Container
+        self.view = view  # Noncontainer
 
-    def createCodingHeader(self):
-        self.codingRunRect = Rect(color=Color.gray, cornerRadius=10)
-        self.codingRunButton = Button([
-            self.codingRunRect,
-            Label("Run")
-        ], hideAllContainers=True, lockedWidth=240, run=self.runCodingTest, isDisabled=True)
+    def getContainer(self):
+        return self.view.container
 
-        self.codingScoreLabel = Label(self.model.defaultScoreString())
-        self.codingAddLabel = Label(self.codingAddString)
-        self.codingHeader = HStack([
-            self.codingRunButton,
-            self.codingScoreLabel,
-            Button([
-                Rect(color=Color.steelBlue, cornerRadius=10),
-                self.codingAddLabel
-            ], run=self.incMethod)
-        ], ratios=[0.5, 0.25, 0.25])
-        return self.codingHeader
+    def setView(self, view):
+        view.setContainer(container=self.view.container)
+        self.view = view
 
-    def createCodingTable(self):
-        codeViews = [
-            ZStack([
-                Rect(color=Color.steelBlue, keywords="rect", cornerRadius=10),
-                Label(code.label, keywords="label")
-            ], isDraggable=True, tag=code, keywords="codeStack", lockedWidth=200, lockedHeight=60, hideAllContainers=True)for code in self.codes
-        ]
-        shuffle(codeViews)
-
-        self.codingTable = HStack([
-            VStack(codeViews, name="question", containerArgs=[{"showEmpty": True}]),
-            VStack([None] * len(self.codes), name="answer", containerArgs=[{"showEmpty": True, "tag": code.order} for code in self.codes])
-        ], ratios=[0.3, 0.7])
-        return self.codingTable
-
-    def createCodingOptions(self, table):
-        self.codingOptions = ZStack([
-            self.createFileNameView(table=table),
-            HStack([
-                None,
-                self.createOpenSpreadsheetView(table=table),
-                self.createCodingFileView(),
-                self.createOpenFilePath(),
-                None
-            ], hideAllContainers=True)
-        ])
-        return self.codingOptions
-
-    def canDragView(self, view, container):
-        return container.getParentStack().name == "question" or container.tag == view.tag.order
-
-    def draggedView(self, view):
-
-        stack = view.getParentStack()
-        label = view.keyDown("label")
-        success = stack.name == "answer"
-        if stack.name == "answer":
-            view.lock(lockedWidth=400)
-            label.setFont(text=view.tag.line, fontSize=22)
-
-            for container in stack.containers:
-                success = success and container.view != None
-        else:
-            view.lock(lockedWidth=200)
-            label.setFont(text=view.tag.label, fontSize=32)
-        self.codingRunRect.color = Color.green if success else Color.gray
-        self.codingRunButton.isDisabled = not success
-
-    def createFileNameView(self, table):
-        return Label("File: " + table.fileName, fontSize=18)
-
-    def createOpenSpreadsheetView(self, table):
-        return Button([
-            Rect(Color.green, cornerRadius=10),
-            Label("Open Excel")
-        ], run=hp.openFile, tag=table.filePath + ".csv", lockedWidth=200)
-
-    def createCodingFileView(self):
-        return Button([
-            Rect(Color.green, cornerRadius=10),
-            Label("Open Code")
-        ], run=hp.openFile, tag=self.codingFilePath, lockedWidth=200)
-
-    def createOpenFilePath(self):
-        return Button([
-            Rect(Color.green, cornerRadius=10),
-            Label("Select Data File")
-        ], run=self.showFileExplorer, lockedWidth=200)
-
-    def showFileExplorer(self, sender):
-        view = ZStack([
-            self.createFileExplorerView(),
-            Button([
-                Rect(Color.red, cornerRadius=10),
-                Label("Close", fontSize=25)
-            ], dy=1, lockedWidth=80, lockedHeight=60, offsetY=-50, run=self.hideFileExplorer)
-        ])
-        self.addView(view)
-        self.updateAll()
-
-    def createFileExplorerView(self):
-        files = hp.getFiles(self.codingExamplePath, ".csv")
-        length = 10
-        self.fileExplorer = ZStack([
-            Rect(Color.backgroundColor, border=0),
-            VStack([
-                ZStack([
-                    Rect(color=Color.steelBlue, cornerRadius=10),
-                    Label("Files", fontSize=35)
-                ])] + [
-                Button([
-                    Rect(color=Color.steelBlue, cornerRadius=10),
-                    Label(fileName.split(".")[0], fontSize=25)
-                ], name=fileName, lockedWidth=150) for fileName in files
-            ] + [None] * (10 - len(files) - 1), ratios=[1.0 / length] * length)
-        ], lockedWidth=350, lockedHeight=600)
-        return self.fileExplorer
-
-    def hideFileExplorer(self, sender):
-        self.popView()
-        self.updateAll()
-
-    def runCodingTest(self, sender):
-        self.codingScoreLabel.setFont(text=getScoreString())
-        self.codingScoreLabel.container.updateAll()
+    def move(self, nextView):
+        if nextView != None:
+            nextDisjoint = nextView.container
+            nextView.setContainer(container=self.view.container)
+            self.view.setContainer(container=self.disjoint)
+            self.disjoint = nextDisjoint
+            self.view = nextView

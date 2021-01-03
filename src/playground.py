@@ -311,9 +311,33 @@
 
 #         return pred_y
 
+class A:
+    def __init__(self, a, **kwargs):
+        print("A")
+        self.a = a
+
+
+class B:
+    def __init__(self, b, **kwargs):
+        print("B")
+
+    def initB(self, b):
+        print("initB")
+        self.b = b
+
+
+class C(A, B):
+    def __init__(self, b, c, **kwargs):
+        print("Enter C")
+        A.__init__(self, **kwargs)
+        self.initB(b=b)
+        self.c = c
+        print("Leave C")
+
+
 if __name__ == '__main__':
-    a = {"dog": 5, "cat": 4}
-    print(type(a))
+    c = C(a=1, b=2, c=3)
+    print(c.a, c.b, c.c)
 
     pass
     #     table = Table(filePath="examples/svm/iris").createXXYTable()

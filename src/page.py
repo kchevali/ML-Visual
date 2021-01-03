@@ -174,16 +174,12 @@ class MenuPage(ModelPage):
 
 
 class BasePage:
-    def __init__(self, table):
+    def setTable(self, table):
         self.table, self.testingTable = table.partition(testing=0.3)
-
-    def getView(self):
-        pass
 
 
 class SingleModelPage(BasePage):
-    def __init__(self, model, **kwargs):
-        super().__init__(**kwargs)
+    def setModel(self, model):
         self.model = model
 
 
@@ -193,147 +189,166 @@ class MultipleModelPage(BasePage):
         self.models = []
 
 
-class CodingPage(SingleModelPage):
+class CodingPage(SingleModelPage, ZStack):
     def __init__(self, codes, codingAddString, codingFilePath, codingExamplePath, **kwargs):
-        super().__init__(**kwargs)
         self.codes = codes
         self.codingAddString = codingAddString
         self.codingFilePath = codingFilePath
         self.codingExamplePath = codingExamplePath
 
-        # super().__init__(, table=table, items=items, hoverEnabled=False, **kwargs)
+        ZStack.__init__(self, [
+            VStack([
+                self.createCodingHeader(),
+                self.createCodingTable(),
+                self.createCodingOptions()
+            ], ratios=[0.1, 0.8, 0.1]),
+            TextboxView(textboxScript=[
+                ("Welcome to the Coding Tutorial!", 0, 0),
+                (["On this page, we will show the basics on how to",
+                    "run a " + modelTitle + " on Python"], 0, 0),
+                (["Lets begin by dragging the code labels on the",
+                    "left column to the correct spots on right"], 0.5, 0),
+                ("Can you figure out the correct order?", 0, 0),
+                (["Once you successfully set the code blocks,",
+                    "add some trees and run your code!"], 0, 0)
+            ])
+        ], **kwargs)
 
-    def getView(self):
-        return CodingView(model=self.model, codes=self.codes, codingAddString=self.codingAddString, codingFilePath=self.codingFilePath, codingExamplePath=self.codingExamplePath)
+    def incMethod(self, sender):
+        pass
+
+    def createCodingHeader(self):
+        self.codingRunRect = Rect(color=Color.gray, cornerRadius=10)
+        self.codingRunButton = Button([
+            self.codingRunRect,
+            Label("Run")
+        ], hideAllContainers=True, lockedWidth=240, run=self.runCodingTest, isDisabled=True)
+
+        self.codingScoreLabel = Label(self.model.defaultScoreString())
+        self.codingAddLabel = Label(self.codingAddString)
+        self.codingHeader = HStack([
+            self.codingRunButton,
+            self.codingScoreLabel,
+            Button([
+                Rect(color=Color.steelBlue, cornerRadius=10),
+                self.codingAddLabel
+            ], run=self.incMethod)
+        ], ratios=[0.5, 0.25, 0.25])
+        return self.codingHeader
+
+    def createCodingTable(self):
+        codeViews = [
+            ZStack([
+                Rect(color=Color.steelBlue, keywords="rect", cornerRadius=10),
+                Label(code.label, keywords="label")
+            ], isDraggable=True, tag=code, keywords="codeStack", lockedWidth=200, lockedHeight=60, hideAllContainers=True)for code in self.codes
+        ]
+        shuffle(codeViews)
+
+        self.codingTable = HStack([
+            VStack(codeViews, name="question", containerArgs=[{"showEmpty": True}]),
+            VStack([None] * len(self.codes), name="answer", containerArgs=[{"showEmpty": True, "tag": code.order} for code in self.codes])
+        ], ratios=[0.3, 0.7])
+        return self.codingTable
+
+    def createCodingOptions(self):
+        self.codingOptions = ZStack([
+            self.createFileNameView(),
+            HStack([
+                None,
+                self.createOpenSpreadsheetView(),
+                self.createCodingFileView(),
+                self.createOpenFilePath(),
+                None
+            ], hideAllContainers=True)
+        ])
+        return self.codingOptions
+
+    def canDragView(self, view, container):
+        return container.getParentStack().name == "question" or container.tag == view.tag.order
+
+    def draggedView(self, view):
+
+        stack = view.getParentStack()
+        label = view.keyDown("label")
+        success = stack.name == "answer"
+        if stack.name == "answer":
+            view.lock(lockedWidth=400)
+            label.setFont(text=view.tag.line, fontSize=22)
+
+            for container in stack.containers:
+                success = success and container.view != None
+        else:
+            view.lock(lockedWidth=200)
+            label.setFont(text=view.tag.label, fontSize=32)
+        self.codingRunRect.color = Color.green if success else Color.gray
+        self.codingRunButton.isDisabled = not success
+
+    def createFileNameView(self):
+        return Label("File: " + self.table.fileName, fontSize=18)
+
+    def createOpenSpreadsheetView(self):
+        return Button([
+            Rect(Color.green, cornerRadius=10),
+            Label("Open Excel")
+        ], run=hp.openFile, tag=self.table.filePath + ".csv", lockedWidth=200)
+
+    def createCodingFileView(self):
+        return Button([
+            Rect(Color.green, cornerRadius=10),
+            Label("Open Code")
+        ], run=hp.openFile, tag=self.codingFilePath, lockedWidth=200)
+
+    def createOpenFilePath(self):
+        return Button([
+            Rect(Color.green, cornerRadius=10),
+            Label("Select Data File")
+        ], run=self.showFileExplorer, lockedWidth=200)
+
+    def showFileExplorer(self, sender):
+        view = ZStack([
+            self.createFileExplorerView(),
+            Button([
+                Rect(Color.red, cornerRadius=10),
+                Label("Close", fontSize=25)
+            ], dy=1, lockedWidth=80, lockedHeight=60, offsetY=-50, run=self.hideFileExplorer)
+        ])
+        self.addView(view)
+        self.updateAll()
+
+    def createFileExplorerView(self):
+        files = hp.getFiles(self.codingExamplePath, ".csv")
+        length = 10
+        self.fileExplorer = ZStack([
+            Rect(Color.backgroundColor, border=0),
+            VStack([
+                ZStack([
+                    Rect(color=Color.steelBlue, cornerRadius=10),
+                    Label("Files", fontSize=35)
+                ])] + [
+                Button([
+                    Rect(color=Color.steelBlue, cornerRadius=10),
+                    Label(fileName.split(".")[0], fontSize=25)
+                ], name=fileName, lockedWidth=150) for fileName in files
+            ] + [None] * (10 - len(files) - 1), ratios=[1.0 / length] * length)
+        ], lockedWidth=350, lockedHeight=600)
+        return self.fileExplorer
+
+    def hideFileExplorer(self, sender):
+        self.popView()
+        self.updateAll()
+
+    def runCodingTest(self, sender):
+        self.codingScoreLabel.setFont(text=getScoreString())
+        self.codingScoreLabel.container.updateAll()
 
 # =====================================================================
 # MODEL PAGE CLASSES
 # =====================================================================
 
 
-class DTPage:
-    def __init__(self, **kwargs):
-        super().__init__(partition=0.3, **kwargs)
-        self.model = DecisionTree(table=self.table, testing=self.testingTable)
-        self.modelView = None
-        # self.models.append(self.model)
-        # if self.table.filePath:
-        #     self.bagIndex = 0
-
-    def createTreeRoomView(self):
-        treeViewContainer = self.modelView.container if self.modelView != None else None
-        self.modelView = Points(pts=self.model.getPts())
-        if treeViewContainer != None:
-            self.modelView.setContainer(treeViewContainer)
-        self.modelBranch = Branch(view=self.modelView, disjoint=Container())
-        return self.modelView
-
-    def createTreeListView(self):
-        self.totalScoreLabel = Label("Total: [0%]", fontSize=20)
-        self.totalScore = ZStack([
-            Rect(color=Color.steelBlue),
-            self.totalScoreLabel
-        ], lockedHeight=50, dy=1)
-        self.bag = VStack([None] * 9 + [
-            self.totalScore,
-            Button([
-                Rect(color=Color.steelBlue, cornerRadius=10),
-                Label("Save Tree")
-            ], run=self.saveTree, lockedHeight=50, dy=1)
-        ])
-        return self.bag
-
-    def goForward(self, sender):
-        if self.model.hasChildren():
-            self.goToIndexTree(index=sender.tag)
-            self.table = self.model.getTable()
-            self.updateTableView()
-            self.updateHeaderSelectionButtons()
-            self.modelBranch.getContainer().updateAll()
-            self.tableView.container.updateAll()
-            # self.updateContainers()
-
-    def goBack(self, sender):
-        if not self.model.isRoot():
-            self.goBackTree()
-            self.table = self.model.getTable()
-            self.updateTableView()
-            self.updateHeaderSelectionButtons()
-            self.modelBranch.getContainer().updateAll()
-            self.tableView.container.updateAll()
-
-    def saveTree(self, sender):
-        accuracy = round(self.model.test(self.localTestTable) * 100)
-        self.model.modelTest(self.finalTestTable)
-
-        bagItem = ZStack([
-            Rect(color=Color.steelBlue),
-            Label(text="T:{} [{}%]".format(len(self.models), accuracy), fontSize=20)
-        ], dy=1)
-        bagItem.setContainer(self.bag[self.bagIndex])
-        self.bagIndex += 1
-
-        self.totalScoreLabel.setFont(text="Total: [{}%]".format(round(100 * self.getTotalScore())))
-        self.table, self.localTestTable = self.trainTable.partition()
-
-        self.model = DecisionTree(table=self.table)
-        self.models.append(self.model)
-        self.createTreeRoomView()
-        self.updateTableView()
-
-        self.bag.updateAll()
-        self.modelView.container.updateAll()
-        self.tableView.container.updateAll()
-        self.updateHeaderSelectionButtons()
-
-    def splitTree(self, column):
-        self.model.add(column=column)
-        container = self.modelBranch.getContainer()
-        prevStack = type(self.modelBranch.disjoint.keyUp("div"))
-        stack = VStack if prevStack != VStack else HStack
-        label = [Button(Label(text="{}:{}".format(self.model.getParentColumn(), self.model.getValue()), fontSize=20,
-                              color=Color.white, dx=-0.95, dy=-1), run=self.goBack)] if self.model.getParent() != None else []
-        treeChildren = self.model.getChildren()
-        totalClassCount = len(treeChildren)
-        for child in treeChildren:
-            totalClassCount += child.table.classCount
-
-        self.modelView = ZStack(items=label + [
-            stack(items=[
-                Button(Points(pts=self.model.getChild(i).table.getPts(), isConnected=False), run=self.goForward, tag=i) for i in range(len(treeChildren))
-            ], ratios=[
-                (child.table.classCount + 1) / totalClassCount for child in treeChildren
-            ], border=20 if self.model.getParent() != None else 0, keywords="div")
-        ], keywords=["z"])
-        self.modelBranch.setView(view=self.modelView)
-
-    def removeNodeTree(self):
-        self.model.remove()
-        self.modelView = self.createDotViews(self.model.curr)
-        self.modelBranch.setView(view=self.modelView)
-
-    def goBackTree(self):
-        self.model.goBack()
-        self.modelView = self.modelBranch.disjoint.keyUp("z")
-        self.modelBranch.move(self.modelView)
-
-    def goToIndexTree(self, index):
-        self.model.go(index=index)
-        container = self.modelBranch.view.keyDown("div")[index]
-        stack = container.keyDown("z")
-        self.modelView = stack if stack != None else container.keyDown("dotStack")
-        self.modelBranch.move(self.modelView)
-
-    def selectColumn(self, sender):
-        super().selectColumn(sender)
-        rect = sender.getCousin(0)
-        if sender.isOn:
-            self.splitTree(column=self.model.getColName(sender.tag))
-            rect.strokeColor = Color.white
-        else:
-            self.model.remove()
-            rect.strokeColor = Color.gray
-        self.modelBranch.getContainer().updateAll()
+class DTPage(SingleModelPage):
+    pass
 
 
 class KNNPage:
@@ -402,39 +417,39 @@ class IntroDTPage(IntroView):
         super().__init__(label=Label(description))
 
 
-class ExampleDTPage(ZStack):
+class ExampleDTPage(SingleModelPage, ZStack):
     def __init__(self, **kwargs):
-        self.table = Table(filePath="examples/decisionTree/movie")
-        self.model = DecisionTree(table=self.table, testing=self.testingTable)
-        items = [
+        self.setTable(Table(filePath="examples/decisionTree/movie"))
+        self.setModel(DecisionTree(table=self.table, testing=self.testingTable))
+
+        ZStack.__init__(self, [
             HStack([
                 VStack([
                     HStack([
-                        TableView(),
-                        self.createTreeRoomView()
+                        TableView(model=self.model),
+                        TreeRoom(model=self.model)
 
                     ], ratios=[0.6, 0.4]),
-                    self.createHeaderButtons()
+                    HeaderButtons(model=self.model)
                 ], ratios=[0.9, 0.1])
             ]),
-            self.createNextTextbox()
-        ]
-        super().__init__(textboxScript=[
-            ("Welcome to the Decision Tree Simulator!", 0, 0),
-            (["To begin we will use a Decision Tree to",
-              "analyze movie data. The objective of the",
-              "model is to predict if movies would be",
-              "liked or disliked based on type, length,",
-              "and other characteristics."], 0.8, 0),
-            (["Lets start by splitting the data shown on",
-              "the right into separate groups of the",
-              "same color"], -0.5, 0),
-            ("Click on director to split the data into 3 groups", -0.8, 0),
-            ("Next, click on director lass to subdivide the group", -0.8, 0),
-            ("Finally, click on length to complete the tree", -0.8, 0),
-            ("To show the full tree click on group name on the top", -0.8, 0),
-            ("Congratulations on completing the tutorial", 0, 0)
-        ], textboxAudioPath="dt_final/dt", items=items)
+            TextboxView(textboxScript=[
+                ("Welcome to the Decision Tree Simulator!", 0, 0),
+                (["To begin we will use a Decision Tree to",
+                  "analyze movie data. The objective of the",
+                  "model is to predict if movies would be",
+                  "liked or disliked based on type, length,",
+                  "and other characteristics."], 0.8, 0),
+                (["Lets start by splitting the data shown on",
+                  "the right into separate groups of the",
+                  "same color"], -0.5, 0),
+                ("Click on director to split the data into 3 groups", -0.8, 0),
+                ("Next, click on director lass to subdivide the group", -0.8, 0),
+                ("Finally, click on length to complete the tree", -0.8, 0),
+                ("To show the full tree click on group name on the top", -0.8, 0),
+                ("Congratulations on completing the tutorial", 0, 0)
+            ], textboxAudioPath="dt_final/dt")
+        ])
 
 
 class ExceriseDTPage(DTPage):
@@ -460,6 +475,9 @@ class ExceriseDTPage(DTPage):
 
 class CodingDTPage(CodingPage):
     def __init__(self, **kwargs):
+        self.setTable(Table(filePath="examples/decisionTree/medical"))
+        self.setModel(DecisionTree(table=self.table, testingTable=self.testingTable))
+
         # Codes
         codes = [
             Code("model = DecisionTreeClassifier()", "Load Model", 1),
@@ -469,21 +487,8 @@ class CodingDTPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        table = Table(filePath="examples/decisionTree/medical")
-        super().__init__(table=table, model=DecisionTree(table=table), codes=codes, codingAddString="Add Tree", codingFilePath="assets/treeExample.py",
+        super().__init__(codes=codes, codingAddString="Add Tree", codingFilePath="assets/treeExample.py",
                          codingExamplePath="examples/decisionTree", **kwargs)
-
-    def incMethod(self, sender):
-        if len(self.models) >= 100:
-            self.models = []
-            self.codingAddLabel.setFont("Add Trees")
-
-        else:
-            for _ in range(10):
-                train, test = self.trainTable.partition()
-                self.model = DecisionTree(table=train)
-                self.addModel(self.model)
-            self.codingAddLabel.setFont("Trees: {}".format(len(self.models)))
 
 
 class InfoDTPage(InfoView):
@@ -801,27 +806,6 @@ class Code:
         self.line = line
         self.label = label
         self.order = order
-
-
-class Branch:
-    def __init__(self, view, disjoint):
-        self.disjoint = disjoint  # Container
-        self.view = view  # Noncontainer
-
-    def getContainer(self):
-        return self.view.container
-
-    def setView(self, view):
-        view.setContainer(container=self.view.container)
-        self.view = view
-
-    def move(self, nextView):
-        if nextView != None:
-            nextDisjoint = nextView.container
-            nextView.setContainer(container=self.view.container)
-            self.view.setContainer(container=self.disjoint)
-            self.disjoint = nextDisjoint
-            self.view = nextView
 
 
 if __name__ == '__main__':
