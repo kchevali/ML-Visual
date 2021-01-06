@@ -8,11 +8,14 @@ from elements import *
 from comp import *
 import statistics as stat
 from time import time
+from base import *
 
 # Solo Views
 modelTitle = "Temp"
 
-# NO TOUCH unless broken
+# =====================================================================
+# Non-model based views
+# =====================================================================
 
 
 class MouseDebug(ZStack):
@@ -96,44 +99,32 @@ class InfoView(VStack):
         items = [Label("More Information Below:", fontSize=48, dx=-1)] + buttons + [None] * 8
         super().__init__(items, hideAllContainers=False, **kwargs)
 
+# =====================================================================
+# Model based views
+# =====================================================================
 
-# Need to Work On!
 
-
-class ModelView(ZStack):
+class SingleModelView(SingleModel):
     def __init__(self, model, **kwargs):
-        super().__init__(**kwargs)
-        self.model = model
+        super().__init__(model=model, table=model.table, **kwargs)
+        self.table.addGraphic(self)
 
 
-class GroupView:
-    # def __init__(self,views=[], **kwargs):
-    #     super().__init__(items=views, **kwargs)
-    #     self.classType = classType
-    #     self.classArgs = classArgs
-    #     self.models = models
-    #     # self.addAllModelViews()#should be called after __init__() is done
-    #     # it is wrong for the parent to assume the subclasses are init when the parent is done
-
-    def createViews(self, models):
-        pass
-
-    def addModelViews(self):
-        for modelView in self.getViews():
-            modelView.addView(modelView.createModelView()())
-
-    def rebuild(self):
-        for modelView in self.getViews():
-            modelView.clear()
-        self.addAllModelViews()
+class MultiModelView(MultiModel):
+    def __init__(self, models=[], compModels=[], **kwargs):
+        super().__init__(table=models[0].table if models else (compModels[0].table if compModels else None), **kwargs)
+        self.table.addGraphic(self)
+        for model in models:
+            self.addModel(model)
+        for model in compModels:
+            self.addCompModel(model)
 
 
-class TableView(Grid):
+class TableView(SingleModelView, Grid):
 
-    def __init__(self, model, **kwargs):
-        self.model = model
-        self.model.table.addGraphic(self)
-        super().__init__(model=model, createCellViewMethod=self.createCellView, **kwargs)
+    def __init__(self, **kwargs):
+        SingleModelView.__init__(self, **kwargs)
+        Grid.__init__(self, createCellViewMethod=self.createCellView, **kwargs)
 
     # def updateTableView(self, **kwargs):
     #     prevContainer = self.tableView.container if self.tableView != None else None
@@ -175,24 +166,23 @@ class TableView(Grid):
         for index in range(colIndex + self.cols, self.length, self.cols):
             view = self.getView(index)
             if view != None:
-                view.keyDown("rect").color = self.model.table.classColors[self.items[index]] if colIndex == 0 else (Color.steelBlue if isSelect else Color.lightSteelBlue)
+                view.keyDown("rect").color = self.table.classColors[self.items[index]] if colIndex == 0 else (Color.steelBlue if isSelect else Color.lightSteelBlue)
 
 
-class HeaderButtons(HStack):
-    def __init__(self, model, **kwargs):
-        super().__init__([
+class HeaderButtons(SingleModelView, HStack):
+
+    def __init__(self, **kwargs):
+        SingleModelView.__init__(self, **kwargs)
+        HStack.__init__(self, [
             Button([
                 Rect(color=Color.steelBlue, strokeColor=Color.white, strokeWidth=4, cornerRadius=10),
-                Label(model.table.xNames[i], fontSize=25, color=Color.white)
-            ], isOn=False, tag=i + 1, run=self.pressButton) for i in range(model.table.colCount)
+                Label(self.table.xNames[i], fontSize=25, color=Color.white)
+            ], isOn=False, tag=i + 1, run=self.pressButton) for i in range(self.table.colCount)
         ], **kwargs)
-        self.model = model
-        self.model.table.addGraphic(self)
-        # self.selectedCol=None
 
     def pressButton(self, sender):
-        self.model.table.tableChange(self.model.table.selectedCol, isSelect=False)
-        self.model.table.tableChange(sender.tag, isSelect=sender.isOn)
+        self.table.tableChange(self.table.selectedCol, isSelect=False)
+        self.table.tableChange(sender.tag, isSelect=sender.isOn)
 
     def tableChange(self, column, isSelect, isLock, isNewTable):
         if column == None:
@@ -217,7 +207,7 @@ class HeaderButtons(HStack):
         # def updateButtons(self):
         #     for button in self.getViews():
         #         rect = button.getView(0)
-        #         column = self.model.table.xNames[button.tag - 1]
+        #         column = self.table.xNames[button.tag - 1]
 
         #         if self.model.isLockedColumn(column):
         #             rect.strokeColor = Color.gray
@@ -225,7 +215,7 @@ class HeaderButtons(HStack):
         #             button.setOn(isOn=False)
         #         else:
         #             button.isDisabled = False
-        #             if self.model.table.selectedCol == button.tag:
+        #             if self.table.selectedCol == button.tag:
         #                 rect.strokeColor = Color.yellow
         #                 button.setOn(isOn=True)
         #             else:
@@ -233,12 +223,11 @@ class HeaderButtons(HStack):
         #                 button.setOn(isOn=False)
 
 
-class TreeRoom(ZStack):
-    def __init__(self, model):
-        self.model = model
-        self.model.table.addGraphic(self)
+class TreeRoom(SingleModelView, ZStack):
+    def __init__(self, **kwargs):
+        SingleModelView.__init__(self, **kwargs)
         view = Points(pts=self.model.getCircleLabelPts())
-        super().__init__(items=[view])
+        ZStack.__init__(self, items=[view])
         self.modelBranch = Branch(view=view, disjoint=Container())
 
     # def updateRoom(self):
@@ -289,11 +278,11 @@ class TreeRoom(ZStack):
 
     def goForward(self, sender):
         if self.model.hasChildren():
-            print("Forward: Children | Selected Col:", self.model.table.selectedCol)
+            print("Forward: Children | Selected Col:", self.table.selectedCol)
             self.goToIndexTree(index=sender.tag)
-            print("Forwar2: Children | Selected Col:", self.model.table.selectedCol)
+            print("Forwar2: Children | Selected Col:", self.table.selectedCol)
 
-            self.model.table.tableChange(self.model.table.selectedCol, isLock=True, isSelect=False, isNewTable=True)
+            self.table.tableChange(self.table.selectedCol, isLock=True, isSelect=False, isNewTable=True)
             self.modelBranch.getContainer().updateAll()
             # self.updateContainers()
         else:
@@ -302,8 +291,8 @@ class TreeRoom(ZStack):
     def goBack(self, sender):
         if not self.model.isRoot():
             self.goBackTree()
-            self.model.table.tableChange(self.model.table.selectedCol, isSelect=False)
-            self.model.table.tableChange(None, isLock=False, isSelect=True, isNewTable=True)
+            self.table.tableChange(self.table.selectedCol, isSelect=False)
+            self.table.tableChange(None, isLock=False, isSelect=True, isNewTable=True)
 
     def removeNodeTree(self):
         self.model.remove()
@@ -332,10 +321,9 @@ class TreeRoom(ZStack):
     #     self.modelBranch.getContainer().updateAll()
 
 
-class TreeList(VStack):
-    def __init__(self, model):
-        self.model = model
-        self.model.table.addGraphic(self)
+class TreeList(SingleModelView, VStack):
+    def __init__(self, **kwargs):
+        SingleModelView.__init__(self, **kwargs)
 
         self.totalScoreLabel = Label("Total: [0%]", fontSize=20)
         self.totalScore = ZStack([
@@ -343,7 +331,7 @@ class TreeList(VStack):
             self.totalScoreLabel
         ], lockedHeight=50, dy=1)
 
-        super().__init__([None] * 9 + [
+        VStack.__init__(self, [None] * 9 + [
             self.totalScore,
             Button([
                 Rect(color=Color.steelBlue, cornerRadius=10),
@@ -376,31 +364,17 @@ class TreeList(VStack):
         self.updateHeaderSelectionButtons()
 
 
-# Complicated Section
-
-
-class GraphView(ZStack):
-    def __init__(self, models=[], compModels=[], hasAxis=False, enableUserPts=False, **kwargs):
-        self.models = []
+class GraphView(MultiModelView, ZStack):
+    def __init__(self, hasAxis=False, enableUserPts=False, **kwargs):
+        self.graphics = []
+        MultiModelView.__init__(self, **kwargs)
         self.hasAxis = hasAxis
         self.userPts = Points(maxPts=100) if enableUserPts else None
-        self.compModels = []
         self.legend = None
-        self.graphics = []
-
-        # self.modelView = ZStack([
-        #     Button(self.createDots(), limit=200, run=self.clickGraph),
-        #     self.legend,
-        #     self.createIncButton(dx=-1, dy=1)
-        # ], limit=100)
-        for model in models:
-            self.addModel(model)
-        for model in compModels:
-            self.addCompModel(model)
 
         self.graphGrid = Button([self.userPts] + [self.legend] + self.graphics, run=self.clickGraph)
 
-        super().__init__([
+        ZStack.__init__(self, [
             HStack([
                 VStack([
                     self.createAxis(model=self.models[0], isVertical=True),
@@ -411,7 +385,7 @@ class GraphView(ZStack):
                     self.createAxis(model=self.models[0], isVertical=False),
                 ], ratios=[0.9, 0.1])
             ], ratios=[0.08, 0.92]),
-            self.createAddCompButton()
+            self.createAddCompButton() if self.compModels else None
         ], **kwargs)
         # if self.drawModel:f
         #     self.modelLine, self.modelError, self.modelEq = self.createLines(color=self.model.color, errorOffset=-120, eqOffset=-90, dx=-1, dy=1)
@@ -419,19 +393,19 @@ class GraphView(ZStack):
         #     self.compLine, self.compError, self.compEq = self.createLines(color=self.compModel.color, errorOffset=90, eqOffset=120, dx=1, dy=-1, offsetX=-150)
 
     def addModel(self, model):
+        super().addModel(model)
         # create model equation label & error label
-        model.addGraphics(
-            ("pts", Points(pts=[], color=model.color, isConnected=True)),
-            ("err", Label("Error: --", fontSize=15, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15)),
-            ("eq", Label("Y=--", fontSize=15, color=model.color, dx=1, dy=-1, offsetY=120 + 45 * len(self.models), offsetX=-15))
-        )
+        model.addGraphics(("pts", Points(pts=[], color=model.color, isConnected=True)))
+        if model.isRegression:
+            model.addGraphics(
+                ("err", Label("Error: --", fontSize=15, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15)),
+                ("eq", Label("Y=--", fontSize=15, color=model.color, dx=1, dy=-1, offsetY=120 + 45 * len(self.models), offsetX=-15))
+            )
         self.graphics += [graphic for graphic in model.graphics]
-        # add model to list
-        self.models.append(model)
 
     def addCompModel(self, model):
+        super().addCompModel(model)
         self.addModel(model)
-        self.compModels.append(model)
 
     def createLegendView(self, model):
         if not model.isCategorical:
@@ -564,6 +538,10 @@ class KNNGraphView(GraphView):
 class LinearGraphView(GraphView):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+# =====================================================================
+# Support classes
+# =====================================================================
 
 
 class Branch:

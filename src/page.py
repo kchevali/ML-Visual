@@ -9,6 +9,7 @@ from comp import *
 import statistics as stat
 from time import time
 from view import *
+from base import *
 
 
 modelTitle = ""
@@ -174,35 +175,7 @@ class MenuPage(ModelPage):
 # =====================================================================
 
 
-class BasePage:
-    def __init__(self, **kwargs):
-        pass
-
-    def setTable(self, table):
-        self.table, self.testingTable = table.partition(testing=0.3)
-
-
-class SingleModelPage(BasePage):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def setModel(self, model):
-        self.model = model
-
-
-class MultipleModelPage(BasePage):
-    def __init__(self, **kwargs):
-        self.models = []
-        self.compModels = []
-
-    def addModel(self, model):
-        self.models.append(model)
-
-    def addCompModel(self, model):
-        self.compModels.append(model)
-
-
-class CodingPage(SingleModelPage, ZStack):
+class CodingPage(SingleModel, ZStack):
     def __init__(self, codes, codingAddString, codingFilePath, codingExamplePath, **kwargs):
         self.codes = codes
         self.codingAddString = codingAddString
@@ -360,16 +333,6 @@ class CodingPage(SingleModelPage, ZStack):
         self.codingScoreLabel.setFont(text=self.model.getScoreString())
         self.codingScoreLabel.container.updateAll()
 
-# =====================================================================
-# MODEL PAGE CLASSES
-# =====================================================================
-
-
-class SVMPage:
-    def __init__(self, **kwargs):
-        super().__init__(partition=0.3, hasAxis=True, features=1, **kwargs)
-        self.models.append(SVM(table=self.table))
-
 
 # =====================================================================
 # CUSTOM MODEL PAGES
@@ -391,9 +354,9 @@ class IntroDTPage(IntroView):
         super().__init__(label=Label(description))
 
 
-class ExampleDTPage(SingleModelPage, ZStack):
+class ExampleDTPage(SingleModel, ZStack):
     def __init__(self, **kwargs):
-        SingleModelPage.__init__(self)
+        SingleModel.__init__(self, **kwargs)
         self.setTable(Table(filePath="examples/decisionTree/movie"))
         self.setModel(DecisionTree(table=self.table, testing=self.testingTable))
 
@@ -427,26 +390,26 @@ class ExampleDTPage(SingleModelPage, ZStack):
         ])
 
 
-class ExceriseDTPage(SingleModelPage, ZStack):
+class ExceriseDTPage(MultiModel, ZStack):
     def __init__(self):
-        SingleModelPage.__init__(self)
-        items = [
+        SingleModel.__init__(self)
+        self.setTable(Table(filePath="examples/decisionTree/zoo"))
+        self.addModel(DecisionTree(table=self.table, testing=self.testingTable))
+
+        ZStack.__init__(self, [
             HStack([
                 VStack([
                     HStack([
-                        self.createTreeListView(),
-                        self.tableView,
-                        self.createTreeRoomView()
+                        TreeList(model=self.model),
+                        TableView(model=self.model),
+                        TableView(model=self.model),
 
                     ], ratios=[0.15, 0.55, 0.3]),
                     self.createHeaderButtons()
 
                 ], ratios=[0.9, 0.1])
             ])
-        ]
-
-        ZStack.__init__(self, table=Table(filePath="examples/decisionTree/zoo"), items=items)
-        self.models = []  # different from GraphView
+        ])
 
 
 class CodingDTPage(CodingPage):
@@ -483,10 +446,10 @@ class IntroKNNPage(IntroView):
         super().__init__(label=Label(description))
 
 
-class ExampleKNNPage(MultipleModelPage, ZStack):
+class ExampleKNNPage(MultiModel, ZStack):
 
     def __init__(self):
-        MultipleModelPage.__init__(self)
+        MultiModel.__init__(self)
 
         self.setTable(Table(filePath="examples/knn/iris"))
         self.addModel(KNN(table=self.table, testingTable=self.testingTable, drawTable=True))
@@ -544,9 +507,9 @@ class IntroLinearPage(IntroView):
         super().__init__(label=Label(description))
 
 
-class ExampleLinearPage(MultipleModelPage, ZStack):
+class ExampleLinearPage(MultiModel, ZStack):
     def __init__(self):
-        MultipleModelPage.__init__(self)
+        MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/linear/iris", features=1))
         self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=1, drawTable=True, isUserSet=True))
         self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=1, drawTable=False, color=Color.blue))
@@ -563,9 +526,9 @@ class ExampleLinearPage(MultipleModelPage, ZStack):
         # print(view)
 
 
-class QuadLinearPage(MultipleModelPage, ZStack):
+class QuadLinearPage(MultiModel, ZStack):
     def __init__(self):
-        MultipleModelPage.__init__(self)
+        MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/linear/iris", features=1))
         self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=2, drawTable=True, isUserSet=True))
         self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=2, drawTable=False, color=Color.blue))
@@ -632,9 +595,9 @@ class IntroLogisticPage(IntroView):
         super().__init__(label=Label(description))
 
 
-class ExampleLogisticPage(MultipleModelPage, ZStack):
+class ExampleLogisticPage(MultiModel, ZStack):
     def __init__(self):
-        MultipleModelPage.__init__(self)
+        MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/logistic/sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1))
         self.addModel(Logistic(table=self.table, testingTable=self.testingTable, drawTable=True, isUserSet=True))
         ZStack.__init__(self, [
@@ -675,15 +638,20 @@ class InfoLogisticPage(InfoView):
 # SVM
 
 
-class ExampleSVMPage(SVMPage):
+class ExampleSVMPage(MultiModel, ZStack):
     def __init__(self):
-        items = [
-            GraphView(model=self.model),
-            self.createNextTextbox()
-        ]
-        super().__init__(textboxScript=[
-            ("Welcome to the SVM Simulator!", 0, 0)
-        ], table=Table(filePath="examples/svm/iris"), items=items)  # examples/linear/iris
+        MultiModel.__init__(self)
+        self.setTable(Table(filePath="examples/logistic/sigmoid", features=1))
+        self.addModel(SVM(table=self.table, testingTable=self.testingTable, drawTable=True, isUserSet=True))
+        ZStack.__init__(self, [
+            VStack([
+                GraphView(models=self.models, hasAxis=True)
+                # self.createHeaderButtons()
+            ], ratios=[0.9, 0.1]),
+            TextboxView(textboxScript=[
+                ("Welcome to the SVM Simulator!", 0, 0)
+            ])
+        ])
 
 
 class CompPage(IntroView):

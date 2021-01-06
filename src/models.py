@@ -14,7 +14,7 @@ import math
 
 
 class Model:
-    def __init__(self, table, testingTable=None, color=Color.red, drawTable=False, isUserSet=False, **kwargs):
+    def __init__(self, table, testingTable=None, color=Color.red, drawTable=False, isUserSet=False, isClassification=False, isRegression=False, **kwargs):
         self.table = table
         self.testingTable = testingTable
         self.color = color
@@ -31,6 +31,8 @@ class Model:
         self.graphicsDict = {}
         self.isUserSet = isUserSet
         self.isRunning = False
+        self.isClassification = isClassification
+        self.isRegression = isRegression
 
     def getTablePtsXX(self):
         return [self.getPt(self.table.x[i][0], self.table.x[i][1], self.table.classColors[self.table.y[i]]) for i in range(self.table.rowCount)]
@@ -68,7 +70,7 @@ class Model:
 class Classifier(Model):
     # takes multiple features and outputs a categorical data
     def __init__(self, **kwargs):
-        super().__init__(isLinear=False, isConnected=False, **kwargs)
+        super().__init__(isLinear=False, isConnected=False,isClassification=True, **kwargs)
         self.minX1, self.maxX1 = self.table.minX(), self.table.maxX()
         self.minX2, self.maxX2 = self.table.minX(self.table.xNames[1]), self.table.maxX(self.table.xNames[1])
         self.colNameA, self.colNameB = self.table.xNames[0], self.table.xNames[1]
@@ -115,7 +117,7 @@ class Regression(Model):
     # takes multiple features and outputs real data
 
     def __init__(self, length, **kwargs):
-        super().__init__(isConnected=True, **kwargs)
+        super().__init__(isConnected=True,isRegression=True, **kwargs)
         self.length = length
         self.minX1, self.maxX1 = self.table.minX(), self.table.maxX()
         self.minX2, self.maxX2 = self.table.minY(), self.table.maxY()
