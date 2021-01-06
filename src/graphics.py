@@ -452,10 +452,10 @@ class Label(Frame):
             Label.fontCache[fontKey] = self.font
 
         self.font.vertical = self.isVertical
-        # self.updateFrame() -- most current/ removed since causing extra updates
+        self.updateFrame()  # -- most current/ removed since causing extra updates
         # however, better calls are still needed
 
-        self.render(self.text)
+        # self.render(self.text)
         # self.threeDots = False
 
     def render(self, lines):
@@ -590,7 +590,7 @@ class Container(ResizableFrame):
 class Stack(ResizableFrame):
 
     # init args have default values for ZStack()
-    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=None, ratiosY=None, containerArgs=[], createCellViewMethod=None, **kwargs):
+    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=None, ratiosY=None, containerArgs=[], createCellViewMethod=None, hoverEnabled=True, **kwargs):
         super().__init__(**kwargs)
         self.items = items if type(items) == list or type(items) == np.ndarray else [items]
         self.limit = limit
@@ -608,6 +608,7 @@ class Stack(ResizableFrame):
         self.length = self.rows * self.cols * self.depth
         self.canHold = True
         self.isHidingViews = False
+        self.hoverEnabled = hoverEnabled
 
         # self.selectedRow = None
         # self.selectedCol = None
@@ -747,10 +748,11 @@ class Stack(ResizableFrame):
         self.cj -= dx
         self.ck -= dz
 
-    def getEmptyContainer(self, x, y):
+    # TODO
+    def getEmptyContainers(self, x, y):
         for view in self.getRootOrder():
             if view.isContainer() and view.view == None and view.isWithin(x, y):
-                return view
+                yield view
 
     def canDragView(self, view, container):
         if(super().canDragView(view, container)):
@@ -793,7 +795,7 @@ class Stack(ResizableFrame):
 
     def getViews(self):
         for c in self.containers:
-            if c.view != None:
+            if c != None:
                 yield c.view
 
     def getRevViews(self):
@@ -940,9 +942,8 @@ class Grid(Stack):
 
 class ZStack(Stack):
 
-    def __init__(self, items=[], hoverEnabled=True, **kwargs):
+    def __init__(self, items=[], **kwargs):
         super().__init__(items=items, depth=len(items) if type(items) == list else 1, **kwargs)
-        self.hoverEnabled = hoverEnabled
 
     def updateFrame(self):
         super().updateFrame()

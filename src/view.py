@@ -31,6 +31,7 @@ class TextboxView(ZStack):
         label = Label(text=text, color=Color.black, fontSize=15)
         audio = Button(Image(imageName="audio.png", lockedWidth=50, lockedHeight=50), soundName=soundName, dx=1, dy=1, offsetX=-20, offsetY=-20, lockedWidth=60, lockedHeight=60)
 
+        # super().__init__(items=None)
         super().__init__([
             Button([
                 Rect(color=Color.white, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
@@ -41,7 +42,7 @@ class TextboxView(ZStack):
 
         self.textboxScript = textboxScript
         self.textboxAudioPath = textboxAudioPath
-        self.textboxIndex = 0
+        self.textboxIndex = 1000  # 0
         self.label = label
         self.audio = audio
 
@@ -166,7 +167,9 @@ class TableView(Grid):
     def scrollDown(self):
         self.shiftTable(dy=-1)
 
-    def tableChange(self, colIndex, isSelect, isLock):
+    def tableChange(self, colIndex, isSelect, isLock, isNewTable):
+        # if isNewTable:
+        #     TableView(model=self.model).setContainer(self.container)
         if colIndex == None or isSelect == None:
             return
         for index in range(colIndex + self.cols, self.length, self.cols):
@@ -191,9 +194,10 @@ class HeaderButtons(HStack):
         self.model.table.tableChange(self.model.table.selectedCol, isSelect=False)
         self.model.table.tableChange(sender.tag, isSelect=sender.isOn)
 
-    def tableChange(self, column, isSelect, isLock):
+    def tableChange(self, column, isSelect, isLock, isNewTable):
         if column == None:
             return
+        print("Update Button:", column, "Is Select:", isSelect, "Is Lock:", isLock)
 
         button = self.getView(column - 1)
         rect = button.getView(0)
@@ -209,9 +213,6 @@ class HeaderButtons(HStack):
             else:
                 rect.strokeColor = Color.darkGray
                 button.setOn(isOn=False)
-
-    def newTable(self):
-        pass
 
         # def updateButtons(self):
         #     for button in self.getViews():
@@ -244,7 +245,7 @@ class TreeRoom(ZStack):
     #     self.setPts(pts=self.model.getCircleLabelPts())
     #     self.modelBranch = Branch(view=self, disjoint=Container())
 
-    def tableChange(self, colIndex, isSelect, isLock):
+    def tableChange(self, colIndex, isSelect, isLock, isNewTable):
         if isSelect == None:
             return
         # rect = sender.getCousin(0)
@@ -252,8 +253,7 @@ class TreeRoom(ZStack):
             self.splitTree(colIndex - 1)
             # rect.strokeColor = Color.white
         else:  # False
-            self.model.remove()
-            self.goBackTree()
+            self.removeNodeTree()
             # rect.strokeColor = Color.gray
         self.modelBranch.getContainer().updateAll()
 
@@ -289,16 +289,21 @@ class TreeRoom(ZStack):
 
     def goForward(self, sender):
         if self.model.hasChildren():
-            self.model.table.tableChange(self.model.table.selectedCol, isLock=True, isSelect=False)
+            print("Forward: Children | Selected Col:", self.model.table.selectedCol)
             self.goToIndexTree(index=sender.tag)
+            print("Forwar2: Children | Selected Col:", self.model.table.selectedCol)
 
+            self.model.table.tableChange(self.model.table.selectedCol, isLock=True, isSelect=False, isNewTable=True)
+            self.modelBranch.getContainer().updateAll()
             # self.updateContainers()
+        else:
+            print("Forward: No Children")
 
     def goBack(self, sender):
         if not self.model.isRoot():
-            self.model.table.tableChange(None, isLock=False, isSelect=True)
             self.goBackTree()
-            self.modelBranch.getContainer().updateAll()
+            self.model.table.tableChange(self.model.table.selectedCol, isSelect=False)
+            self.model.table.tableChange(None, isLock=False, isSelect=True, isNewTable=True)
 
     def removeNodeTree(self):
         self.model.remove()
@@ -307,6 +312,7 @@ class TreeRoom(ZStack):
     def goBackTree(self):
         self.model.goBack()
         self.modelBranch.move(self.modelBranch.disjoint.keyUp("z"))
+        self.modelBranch.getContainer().updateAll()
 
     def goToIndexTree(self, index):
         self.model.go(index=index)
@@ -373,33 +379,40 @@ class TreeList(VStack):
 # Complicated Section
 
 
-class GraphView:
-    def __init__(self, model, hasAxis=False, enableUserPts=False, **kwargs):
-        super().__init__(**kwargs)
-        self.model = model
+class GraphView(ZStack):
+    def __init__(self, models=[], compModels=[], hasAxis=False, enableUserPts=False, **kwargs):
+        self.models = []
         self.hasAxis = hasAxis
         self.userPts = Points(maxPts=100) if enableUserPts else None
         self.compModels = []
         self.legend = None
+        self.graphics = []
 
-    def createModelView(self, model):
-            # self.modelView = ZStack([
-            #     Button(self.createDots(), limit=200, run=self.clickGraph),
-            #     self.legend,
-            #     self.createIncButton(dx=-1, dy=1)
-            # ], limit=100)
-        self.graphGrid = Button([self.userPts] + [self.legend] + model.graphics, run=self.clickGraph)
-        self.graphView = HStack([
-            VStack([
-                self.createAxis(model=self.models[0], isVertical=True),
-                None,
-            ], ratios=[0.9, 0.1]),
-            VStack([
-                self.graphGrid,
-                self.createAxis(model=self.models[0], isVertical=False),
-            ], ratios=[0.9, 0.1])
-        ], ratios=[0.08, 0.92])
-        return self.graphView
+        # self.modelView = ZStack([
+        #     Button(self.createDots(), limit=200, run=self.clickGraph),
+        #     self.legend,
+        #     self.createIncButton(dx=-1, dy=1)
+        # ], limit=100)
+        for model in models:
+            self.addModel(model)
+        for model in compModels:
+            self.addCompModel(model)
+
+        self.graphGrid = Button([self.userPts] + [self.legend] + self.graphics, run=self.clickGraph)
+
+        super().__init__([
+            HStack([
+                VStack([
+                    self.createAxis(model=self.models[0], isVertical=True),
+                    None,
+                ], ratios=[0.9, 0.1]),
+                VStack([
+                    self.graphGrid,
+                    self.createAxis(model=self.models[0], isVertical=False),
+                ], ratios=[0.9, 0.1])
+            ], ratios=[0.08, 0.92]),
+            self.createAddCompButton()
+        ], **kwargs)
         # if self.drawModel:f
         #     self.modelLine, self.modelError, self.modelEq = self.createLines(color=self.model.color, errorOffset=-120, eqOffset=-90, dx=-1, dy=1)
         # if self.drawComp:
@@ -412,7 +425,7 @@ class GraphView:
             ("err", Label("Error: --", fontSize=15, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15)),
             ("eq", Label("Y=--", fontSize=15, color=model.color, dx=1, dy=-1, offsetY=120 + 45 * len(self.models), offsetX=-15))
         )
-
+        self.graphics += [graphic for graphic in model.graphics]
         # add model to list
         self.models.append(model)
 
@@ -490,10 +503,9 @@ class GraphView:
 
     def startComp(self, sender):
         if(sender.tag < len(self.compModels)):
-            self.compModels[sender.tag].isRunning = True
+            self.compModels[sender.tag].startTraining()
 
     def update(self):
-        # print("UPDATE")
         for model in self.compModels:
             if model.isRunning:
                 model.fit()
@@ -519,7 +531,51 @@ class GraphView:
             #     self.modelEq.setFont(text=self.model.getEqString())
 
 
+class KNNGraphView(GraphView):
+
+    def clickGraph(self, sender):
+        super().clickGraph(sender)
+        if self.userPts != None:
+            x = [
+                hp.map(sender.lastClickX, sender.x, sender.x + sender.getWidth(), self.models[0].minX1, self.models[0].maxX1),
+                hp.map(sender.lastClickY, sender.y, sender.y + sender.getHeight(), self.models[0].minX2, self.models[0].maxX2),
+            ]
+            pred = self.models[0].predict(x)
+
+            print("CLICK:", pred, self.models[0].table.classColors[pred])
+
+            # change color of most recent one
+            self.userPts.setColor(-1, self.models[0].table.classColors[pred])
+
+    def incMethod(self, sender):
+        self.model.k += 2
+        if self.model.k > 10:
+            self.model.k = 1
+        self.codingAddLabel.setFont("K: {}".format(self.model.k))
+
+    def createIncButton(self, **kwargs):
+        self.codingAddLabel = Label("K: {}".format(self.model.k))
+        return Button([
+            Rect(color=Color.backgroundColor, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
+            self.codingAddLabel
+        ], run=self.incMethod, lockedWidth=130, lockedHeight=80, **kwargs)
+
+
+class LinearGraphView(GraphView):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
 class Branch:
+    """
+                              () -----Prev View
+    Display Container- ()     || 
+                       ||     () -----Disjoint Container
+    View-------------- () _ _ /
+                       ||
+    Next View--------- ()
+    """
+
     def __init__(self, view, disjoint):
         self.disjoint = disjoint  # Container
         self.view = view  # Noncontainer
@@ -534,7 +590,7 @@ class Branch:
     def move(self, nextView):
         if nextView != None:
             nextDisjoint = nextView.container
-            nextView.setContainer(container=self.view.container)
-            self.view.setContainer(container=self.disjoint)
-            self.disjoint = nextDisjoint
-            self.view = nextView
+            nextView.setContainer(container=self.view.container)  # disconnect nextView from prev container # connect new view
+            self.view.setContainer(container=self.disjoint)  # set prev view to disjoint
+            self.disjoint = nextDisjoint  # move prev view to disjoint
+            self.view = nextView  # move ptr to new view

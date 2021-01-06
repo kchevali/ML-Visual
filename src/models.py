@@ -30,6 +30,7 @@ class Model:
         self.graphics = []  # stores Point objects
         self.graphicsDict = {}
         self.isUserSet = isUserSet
+        self.isRunning = False
 
     def getTablePtsXX(self):
         return [self.getPt(self.table.x[i][0], self.table.x[i][1], self.table.classColors[self.table.y[i]]) for i in range(self.table.rowCount)]
@@ -47,19 +48,21 @@ class Model:
                 self.graphicsDict[key] = graphic
             self.graphics.append(graphic)
 
-    def setTable(self, table):
-        self.table = table
-        # for graphic in self.graphics:
-        #     graphic.newTable()
-
     def getGraphic(self, key):
         return self.graphicsDict[key] if key in self.graphicsDict else None
+
+    def startTraining(self):
+        self.reset()
+        self.isRunning = True
 
     def getScoreString(self):
         raise NotImplementedError("Please Implement getScoreString")
 
     def defaultScoreString(self):
         raise NotImplementedError("Please Implement defaultScoreString")
+
+    def reset(self):
+        raise NotImplementedError("Please Implement reset")
 
 
 class Classifier(Model):
@@ -119,7 +122,6 @@ class Regression(Model):
         self.colNameA, self.colNameB = self.table.xNames[0], self.table.yName
         if self.drawTable:
             self.graphics.append(Points(pts=self.getTablePtsXY(), color=self.color, isConnected=False))
-        self.isRunning = False
         self.reset()
 
     def error(self, testTable):
@@ -131,7 +133,6 @@ class Regression(Model):
     def reset(self):
         self.critPts = []
         self.cef = [0] * self.length  # highest power first
-        self.debug = 0
 
         pts = self.getGraphic("pts")
         if pts != None:
@@ -154,6 +155,12 @@ class Regression(Model):
 
     def defaultScoreString(self):
         return "Error: --"
+
+    def cefString(self, constant, power, showPlus=True, roundValue=2):
+        constant = round(constant, roundValue)
+        if constant == 0:
+            return ""
+        return ("+" if constant > 0 and showPlus else "") + str(constant) + ("" if power <= 0 else ("x" + ("" if power == 1 else hp.superscript(power))))
 
     def getPts(self, start=None, end=None, count=40):  # get many points
         if start == None:
@@ -187,17 +194,8 @@ class DecisionTree(Classifier):
         # self = DecisionTreeClassifier()
         # self.fit(self.getTable().encodedData, self.getTable().encodeTargetCol)
 
-    def getTable(self):
+    def getTable():
         return self.curr.table
-
-    def getClassCount(self):
-        return self.curr.table.classCount
-
-    def getClass(self, index):
-        return self.curr.table.classSet[index]
-
-    def getColName(self, index):
-        return self.curr.table.colNames[index]
 
     def getChildren(self):
         return self.curr.children
@@ -206,18 +204,10 @@ class DecisionTree(Classifier):
         return self.curr.parent
 
     def getParentColumn(self):
-        return self.curr.parent.column
+        return self.curr.parent.colIndex
 
     def getValue(self):
         return self.curr.value
-
-    # def isLockedColumn(self, column):
-    #     if self.curr == None or self.curr.parent == None:
-    #         return False
-    #     return self.curr.parent.containsColAbove(column)
-
-    def isCurrentColumn(self, column):
-        return self.curr and self.curr.column == column
 
     def isVertical(self):
         return type(self.getView().keyDown("div")) != HStack
@@ -230,13 +220,10 @@ class DecisionTree(Classifier):
 
     def goBack(self):
         self.curr = self.curr.parent
-        self.setTable(self.curr.table)
 
     def go(self, index):
         print("Index:", index, "Children Length Before Go:", len(self.curr.children))
-
         self.curr = self.curr.children[index]
-        self.setTable(self.curr.table)
 
     def predict(self, row):
         return self.curr.predict(row)
@@ -272,9 +259,9 @@ class DTNode:
     def setCol(self, colIndex):
         self.colIndex = colIndex
         self.children = []
-        for item in self.table[self.table.xNames[self.colIndex]].unique():
+        for item in self.table.uniqueVals(self.colIndex):
             self.children.append(DTNode(
-                table=Table(df=self.table[self.table[self.table.xNames[self.colIndex]] == item], param=self.table.param),
+                table=self.table.matchValue(colIndex=self.colIndex, value=item),
                 parent=self, value=item
             ))
         print("Children Length after Split:", len(self.children))
@@ -282,13 +269,6 @@ class DTNode:
     def reset(self):
         self.colIndex = None
         self.children = []
-
-    def containsColAbove(self, colIndex):
-        if self.colIndex == colIndex:
-            return True
-        if self.parent != None:
-            return self.parent.containsColAbove(colIndex)
-        return False
 
     def predict(self, x):
         if self.children:
@@ -472,11 +452,7 @@ class Linear(Regression):
         out = "Y="
         n = self.n
         for i in range(self.n + 1):
-            val = round(self.cef[i], 2)
-            out += ("" if val < 0 or i == 0 else "+") + \
-                (str(val) if val != 0 or n == 0 else "") + \
-                ("x" if n > 0 else "") + \
-                (hp.superscript(str(n)) if n > 1 else "")
+            out += self.cefString(constant=self.cef[i], power=n, showPlus=i > 0)
             n -= 1
         return out
 
@@ -552,7 +528,8 @@ class Logistic(Regression):
         # print("CEF:", self.cef)
 
     def getEqString(self):
-        return "LOG EQ"
+        val1 = self.cef[1]
+        return "1/(1+e^(" + self.cefString(self.cef[0], 1, showPlus=False) + self.cefString(self.cef[1], 0) + "))"
 
 
 class SVM(Regression):

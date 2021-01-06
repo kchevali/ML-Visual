@@ -82,10 +82,11 @@ def runGUI(page):
 
             elif event.type == pg.MOUSEBUTTONUP:
                 if dragObj != None:
-                    container = page.getEmptyContainer(mouseX, mouseY)
-                    if container != None and page.canDragView(dragObj, container):
-                        dragObj.setContainer(container)
-                        page.draggedView(dragObj)
+                    for container in page.getEmptyContainers(mouseX, mouseY):
+                        if container != None and page.canDragView(dragObj, container):
+                            dragObj.setContainer(container)
+                            page.draggedView(dragObj)
+                            break
                     dragObj.setAlignment(dx=0.0, dy=0.0)
                     dragObj.container.updateAll()
                     dragObj = None

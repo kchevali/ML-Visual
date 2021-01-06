@@ -73,7 +73,7 @@ def rangx(start, end=None, delta=1, outputEnd=False):
 
 
 def superscript(s):
-    return u''.join(ssDict.get(c, c) for c in s)
+    return u''.join(ssDict.get(c, c) for c in str(s))
 
 
 def calcAlignment(x, y, dw, dh, isX=False, isY=False):

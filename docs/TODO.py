@@ -294,5 +294,9 @@ TODO 12/13
         Move this document to trello
         https://trello.com/b/h3OzsIph/teachapp-python
 
-
+TODO 1/3
+    1. Talk to HPU about website credentials
+    2. Upload code to website
+    3. Upload the 4 models
+    4. Find Candidates
 """
