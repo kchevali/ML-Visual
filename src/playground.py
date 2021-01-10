@@ -312,32 +312,23 @@
 #         return pred_y
 
 class A:
-    def __init__(self, a, **kwargs):
-        print("A")
-        self.a = a
+    def run(self, **kwargs):
+        print("A.run()")
+        self.test(**kwargs)
+
+    def test(self):
+        print("A.test()")
 
 
-class B:
-    def __init__(self, b, **kwargs):
-        print("B")
+class B(A):
 
-    def initB(self, b):
-        print("initB")
-        self.b = b
-
-
-class C(A, B):
-    def __init__(self, b, c, **kwargs):
-        print("Enter C")
-        A.__init__(self, **kwargs)
-        self.initB(b=b)
-        self.c = c
-        print("Leave C")
+    def test(self, p):
+        print("B.test()", p)
 
 
 if __name__ == '__main__':
-    c = C(a=1, b=2, c=3)
-    print(c.a, c.b, c.c)
+    a = A()
+    a.run(p=1)
 
     pass
     #     table = Table(filePath="examples/svm/iris").createXXYTable()

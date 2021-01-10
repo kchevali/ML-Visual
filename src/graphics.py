@@ -380,8 +380,8 @@ class Points(Ellipse):
 
     def map(self, pt):
         return (
-            hp.map(pt[0], -1.1, 1.1, self.x, self.x + self.getWidth(), clamp=False),
-            hp.map(pt[1], -1.1, 1.1, self.y, self.y + self.getHeight(), clamp=False),
+            hp.map(pt[0], -1, 1, self.x, self.x + self.getWidth(), clamp=False),
+            hp.map(pt[1], -1, 1, self.y, self.y + self.getHeight(), clamp=False),
             pt[2]
         )
 

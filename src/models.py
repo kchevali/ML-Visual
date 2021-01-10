@@ -43,6 +43,39 @@ class Model:
     def getPt(self, x, y, color):  # get many points
         return (hp.map(x, self.minX1, self.maxX1, -1, 1, clamp=False), hp.map(y, self.minX2, self.maxX2, -1, 1, clamp=False), color)
 
+    def getLinearPts(self, isLinear=True, **kwargs):
+        edgePts = [
+            (self.minX1, self.getY(self.minX1, **kwargs)),
+            (self.maxX1, self.getY(self.maxX1, **kwargs)),
+            (self.getX(self.minX2, **kwargs), self.minX2),
+            (self.getX(self.maxX2, **kwargs), self.maxX2),
+        ]
+        if isLinear:
+            return [self.getPt(x, y, self.color) for x, y in edgePts if(x >= self.minX1 and x <= self.maxX1 and y >= self.minX2 and y <= self.maxX2)]
+        # print("Edge:", edgePts)
+        edges = []
+        for x, y in edgePts:
+            if type(x) != tuple:
+                x = [x]
+            if type(y) != tuple:
+                y = [y]
+            edges += [(x_, y_) for x_ in x for y_ in y if x_ != None and y_ != None and x_ >= self.minX1 and x_ <= self.maxX1 and y_ >= self.minX2 and y_ <= self.maxX2]
+        edgePts = edges
+        edgePts.sort()
+
+        out = []
+        for i in range(1, len(edgePts), 2):
+            # sweep
+            out += self.getSweepingPts(start=edgePts[i - 1][0], end=edgePts[i][0], count=20)
+        return out
+
+    def getSweepingPts(self, start=None, end=None, count=40):
+        if start == None:
+            start = self.minX1
+        if end == None:
+            end = self.maxX1
+        return [self.getPt(num, self.getY(num), self.color) for num in hp.rangx(start, end, (end - start) / count, outputEnd=True)]
+
     def addGraphics(self, *args):
         for graphic in args:
             if type(graphic) == tuple:
@@ -66,6 +99,12 @@ class Model:
     def reset(self):
         raise NotImplementedError("Please Implement reset")
 
+    def getY(self, x):
+        raise NotImplementedError("Please Implement getY")
+
+    def getX(self, y):
+        raise NotImplementedError("Please Implement getX")
+
 
 class Classifier(Model):
     # takes multiple features and outputs a categorical data
@@ -86,7 +125,7 @@ class Classifier(Model):
         pass
 
     def getScoreString(self):
-        return str(round(100 * self.accuracy(testTable=self.testingTable), 2)) + "%"
+        return "Accuracy: " + str(round(100 * self.accuracy(testTable=self.testingTable), 2)) + "%"
 
     def defaultScoreString(self):
         return "Accuracy: --"
@@ -104,7 +143,7 @@ class Classifier(Model):
         for label in table.y:
             pts.append((0.5 * cos(trig * i) if rowCount > 1 else 0.0,
                         0.5 * sin(trig * i) if rowCount > 1 else 0.0,
-                        table.classColors[label]))
+                        table.classColors[label[0]]))
             i += 1
 
         # if treeNode.parent != None:
@@ -140,12 +179,6 @@ class Regression(Model):
         if pts != None:
             pts.reset()
 
-    def getY(self, x):
-        raise NotImplementedError("Please Implement getY")
-
-    def getX(self, y):
-        raise NotImplementedError("Please Implement getX")
-
     def getEqString(self):
         raise NotImplementedError("Please Implement getEqString")
 
@@ -153,23 +186,21 @@ class Regression(Model):
         raise NotImplementedError("Please Implement getEq")
 
     def getScoreString(self):
-        return str(round(self.error(testTable=self.testingTable), 4))
+        return "Error: " + str(round(self.error(testTable=self.testingTable), 4))
 
     def defaultScoreString(self):
         return "Error: --"
 
     def cefString(self, constant, power, showPlus=True, roundValue=2):
+        while type(constant) == np.ndarray:
+            constant = constant[0]
         constant = round(constant, roundValue)
         if constant == 0:
             return ""
         return ("+" if constant > 0 and showPlus else "") + str(constant) + ("" if power <= 0 else ("x" + ("" if power == 1 else hp.superscript(power))))
 
     def getPts(self, start=None, end=None, count=40):  # get many points
-        if start == None:
-            start = self.minX1
-        if end == None:
-            end = self.maxX1
-        return [self.getPt(num, self.getY(num), self.color) for num in hp.rangx(start, end, (end - start) / count, outputEnd=True)]
+        return self.getSweepingPts(start=start, end=end, count=count)
 
     def addPt(self, x, y, storePt=True):
         if len(self.critPts) == 0 and not storePt:
@@ -196,7 +227,7 @@ class DecisionTree(Classifier):
         # self = DecisionTreeClassifier()
         # self.fit(self.getTable().encodedData, self.getTable().encodeTargetCol)
 
-    def getTable():
+    def getTable(self):
         return self.curr.table
 
     def getChildren(self):
@@ -207,6 +238,9 @@ class DecisionTree(Classifier):
 
     def getParentColumn(self):
         return self.curr.parent.colIndex
+
+    def getColName(self):
+        return self.curr.getColName()
 
     def getValue(self):
         return self.curr.value
@@ -224,7 +258,6 @@ class DecisionTree(Classifier):
         self.curr = self.curr.parent
 
     def go(self, index):
-        print("Index:", index, "Children Length Before Go:", len(self.curr.children))
         self.curr = self.curr.children[index]
 
     def predict(self, row):
@@ -266,7 +299,6 @@ class DTNode:
                 table=self.table.matchValue(colIndex=self.colIndex, value=item),
                 parent=self, value=item
             ))
-        print("Children Length after Split:", len(self.children))
 
     def reset(self):
         self.colIndex = None
@@ -279,6 +311,9 @@ class DTNode:
                     return child.predict(x)
             return None
         return self.table.majorityInTargetColumn()
+
+    def getColName(self):
+        return self.table.xNames[self.colIndex] if self.colIndex != None else None
 
 
 class KNN(Classifier):
@@ -376,6 +411,7 @@ class Linear(Regression):
             # b = self.cef[1] - self.alpha * self.getJGradient(multX=False) / self.length
             self.dJ = self.getJ(self.cef) - self.getJ(newCefs)
             self.cef = newCefs
+            # print("DJ:", self.dJ, "CEF:", self.cef)
             self.getGraphic("pts").setPts(self.getPts())
             self.getGraphic("eq").setFont(text=self.getEqString())
             self.getGraphic("err").setFont(text="Error: " + self.getScoreString())
@@ -387,7 +423,7 @@ class Linear(Regression):
         total = 0
         # testTotal = 0
         for i in range(self.table.rowCount):
-            localTotal = self.table.y[i]
+            localTotal = self.table.y[i][0]
             for j in range(self.n + 1):
                 localTotal -= cef[j] * (self.table.x[i][0]**(self.n - j))
 
@@ -400,7 +436,7 @@ class Linear(Regression):
         total = 0
         # testTotal = 0
         for i in range(self.table.rowCount):
-            localTotal = -self.table.y[i]
+            localTotal = -self.table.y[i][0]
             for j in range(self.n + 1):
                 localTotal += self.cef[j] * (self.table.x[i][0]**(self.n - j))
             total += localTotal * (self.table.x[i][0]**degreeX)
@@ -459,40 +495,7 @@ class Linear(Regression):
         return out
 
     def getPts(self):
-        edgePts = [
-            (self.minX1, self.getY(self.minX1)),
-            (self.maxX1, self.getY(self.maxX1)),
-            (self.getX(self.minX2), self.minX2),
-            (self.getX(self.maxX2), self.maxX2),
-        ]
-        if self.n == 1:
-            return [self.getPt(x, y, self.color) for x, y in edgePts if(x >= self.minX1 and x <= self.maxX1 and y >= self.minX2 and y <= self.maxX2)]
-        # print("Edge:", edgePts)
-        edges = []
-        for x, y in edgePts:
-            if type(x) != tuple:
-                x = [x]
-            if type(y) != tuple:
-                y = [y]
-            edges += [(x_, y_) for x_ in x for y_ in y if x_ != None and y_ != None and x_ >= self.minX1 and x_ <= self.maxX1 and y_ >= self.minX2 and y_ <= self.maxX2]
-        edgePts = edges
-        edgePts.sort()
-        # print("X1:", self.minX1, self.maxX1)
-        # print("X2:", self.minX2, self.maxX2)
-        # print("Edge:", edgePts)
-        # if(self.n > 1):
-        #     edgePts = [
-
-        #     ]
-        # print("COEFFs:", self.cef)
-        # print("Processed:", edgePts)
-        # print()
-        out = []
-        for i in range(1, len(edgePts), 2):
-            # sweep
-            out += super().getPts(start=edgePts[i - 1][0], end=edgePts[i][0], count=20)
-        return out
-        # return [self.getPt(x, y, self.color) for x, y in edgePts]
+        return self.getLinearPts(isLinear=self.n == 1)
 
 
 class Logistic(Regression):
@@ -541,18 +544,38 @@ class SVM(Classifier):
         self.iter = n_iters
         self.eta = learning_rate
         self.reset()
-        print("X Shape:", self.table.x.shape)
-        print("W Shape:", self.w.shape)
+        # print("X Shape:", self.table.x.shape)
+        # print("W Shape:", self.w.shape)
+
+        self.data = {-1: [], 1: []}
+        for i in range(self.table.rowCount):
+            self.data[self.table.y[i][0]].append(self.table.x[i])
+        self.opt_dict = {}
+        self.transforms = [[1, 1], [-1, 1], [-1, -1], [1, -1]]
+
+        self.all_data = np.array([])
+        for yi in self.data:
+            self.all_data = np.append(self.all_data, self.data[yi])
+        self.max_feature_value = max(self.all_data)
+        self.min_feature_value = min(self.all_data)
+        self.all_data = None
+
+        # with smaller steps our margins and db will be more precise
+        self.step_sizes = [self.max_feature_value * 0.1,
+                           self.max_feature_value * 0.01,
+                           # point of expense
+                           self.max_feature_value * 0.001, ]
+
+        # extremly expensise
+        self.b_range_multiple = 5
+        # we dont need to take as small step as w
+        self.b_multiple = 5
+
+        self.latest_optimum = self.max_feature_value * 10
+        self.stepIndex = 0
 
         if self.drawTable:
             self.graphics.append(Points(pts=self.getTablePtsXX(), color=self.color, isConnected=False))
-
-        # print("Constants: C=", self.c, "Iter:", self.iter, "Learning Rate:", self.eta)
-        # print("X\n", self.table.x)
-        # print("Shape X:", self.table.x.shape)
-        # print("Y\n", y)
-
-        self.isFit = False
 
     def reset(self):
         self.w = np.zeros([1, self.table.x.shape[1]])
@@ -562,224 +585,77 @@ class SVM(Classifier):
 
         self.reg_strength = 10000
 
-    # def compute_cost(self):
-    #     # calculate hinge loss
-    #     N = self.table.x.shape[0]
-    #     distances = 1 - self.table.y * (self.table.x @ self.w.T)
-    #     distances[distances < 0] = 0  # equivalent to max(0, distance)
-    #     hinge_loss = self.reg_strength * (np.sum(distances) / N)
-
-    #     # calculate cost
-    #     cost = 1 / 2 * np.dot(self.w, self.w.T) + hinge_loss
-    #     return cost
-
-    # def calculate_cost_gradient(self):
-    #     # if only one example is passed (eg. in case of SGD)
-    #     distance = 1 - (self.table.y * np.dot(self.table.x, self.w.T))
-    #     dw = np.zeros([1, len(self.w.T)])
-    #     for i, d in enumerate(distance):
-    #         if max(0, d) == 0:
-    #             di = self.w
-    #         else:
-    #             di = self.w - (self.reg_strength * self.table.y[i] * self.table.x[i])
-    #         dw += di
-    #     dw = dw / len(self.table.y)  # average
-    #     return dw
-
-    # def fit(self):
-    #     if self.counter >= self.iter:
-    #         self.isRunning = False
-    #         print("Training Done")
-    #         return
-
-    #     ascent = self.calculate_cost_gradient()
-    #     self.w = self.w - (self.eta * ascent)
-    #     print("Cost:", self.compute_cost())
-
-    #     # cost = self.table.x @ self.w.T + self.b
-    #     # # print("Shapes:", self.table.x.shape, self.w.T.shape, (self.table.x @ self.w.T).shape)
-    #     # # print("Cost Shape:", cost.shape)
-    #     # # print("Cost:", cost)
-    #     # diff = cost - self.table.y
-    #     # # print("Sum:", sum(diff))
-
-    #     # self.b -= self.eta * self.c * sum(diff)
-    #     # self.w -= self.eta * self.c * sum(diff * self.table.x)
-    #     # # print("Cost:\n", cost)
-    #     # # print("Diff\n", diff)
-    #     # # print("B:\n", b)
-    #     # # print("W:\n", w)
-    #     # self.costs[self.counter] = self.c * sum((self.table.y * cost) + (1 - self.table.y) * cost) + sum(self.w.T**2) / 2
-    #     self.counter += 1
-
-    #     self.getGraphic("pts").setPts(self.getPts())
-    #     # self.getGraphic("eq").setFont(text=self.getEqString())
-    #     # self.getGraphic("err").setFont(text="Error: " + self.getScoreString())
-
-    #     # self.graphics.append(Points(pts=[], color=self.color, isConnected=True))
-
     def fit(self):
-        if self.isFit:
+        if self.stepIndex >= len(self.step_sizes):
+            self.isRunning = False
+            print("Training Done")
             return
-        self.isFit = True
-        print("Start Training")
+        step = self.step_sizes[self.stepIndex]
+        self.stepIndex += 1
 
-        # train with data
-        self.data = {-1: [], 1: []}
-        for i in range(self.table.rowCount):
-            self.data[self.table.y[i][0]].append(self.table.x[i])
-        # { |\w\|:{w,b}}
-        opt_dict = {}
+        w = np.array([self.latest_optimum, self.latest_optimum])
 
-        transforms = [[1, 1], [-1, 1], [-1, -1], [1, -1]]
+        # we can do this because convex
+        optimized = False
+        while not optimized:
+            for b in np.arange(-1 * self.max_feature_value * self.b_range_multiple,
+                               self.max_feature_value * self.b_range_multiple,
+                               step * self.b_multiple):
+                for transformation in self.transforms:
+                    w_t = w * transformation
+                    found_option = True
 
-        all_data = np.array([])
-        for yi in self.data:
-            all_data = np.append(all_data, self.data[yi])
+                    # weakest link in SVM fundamentally
+                    # SMO attempts to fix this a bit
+                    # ti(xi.w+b) >=1
+                    for i in self.data:
+                        for xi in self.data[i]:
+                            yi = i
+                            if not yi * (np.dot(w_t, xi) + b) >= 1:
+                                found_option = False
+                    if found_option:
+                        """
+                        all points in dataset satisfy y(w.x)+b>=1 for this cuurent w_t, b
+                        then put w,b in dict with ||w|| as key
+                        """
+                        self.opt_dict[np.linalg.norm(w_t)] = [w_t, b]
 
-        self.max_feature_value = max(all_data)
-        self.min_feature_value = min(all_data)
-        all_data = None
+            # after w[0] or w[1]<0 then values of w starts repeating itself because of transformation
+            # Think about it, it is easy
+            # print(w,len(self.opt_dict)) Try printing to understand
+            if w[0] < 0:
+                optimized = True
+                # print("optimized a step")
+            else:
+                w = w - step
 
-        # with smaller steps our margins and db will be more precise
-        step_sizes = [self.max_feature_value * 0.1,
-                      self.max_feature_value * 0.01,
-                      # point of expense
-                      self.max_feature_value * 0.001, ]
+        # sorting ||w|| to put the smallest ||w|| at poition 0
+        norms = sorted([n for n in self.opt_dict])
+        # optimal values of w,b
+        opt_choice = self.opt_dict[norms[0]]
 
-        # extremly expensise
-        b_range_multiple = 5
-        # we dont need to take as small step as w
-        b_multiple = 5
+        self.w = opt_choice[0]
+        self.b = opt_choice[1]
 
-        latest_optimum = self.max_feature_value * 10
+        # start with new self.latest_optimum (initial values for w)
+        self.latest_optimum = opt_choice[0][0] + step * 2
 
-        """
-        objective is to satisfy yi(x.w)+b>=1 for all training dataset such that ||w|| is minimum
-        for this we will start with random w, and try to satisfy it with making b bigger and bigger
-        """
-        # making step smaller and smaller to get precise value
-        for step in step_sizes:
-            w = np.array([latest_optimum, latest_optimum])
-
-            # we can do this because convex
-            optimized = False
-            while not optimized:
-                for b in np.arange(-1 * self.max_feature_value * b_range_multiple,
-                                   self.max_feature_value * b_range_multiple,
-                                   step * b_multiple):
-                    for transformation in transforms:
-                        w_t = w * transformation
-                        found_option = True
-
-                        # weakest link in SVM fundamentally
-                        # SMO attempts to fix this a bit
-                        # ti(xi.w+b) >=1
-                        for i in self.data:
-                            for xi in self.data[i]:
-                                yi = i
-                                if not yi * (np.dot(w_t, xi) + b) >= 1:
-                                    found_option = False
-                        if found_option:
-                            """
-                            all points in dataset satisfy y(w.x)+b>=1 for this cuurent w_t, b
-                            then put w,b in dict with ||w|| as key
-                            """
-                            opt_dict[np.linalg.norm(w_t)] = [w_t, b]
-
-                # after w[0] or w[1]<0 then values of w starts repeating itself because of transformation
-                # Think about it, it is easy
-                # print(w,len(opt_dict)) Try printing to understand
-                if w[0] < 0:
-                    optimized = True
-                    # print("optimized a step")
-                else:
-                    w = w - step
-
-            # sorting ||w|| to put the smallest ||w|| at poition 0
-            norms = sorted([n for n in opt_dict])
-            # optimal values of w,b
-            opt_choice = opt_dict[norms[0]]
-
-            self.w = opt_choice[0]
-            self.b = opt_choice[1]
-
-            # start with new latest_optimum (initial values for w)
-            latest_optimum = opt_choice[0][0] + step * 2
-        print("Training Done")
         for i, pts in enumerate(self.getPts()):
-            print("PTS:", pts)
             self.getGraphic("pts" + ("" if i == 0 else str(i + 1))).setPts(pts)
 
-    def getPts(self, start=None, end=None, count=40):  # get many points
-        def hyperplane(x, w, b, v):
+    def getY(self, x, v):
             # returns a x2 value on line when given x1
-            return (-w[0] * x - b + v) / w[1]
+        return (-self.w[0] * x - self.b + v) / self.w[1]
 
-        pts = []
+    def getX(self, y, v):
+        # returns a x1 value on line when given x2
+        return (-self.w[1] * y - self.b + v) / self.w[0]
 
-        self.min_feature_value = min(self.minX1, self.minX2)
-        self.max_feature_value = max(self.maxX1, self.maxX2)
-
-        hyp_x_min = self.min_feature_value * 0.9
-        hyp_x_max = self.max_feature_value * 1.1
-
-        # (w.x+b)=1
-        # positive support vector hyperplane
-        pav1 = hyperplane(hyp_x_min, self.w, self.b, 1)
-        pav2 = hyperplane(hyp_x_max, self.w, self.b, 1)
-        # self.ax.plot([hyp_x_min,hyp_x_max],[pav1,pav2],'k')
-        pts.append([(hyp_x_min, pav1), (hyp_x_max, pav2)])
-        # pts.append((hyp_x_min, pav1))
-        # pts.append((hyp_x_max, pav2))
-
-        # (w.x+b)=-1
-        # negative support vector hyperplane
-        nav1 = hyperplane(hyp_x_min, self.w, self.b, -1)
-        nav2 = hyperplane(hyp_x_max, self.w, self.b, -1)
-        pts.append([(hyp_x_min, nav1), (hyp_x_max, nav2)])
-        # pts.append((hyp_x_min, nav1))
-        # pts.append((hyp_x_max, nav2))
-        # self.ax.plot([hyp_x_min, hyp_x_max], [nav1, nav2], 'k')
-
-        # (w.x+b)=0
-        # db support vector hyperplane
-        db1 = hyperplane(hyp_x_min, self.w, self.b, 0)
-        db2 = hyperplane(hyp_x_max, self.w, self.b, 0)
-        pts.append([(hyp_x_min, db1), (hyp_x_max, db2)])
-        # pts.append((hyp_x_min, db1))
-        # pts.append((hyp_x_max, db2))
-        # self.ax.plot([hyp_x_min, hyp_x_max], [db1, db2], 'y--')
-
-        # OLD CODE
-        # if start == None:
-        #     start = self.minX1
-        # if end == None:
-        #     end = self.maxX1
-
-        # lowX, highX = int(1e6), int(-1e6)
-        # lowY, highY = int(1e6), int(-1e6)
-        # for num in hp.rangx(start, end, (end - start) / count, outputEnd=True):
-        #     lowX = min(lowX, num)
-        #     highX = max(highX, num)
-        #     lowY = min(lowX, self.getY(num))
-        #     highY = max(highX, self.getY(num))
-        # # print("X:", [lowX, highX], [self.minX1, self.maxX1], "Y:", [lowY, highY], [self.minX2, self.maxX2])
-        # return [self.getPt(num, self.getY(num), self.color) for num in hp.rangx(start, end, (end - start) / count, outputEnd=True)]
-        for arr in pts:
-            print("COORD:", arr)
-        return [[self.getPt(x, y, self.color) for x, y in arr] for arr in pts]
+    def getPts(self, start=None, end=None, count=40):  # get many points
+        return [self.getLinearPts(isLinear=True, v=v) for v in [0, -1, 1]]
 
     def predict(self, x):
         return [1 if i >= 0 else 0 for i in (x @ self.w.T + self.b)]
-
-    def getY(self, x, line=0):
-        return (line - self.b - x * self.w.T[0]) / self.w.T[1]
-        # return y[0]
-        # return -self.w.T[0] * x / self.w.T[1]
-
-    # def getX(self, _x, line=0):
-    #     return (line - self.b - _x * self.w.T[1]) / self.w.T[0]
 
 
 if __name__ == '__main__':

@@ -175,7 +175,7 @@ class HeaderButtons(SingleModelView, HStack):
         SingleModelView.__init__(self, **kwargs)
         HStack.__init__(self, [
             Button([
-                Rect(color=Color.steelBlue, strokeColor=Color.white, strokeWidth=4, cornerRadius=10),
+                Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
                 Label(self.table.xNames[i], fontSize=25, color=Color.white)
             ], isOn=False, tag=i + 1, run=self.pressButton) for i in range(self.table.colCount)
         ], **kwargs)
@@ -223,11 +223,17 @@ class HeaderButtons(SingleModelView, HStack):
         #                 button.setOn(isOn=False)
 
 
-class TreeRoom(SingleModelView, ZStack):
+class TreeRoom(SingleModelView, VStack):
     def __init__(self, **kwargs):
         SingleModelView.__init__(self, **kwargs)
         view = Points(pts=self.model.getCircleLabelPts())
-        ZStack.__init__(self, items=[view])
+        VStack.__init__(self, items=[
+            view,
+            Button([
+                Rect(color=Color.blue),
+                Label(text="Back")  # , isDisabled=True
+            ], run=self.goBack)
+        ], ratios=[0.9, 0.1])
         self.modelBranch = Branch(view=view, disjoint=Container())
 
     # def updateRoom(self):
@@ -257,20 +263,24 @@ class TreeRoom(SingleModelView, ZStack):
         stack = VStack if prevStack != VStack else HStack
         label = [
             Button(
-                Label(text="{}:{}".format(self.model.getParentColumn(), self.model.getValue()), fontSize=20,
+                Label(text="Here:{}:{}".format(self.model.getParentColumn(), self.model.getValue()), fontSize=20,
                       color=Color.white, dx=-0.95, dy=-1),
                 run=self.goBack)
         ] if self.model.getParent() != None else []
+        print("Label:", label)
 
         treeChildren = self.model.getChildren()
         totalClassCount = len(treeChildren)
         for child in treeChildren:
             totalClassCount += child.table.classCount
-        print("Total Class Count:", totalClassCount)
+        # print("Total Class Count:", totalClassCount)
 
         self.modelBranch.setView(view=ZStack(items=label + [
             stack(items=[
-                Button(Points(pts=self.model.getCircleLabelPts(self.model.getChild(i).table), isConnected=False), run=self.goForward, tag=i) for i in range(len(treeChildren))
+                VStack([
+                    Button(Label(text="{}:{}".format(self.model.getColName(), self.model.getChild(i).value), fontSize=10, dx=-1), run=self.goBack),
+                    Button(Points(pts=self.model.getCircleLabelPts(self.model.getChild(i).table), isConnected=False), run=self.goForward, tag=i)
+                ], ratios=[0.05, 0.95]) for i in range(len(treeChildren))
             ], ratios=[
                 (child.table.classCount + 1) / totalClassCount for child in treeChildren
             ], border=20 if self.model.getParent() != None else 0, keywords="div")
@@ -278,9 +288,9 @@ class TreeRoom(SingleModelView, ZStack):
 
     def goForward(self, sender):
         if self.model.hasChildren():
-            print("Forward: Children | Selected Col:", self.table.selectedCol)
+            # print("Forward: Children | Selected Col:", self.table.selectedCol)
             self.goToIndexTree(index=sender.tag)
-            print("Forwar2: Children | Selected Col:", self.table.selectedCol)
+            # print("Forwar2: Children | Selected Col:", self.table.selectedCol)
 
             self.table.tableChange(self.table.selectedCol, isLock=True, isSelect=False, isNewTable=True)
             self.modelBranch.getContainer().updateAll()
@@ -542,8 +552,8 @@ class LinearGraphView(GraphView):
 
 class SVMGraphView(GraphView):
     def addModel(self, model):
-        model.addGraphics(("pts2", Points(pts=[], color=model.color, isConnected=True)))
-        model.addGraphics(("pts3", Points(pts=[], color=model.color, isConnected=True)))
+        model.addGraphics(("pts2", Points(pts=[], color=Color.gray, isConnected=True)))
+        model.addGraphics(("pts3", Points(pts=[], color=Color.gray, isConnected=True)))
         super().addModel(model)
 
 # =====================================================================
@@ -554,7 +564,7 @@ class SVMGraphView(GraphView):
 class Branch:
     """
                               () -----Prev View
-    Display Container- ()     || 
+    Display Container- ()     ||
                        ||     () -----Disjoint Container
     View-------------- () _ _ /
                        ||

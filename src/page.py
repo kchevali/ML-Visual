@@ -237,9 +237,9 @@ class CodingPage(SingleModel, ZStack):
             self.leftStack,
             self.rightStack
         ], ratios=[0.3, 0.7])
-        print("RUNNING CODE ROW:", len(self.codingTable.getView(1).containers))
-        for c in self.codingTable.getView(1).containers:
-            print("CODING ROW:", type(c), "Tag:", c.tag)
+        # print("RUNNING CODE ROW:", len(self.codingTable.getView(1).containers))
+        # for c in self.codingTable.getView(1).containers:
+        # print("CODING ROW:", type(c), "Tag:", c.tag)
         return self.codingTable
 
     def createCodingOptions(self):
@@ -498,7 +498,7 @@ class IntroLinearPage(IntroView):
 class ExampleLinearPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/linear/iris", features=1))
+        self.setTable(Table(filePath="examples/linear/iris", features=1), partition=0.3)
         self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=1, drawTable=True, isUserSet=True))
         self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=1, drawTable=False, color=Color.blue))
         ZStack.__init__(self, [
@@ -517,7 +517,7 @@ class ExampleLinearPage(MultiModel, ZStack):
 class QuadLinearPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/linear/iris", features=1))
+        self.setTable(Table(filePath="examples/linear/iris", features=1), partition=0.3)
         self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=2, drawTable=True, isUserSet=True))
         self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=2, drawTable=False, color=Color.blue))
         ZStack.__init__(self, [
@@ -553,7 +553,7 @@ class QuadLinearPage(MultiModel, ZStack):
 class CodingLinearPage(CodingPage):
 
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/linear/iris", features=1))
+        self.setTable(Table(filePath="examples/linear/iris", features=1), partition=0.3)
         self.setModel(Linear(table=self.table, testingTable=self.testingTable))
         # Codes
         codes = [
@@ -586,7 +586,7 @@ class IntroLogisticPage(IntroView):
 class ExampleLogisticPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/logistic/sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1))
+        self.setTable(Table(filePath="examples/logistic/sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1), partition=0.3)
         self.addModel(Logistic(table=self.table, testingTable=self.testingTable, drawTable=True, isUserSet=True))
         ZStack.__init__(self, [
             VStack([
@@ -601,7 +601,7 @@ class ExampleLogisticPage(MultiModel, ZStack):
 
 class CodingLogisticPage(CodingPage):
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/logistic/sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1))
+        self.setTable(Table(filePath="examples/logistic/sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1), partition=0.3)
         self.setModel(Logistic(table=self.table, testingTable=self.testingTable, drawTable=False, isUserSet=False))
         # Codes
         codes = [
@@ -629,7 +629,7 @@ class InfoLogisticPage(InfoView):
 class ExampleSVMPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/svm/iris", features=2))  # , constrainX=(0, 1)
+        self.setTable(Table(filePath="examples/svm/test", features=2))  # , constrainX=(0, 1)
         self.addCompModel(SVM(table=self.table, testingTable=self.testingTable, drawTable=True))
         ZStack.__init__(self, [
             VStack([
