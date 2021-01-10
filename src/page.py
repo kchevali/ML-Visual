@@ -153,7 +153,7 @@ class MenuPage(ModelPage):
         ])
 
     def createSVM(self):
-        return ModelPage(content=ExampleLogisticPage(), title="Support Vector Machine",
+        return ModelPage(content=ExampleSVMPage(), title="Support Vector Machine",
                          pages=[
             # ("Intro", IntroLogisticPage),
             ("Example", ExampleSVMPage)
@@ -461,18 +461,6 @@ class ExampleKNNPage(MultiModel, ZStack):
             ])
         ])
 
-    def hoverMouse(self, mouseX, mouseY):
-        if self.hoverEnabled and self.isWithin(mouseX, mouseY):
-            pass
-        # while self.modelView.peekView().name == "highlight":
-        #     self.modelView.popView()
-        # x, y = hp.map(mouseX - self.modelView.x, 0.0, self.modelView.getWidth(), -1.0, 1.0), hp.map(mouseY - self.modelView.y, 0.0, self.modelView.getHeight(), -1.0, 1.0)
-        # for _, index, dx, dy in self.model.getNeighbor(x, y):
-        #     self.modelView.addView(
-        #         Ellipse(color=self.model.classColors[self.table.loc[index][self.table.targetName]], dx=dx, dy=dy, lockedWidth=20, lockedHeight=20, name="highlight")
-        #     )
-        # self.updateAll()
-
 
 class CodingKNNPage(CodingPage):
     def __init__(self, **kwargs):
@@ -641,17 +629,19 @@ class InfoLogisticPage(InfoView):
 class ExampleSVMPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/logistic/sigmoid", features=1))
-        self.addModel(SVM(table=self.table, testingTable=self.testingTable, drawTable=True, isUserSet=True))
+        self.setTable(Table(filePath="examples/svm/iris", features=2))  # , constrainX=(0, 1)
+        self.addCompModel(SVM(table=self.table, testingTable=self.testingTable, drawTable=True))
         ZStack.__init__(self, [
             VStack([
-                GraphView(models=self.models, hasAxis=True)
+                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=False)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
                 ("Welcome to the SVM Simulator!", 0, 0)
             ])
         ])
+        print("Table")
+        print(self.table.data)
 
 
 class CompPage(IntroView):

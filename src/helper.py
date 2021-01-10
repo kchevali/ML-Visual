@@ -52,11 +52,12 @@ def findPosition(width, height, containerX, containerY, containerWidth, containe
     return containerX + (dx + 1.0) * (containerWidth - width) / 2, containerY + (dy + 1.0) * (containerHeight - height) / 2
 
 
-def map(x, a, b, A, B):
-    if(x <= a):
-        return A
-    if(x >= b):
-        return B
+def map(x, a, b, A, B, clamp=True):
+    if clamp:
+        if(x <= a):
+            return A
+        if(x >= b):
+            return B
     return((B - A) * (x - a) / (b - a)) + A
 
 

@@ -2,9 +2,7 @@
     "target": "label",
     "columns": [
         "petalLength",
-        "petalWidth",
-        "sepalLength",
-        "sepalWidth"
+        "petalWidth"
     ],
     "map": [
         {

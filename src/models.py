@@ -35,13 +35,13 @@ class Model:
         self.isRegression = isRegression
 
     def getTablePtsXX(self):
-        return [self.getPt(self.table.x[i][0], self.table.x[i][1], self.table.classColors[self.table.y[i]]) for i in range(self.table.rowCount)]
+        return [self.getPt(self.table.x[i][0], self.table.x[i][1], self.table.classColors[self.table.y[i][0]]) for i in range(self.table.rowCount)]
 
     def getTablePtsXY(self):
         return [self.getPt(self.table.x[i][0], self.table.y[i], self.color) for i in range(self.table.rowCount)]
 
     def getPt(self, x, y, color):  # get many points
-        return (hp.map(x, self.minX1, self.maxX1, -1, 1), hp.map(y, self.minX2, self.maxX2, -1, 1), color)
+        return (hp.map(x, self.minX1, self.maxX1, -1, 1, clamp=False), hp.map(y, self.minX2, self.maxX2, -1, 1, clamp=False), color)
 
     def addGraphics(self, *args):
         for graphic in args:
@@ -70,7 +70,7 @@ class Model:
 class Classifier(Model):
     # takes multiple features and outputs a categorical data
     def __init__(self, **kwargs):
-        super().__init__(isLinear=False, isConnected=False,isClassification=True, **kwargs)
+        super().__init__(isLinear=False, isConnected=False, isClassification=True, **kwargs)
         self.minX1, self.maxX1 = self.table.minX(), self.table.maxX()
         self.minX2, self.maxX2 = self.table.minX(self.table.xNames[1]), self.table.maxX(self.table.xNames[1])
         self.colNameA, self.colNameB = self.table.xNames[0], self.table.xNames[1]
@@ -117,7 +117,7 @@ class Regression(Model):
     # takes multiple features and outputs real data
 
     def __init__(self, length, **kwargs):
-        super().__init__(isConnected=True,isRegression=True, **kwargs)
+        super().__init__(isConnected=True, isRegression=True, **kwargs)
         self.length = length
         self.minX1, self.maxX1 = self.table.minX(), self.table.maxX()
         self.minX2, self.maxX2 = self.table.minY(), self.table.maxY()
@@ -300,7 +300,7 @@ class KNN(Classifier):
         return np.reshape(self.kdTree.query(_x, k=self.k)[1], self.k)  # if type(_x) == np.ndarray else np.array(_x)
 
     def predict(self, _x):
-        ys = np.array([self.table.y[i] for i in self.getNeighbor(_x)])
+        ys = np.array([self.table.y[i][0] for i in self.getNeighbor(_x)])
         return np.argmax(np.bincount(ys))
 
     def findBestK(self, testTable):
@@ -534,45 +534,252 @@ class Logistic(Regression):
         return "1/(1+e^(" + self.cefString(self.cef[0], 1, showPlus=False) + self.cefString(self.cef[1], 0) + "))"
 
 
-class SVM(Regression):
-    def __init__(self, C=0.01, n_iters=100, learning_rate=0.1, **kwargs):
-        super().__init__(length=0, isLinear=False, **kwargs)
+class SVM(Classifier):
+    def __init__(self, C=0.005, n_iters=10000, learning_rate=0.000001, **kwargs):
+        super().__init__(length=0, **kwargs)
         self.c = C
         self.iter = n_iters
         self.eta = learning_rate
+        self.reset()
+        print("X Shape:", self.table.x.shape)
+        print("W Shape:", self.w.shape)
 
-        w = np.zeros([1, self.table.x.shape[1]])
-        b = 0
+        if self.drawTable:
+            self.graphics.append(Points(pts=self.getTablePtsXX(), color=self.color, isConnected=False))
 
-        costs = np.zeros(self.iter)
-        for i in range(self.iter):
-            cost = self.table.x @ w.T + b
-            b = b - self.eta * self.c * sum(cost - self.table.y)
-            w = w - self.eta * self.c * sum((cost - self.table.y) * self.table.x)
-            costs[i] = self.c * sum((self.table.y * cost) + (1 - self.table.y) * cost) + (1 / 2) * sum(w.T**2)
+        # print("Constants: C=", self.c, "Iter:", self.iter, "Learning Rate:", self.eta)
+        # print("X\n", self.table.x)
+        # print("Shape X:", self.table.x.shape)
+        # print("Y\n", y)
 
-        self.w = w
-        self.b = b
-        self.costs = costs
-        self.graphics.append(Points(pts=[], color=self.color, isConnected=True))
+        self.isFit = False
 
-    def predict(self, x_test):
-        pred_y = []
-        svm = x_test @ self.w.T + self.b
-        for i in svm:
-            if i >= 0:
-                pred_y.append(1)
-            else:
-                pred_y.append(0)
+    def reset(self):
+        self.w = np.zeros([1, self.table.x.shape[1]])
+        self.b = 0
+        self.costs = np.zeros(self.iter)
+        self.counter = 0
 
-        return pred_y
+        self.reg_strength = 10000
 
-    def getY(self, _x, line=0):
-        y = (line - self.b - _x * self.w.T[0]) / self.w.T[1]
-        return y[0]
+    # def compute_cost(self):
+    #     # calculate hinge loss
+    #     N = self.table.x.shape[0]
+    #     distances = 1 - self.table.y * (self.table.x @ self.w.T)
+    #     distances[distances < 0] = 0  # equivalent to max(0, distance)
+    #     hinge_loss = self.reg_strength * (np.sum(distances) / N)
 
-    def getX(self, _x, line=0):
-        return (line - self.b - _x * self.w.T[1]) / self.w.T[0]
+    #     # calculate cost
+    #     cost = 1 / 2 * np.dot(self.w, self.w.T) + hinge_loss
+    #     return cost
+
+    # def calculate_cost_gradient(self):
+    #     # if only one example is passed (eg. in case of SGD)
+    #     distance = 1 - (self.table.y * np.dot(self.table.x, self.w.T))
+    #     dw = np.zeros([1, len(self.w.T)])
+    #     for i, d in enumerate(distance):
+    #         if max(0, d) == 0:
+    #             di = self.w
+    #         else:
+    #             di = self.w - (self.reg_strength * self.table.y[i] * self.table.x[i])
+    #         dw += di
+    #     dw = dw / len(self.table.y)  # average
+    #     return dw
+
+    # def fit(self):
+    #     if self.counter >= self.iter:
+    #         self.isRunning = False
+    #         print("Training Done")
+    #         return
+
+    #     ascent = self.calculate_cost_gradient()
+    #     self.w = self.w - (self.eta * ascent)
+    #     print("Cost:", self.compute_cost())
+
+    #     # cost = self.table.x @ self.w.T + self.b
+    #     # # print("Shapes:", self.table.x.shape, self.w.T.shape, (self.table.x @ self.w.T).shape)
+    #     # # print("Cost Shape:", cost.shape)
+    #     # # print("Cost:", cost)
+    #     # diff = cost - self.table.y
+    #     # # print("Sum:", sum(diff))
+
+    #     # self.b -= self.eta * self.c * sum(diff)
+    #     # self.w -= self.eta * self.c * sum(diff * self.table.x)
+    #     # # print("Cost:\n", cost)
+    #     # # print("Diff\n", diff)
+    #     # # print("B:\n", b)
+    #     # # print("W:\n", w)
+    #     # self.costs[self.counter] = self.c * sum((self.table.y * cost) + (1 - self.table.y) * cost) + sum(self.w.T**2) / 2
+    #     self.counter += 1
+
+    #     self.getGraphic("pts").setPts(self.getPts())
+    #     # self.getGraphic("eq").setFont(text=self.getEqString())
+    #     # self.getGraphic("err").setFont(text="Error: " + self.getScoreString())
+
+    #     # self.graphics.append(Points(pts=[], color=self.color, isConnected=True))
+
+    def fit(self):
+        if self.isFit:
+            return
+        self.isFit = True
+        print("Start Training")
+
+        # train with data
+        self.data = {-1: [], 1: []}
+        for i in range(self.table.rowCount):
+            self.data[self.table.y[i][0]].append(self.table.x[i])
+        # { |\w\|:{w,b}}
+        opt_dict = {}
+
+        transforms = [[1, 1], [-1, 1], [-1, -1], [1, -1]]
+
+        all_data = np.array([])
+        for yi in self.data:
+            all_data = np.append(all_data, self.data[yi])
+
+        self.max_feature_value = max(all_data)
+        self.min_feature_value = min(all_data)
+        all_data = None
+
+        # with smaller steps our margins and db will be more precise
+        step_sizes = [self.max_feature_value * 0.1,
+                      self.max_feature_value * 0.01,
+                      # point of expense
+                      self.max_feature_value * 0.001, ]
+
+        # extremly expensise
+        b_range_multiple = 5
+        # we dont need to take as small step as w
+        b_multiple = 5
+
+        latest_optimum = self.max_feature_value * 10
+
+        """
+        objective is to satisfy yi(x.w)+b>=1 for all training dataset such that ||w|| is minimum
+        for this we will start with random w, and try to satisfy it with making b bigger and bigger
+        """
+        # making step smaller and smaller to get precise value
+        for step in step_sizes:
+            w = np.array([latest_optimum, latest_optimum])
+
+            # we can do this because convex
+            optimized = False
+            while not optimized:
+                for b in np.arange(-1 * self.max_feature_value * b_range_multiple,
+                                   self.max_feature_value * b_range_multiple,
+                                   step * b_multiple):
+                    for transformation in transforms:
+                        w_t = w * transformation
+                        found_option = True
+
+                        # weakest link in SVM fundamentally
+                        # SMO attempts to fix this a bit
+                        # ti(xi.w+b) >=1
+                        for i in self.data:
+                            for xi in self.data[i]:
+                                yi = i
+                                if not yi * (np.dot(w_t, xi) + b) >= 1:
+                                    found_option = False
+                        if found_option:
+                            """
+                            all points in dataset satisfy y(w.x)+b>=1 for this cuurent w_t, b
+                            then put w,b in dict with ||w|| as key
+                            """
+                            opt_dict[np.linalg.norm(w_t)] = [w_t, b]
+
+                # after w[0] or w[1]<0 then values of w starts repeating itself because of transformation
+                # Think about it, it is easy
+                # print(w,len(opt_dict)) Try printing to understand
+                if w[0] < 0:
+                    optimized = True
+                    # print("optimized a step")
+                else:
+                    w = w - step
+
+            # sorting ||w|| to put the smallest ||w|| at poition 0
+            norms = sorted([n for n in opt_dict])
+            # optimal values of w,b
+            opt_choice = opt_dict[norms[0]]
+
+            self.w = opt_choice[0]
+            self.b = opt_choice[1]
+
+            # start with new latest_optimum (initial values for w)
+            latest_optimum = opt_choice[0][0] + step * 2
+        print("Training Done")
+        for i, pts in enumerate(self.getPts()):
+            print("PTS:", pts)
+            self.getGraphic("pts" + ("" if i == 0 else str(i + 1))).setPts(pts)
+
+    def getPts(self, start=None, end=None, count=40):  # get many points
+        def hyperplane(x, w, b, v):
+            # returns a x2 value on line when given x1
+            return (-w[0] * x - b + v) / w[1]
+
+        pts = []
+
+        self.min_feature_value = min(self.minX1, self.minX2)
+        self.max_feature_value = max(self.maxX1, self.maxX2)
+
+        hyp_x_min = self.min_feature_value * 0.9
+        hyp_x_max = self.max_feature_value * 1.1
+
+        # (w.x+b)=1
+        # positive support vector hyperplane
+        pav1 = hyperplane(hyp_x_min, self.w, self.b, 1)
+        pav2 = hyperplane(hyp_x_max, self.w, self.b, 1)
+        # self.ax.plot([hyp_x_min,hyp_x_max],[pav1,pav2],'k')
+        pts.append([(hyp_x_min, pav1), (hyp_x_max, pav2)])
+        # pts.append((hyp_x_min, pav1))
+        # pts.append((hyp_x_max, pav2))
+
+        # (w.x+b)=-1
+        # negative support vector hyperplane
+        nav1 = hyperplane(hyp_x_min, self.w, self.b, -1)
+        nav2 = hyperplane(hyp_x_max, self.w, self.b, -1)
+        pts.append([(hyp_x_min, nav1), (hyp_x_max, nav2)])
+        # pts.append((hyp_x_min, nav1))
+        # pts.append((hyp_x_max, nav2))
+        # self.ax.plot([hyp_x_min, hyp_x_max], [nav1, nav2], 'k')
+
+        # (w.x+b)=0
+        # db support vector hyperplane
+        db1 = hyperplane(hyp_x_min, self.w, self.b, 0)
+        db2 = hyperplane(hyp_x_max, self.w, self.b, 0)
+        pts.append([(hyp_x_min, db1), (hyp_x_max, db2)])
+        # pts.append((hyp_x_min, db1))
+        # pts.append((hyp_x_max, db2))
+        # self.ax.plot([hyp_x_min, hyp_x_max], [db1, db2], 'y--')
+
+        # OLD CODE
+        # if start == None:
+        #     start = self.minX1
+        # if end == None:
+        #     end = self.maxX1
+
+        # lowX, highX = int(1e6), int(-1e6)
+        # lowY, highY = int(1e6), int(-1e6)
+        # for num in hp.rangx(start, end, (end - start) / count, outputEnd=True):
+        #     lowX = min(lowX, num)
+        #     highX = max(highX, num)
+        #     lowY = min(lowX, self.getY(num))
+        #     highY = max(highX, self.getY(num))
+        # # print("X:", [lowX, highX], [self.minX1, self.maxX1], "Y:", [lowY, highY], [self.minX2, self.maxX2])
+        # return [self.getPt(num, self.getY(num), self.color) for num in hp.rangx(start, end, (end - start) / count, outputEnd=True)]
+        for arr in pts:
+            print("COORD:", arr)
+        return [[self.getPt(x, y, self.color) for x, y in arr] for arr in pts]
+
+    def predict(self, x):
+        return [1 if i >= 0 else 0 for i in (x @ self.w.T + self.b)]
+
+    def getY(self, x, line=0):
+        return (line - self.b - x * self.w.T[0]) / self.w.T[1]
+        # return y[0]
+        # return -self.w.T[0] * x / self.w.T[1]
+
+    # def getX(self, _x, line=0):
+    #     return (line - self.b - _x * self.w.T[1]) / self.w.T[0]
 
 
 if __name__ == '__main__':

@@ -369,7 +369,7 @@ class GraphView(MultiModelView, ZStack):
         self.graphics = []
         MultiModelView.__init__(self, **kwargs)
         self.hasAxis = hasAxis
-        self.userPts = Points(maxPts=100) if enableUserPts else None
+        self.userPts = Points(maxPts=100, isCircle=False, ptSize=8) if enableUserPts else None
         self.legend = None
 
         self.graphGrid = Button([self.userPts] + [self.legend] + self.graphics, run=self.clickGraph)
@@ -516,7 +516,7 @@ class KNNGraphView(GraphView):
             ]
             pred = self.models[0].predict(x)
 
-            print("CLICK:", pred, self.models[0].table.classColors[pred])
+            # print("CLICK:", pred, self.models[0].table.classColors[pred])
 
             # change color of most recent one
             self.userPts.setColor(-1, self.models[0].table.classColors[pred])
@@ -538,6 +538,13 @@ class KNNGraphView(GraphView):
 class LinearGraphView(GraphView):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+
+class SVMGraphView(GraphView):
+    def addModel(self, model):
+        model.addGraphics(("pts2", Points(pts=[], color=model.color, isConnected=True)))
+        model.addGraphics(("pts3", Points(pts=[], color=model.color, isConnected=True)))
+        super().addModel(model)
 
 # =====================================================================
 # Support classes

@@ -1,11 +1,15 @@
 
 class TableBase:
-    def __init__(self, table=None, **kwargs):
+    def __init__(self, table=None, partition=None, **kwargs):
         if table != None:
-            self.setTable(table)
+            self.setTable(table, partition=partition)
 
-    def setTable(self, table):
-        self.table, self.testingTable = table.partition(testing=0.3)
+    def setTable(self, table, partition=None):
+        if partition != None:
+            self.table, self.testingTable = table.partition(testing=partition)
+        else:
+            self.table = table
+            self.testingTable = None
 
 
 class SingleModel(TableBase):

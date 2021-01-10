@@ -54,6 +54,7 @@ class Table:
         self.data = df if df is not None else (pd.read_csv(filePath + ".csv") if filePath != None else pd.DataFrame(data=numpy.transpose(), columns=self.colNames))
         self.data = self.data.drop_duplicates(self.colNames)
         self.data = self.data[self.colNames]
+        print("Table Length:", len(self.data.index))
 
         # constraining is used for logistic model to map range min,max to 0,1
         if(self.constrainX != None):
@@ -65,6 +66,7 @@ class Table:
             self.data[self.yName] = self.constrainY[1] * (y - y.min()) / y.max() + self.constrainY[0]
 
         self.y = self.data[self.yName].to_numpy()
+        self.y = self.y.reshape([self.y.shape[0], 1])
         self.x = self.data[self.xNames].to_numpy()
 
         self.classSet = self.data[self.yName].unique()

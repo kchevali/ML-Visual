@@ -346,12 +346,13 @@ class Ellipse(Shape):
 
 class Points(Ellipse):
     # pts should be between -1 and 1
-    def __init__(self, pts=[], color=None, isConnected=False, maxPts=0, radius=5, **kwargs):
+    def __init__(self, pts=[], color=None, isConnected=False, maxPts=0, ptSize=5, isCircle=True, **kwargs):
         super().__init__(color=color, **kwargs)
         self.setPts(pts)  # [-1,1]
         self.isConnected = isConnected
         self.maxPts = maxPts
-        self.radius = radius
+        self.ptSize = ptSize
+        self.isCircle = isCircle
         self.displayPts = []  # pixel coordinates
 
     def updateFrame(self):
@@ -379,19 +380,23 @@ class Points(Ellipse):
 
     def map(self, pt):
         return (
-            hp.map(pt[0], -1, 1, self.x, self.x + self.getWidth()),
-            hp.map(pt[1], -1, 1, self.y, self.y + self.getHeight()),
+            hp.map(pt[0], -1.1, 1.1, self.x, self.x + self.getWidth(), clamp=False),
+            hp.map(pt[1], -1.1, 1.1, self.y, self.y + self.getHeight(), clamp=False),
             pt[2]
         )
 
     def display(self):
         if not self.isHidden:
             if not self.isConnected:
-                for i in range(len(self.displayPts)):
-                    pg.draw.ellipse(g, self.displayPts[i][2], (self.displayPts[i][0], self.displayPts[i][1], self.radius, self.radius))
+                if self.isCircle:
+                    for i in range(len(self.displayPts)):
+                        pg.draw.ellipse(g, self.displayPts[i][2], (self.displayPts[i][0], self.displayPts[i][1], self.ptSize, self.ptSize))
+                else:
+                    for i in range(len(self.displayPts)):
+                        pg.draw.rect(g, self.displayPts[i][2], (self.displayPts[i][0], self.displayPts[i][1], self.ptSize, self.ptSize))
             else:
                 for i in range(1, len(self.displayPts)):
-                    pg.draw.line(g, self.color, tuple(self.displayPts[i - 1][0:2]), tuple(self.displayPts[i][0:2]), width=self.radius)
+                    pg.draw.line(g, self.color, tuple(self.displayPts[i - 1][0:2]), tuple(self.displayPts[i][0:2]), width=self.ptSize)
 
     def setColor(self, index, color):
         self.pts[index] = (self.pts[index][0], self.pts[index][1], color)
