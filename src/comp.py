@@ -32,7 +32,7 @@ class Dist(Enum):
 
 
 class Data:
-    def __init__(self, xDist, yDist, xFeatures, yFeatures, p=0.5):  # , trainCount, testCount
+    def __init__(self, xDist, yDist, xFeatures, yFeatures, p=0.5, funcs=None):  # , trainCount, testCount
         self.xDist = xDist
         self.yDist = yDist
         self.xFeatures = xFeatures
@@ -40,10 +40,14 @@ class Data:
         self.p = p  # correlation coefficient
         self.genX = self.getGen(self.xDist)
         self.genY = self.getGen(self.yDist)
+        self.funcs = [self.func for _ in range(len(xFeatures))] if funcs == None else funcs
 
     def generate(self, count):
-        x = self.genX(features=self.xFeatures, count=count)
-        y = self.genY(features=self.yFeatures, count=count)
+        x_arr = self.genX(features=self.xFeatures, count=count)
+        y_arr = self.genY(features=self.yFeatures, count=count)
+        x = np.concatenate(x_arr)
+        y = np.concatenate([y_arr[i] + self.funcs[i](x_arr[i]) for i in range(len(x_arr))])
+
         labels = []
         for i in range(len(self.xFeatures)):
             labels.append(np.full(count, i, dtype=np.int64))
@@ -58,7 +62,7 @@ class Data:
                 "y"
             ]
         }
-        #np.array([labels, x, y])
+        # np.array([labels, x, y])
         return Table(numpy=np.array(out).transpose(), param=param)
 
     def getGen(self, dist):
@@ -67,11 +71,11 @@ class Data:
         return self.normal if dist == Dist.Normal else self.tDist
 
     def uniform(self, features, count):
-        return np.concatenate([np.random.uniform(features[i].a, features[i].b, count) for i in range(len(features))])
+        return [np.random.uniform(features[i].a, features[i].b, count) for i in range(len(features))]
 
     def correlated(self, pts1, pts2, count, fx1, fx2):
-        pts3 = pts1 * self.p + pts2 * sqrt(1 - self.p * self.p)  # x2
-        return np.concatenate([fx1.a + fx1.b * pts1, fx2.a + fx2.b * pts3])
+        pts3 = pts1 * self.p + pts2 * sqrt(1 - self.p * self.p)  # x1 & x2 -> x3
+        return [fx1.a + fx1.b * pts1, fx2.a + fx2.b * pts3]  # x1,x3
 
     def normal(self, features, count):
         return self.correlated(
@@ -92,19 +96,25 @@ class Data:
         )
 
     def func(self, x):
-        return x * x
+        return x
 
 
 if __name__ == '__main__':
     print("RUNNING COMP")
+
+    def x2(x):
+        return x * x
+
+    def negx2(x):
+        return -x * x
     # print(np.full(10, 100))
     data = Data(xDist=Dist.Uniform, yDist=Dist.Normal, xFeatures=[
         Feature(minRange=0, maxRange=100),
         Feature(minRange=-50, maxRange=50)
     ], yFeatures=[
-        Feature(mean=0, std=100),
+        Feature(mean=0, std=1000),
         Feature(mean=-50, std=50)
-    ], p=1)
+    ], p=1, funcs=[x2, negx2])
 
     # data = Data(xDist=Dist.Normal, yDist=Dist.T, xFeatures=[
     #     Feature(mean=0, std=0.5),
