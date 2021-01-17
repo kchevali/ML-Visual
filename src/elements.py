@@ -1,4 +1,4 @@
-from graphics import *
+from graphics import ZStack, Rect, Label, Button, Color
 
 
 def createLabel(text, color=Color.steelBlue, views=[], **kwargs):

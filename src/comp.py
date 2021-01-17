@@ -1,8 +1,7 @@
 from enum import Enum
 import numpy as np
 from math import sqrt
-from table import *
-import pandas as pd
+from table import Table
 
 
 class Feature:
@@ -29,15 +28,15 @@ class Dist(Enum):
 
 
 class Data:
-    def __init__(self, dist, xFeatures, yFeatures, trainCount, testCount, p=0.5):
+    def __init__(self, dist, xFeatures, yFeatures, p=0.5):  # , trainCount, testCount
         self.dist = dist
         self.xFeatures = xFeatures
         self.yFeatures = yFeatures
-        self.trainCount = trainCount
-        self.testCount = testCount
+        # self.trainCount = trainCount
+        # self.testCount = testCount
         self.p = p  # correlation coefficient
         self.generate = self.selectGenMethod()
-        self.generatePoints()
+        # self.generatePoints()
         # self.points = [TRAIN,TEST] : TRAIN-[(x,y)-several classes]
 
     def selectGenMethod(self):
@@ -47,9 +46,9 @@ class Data:
             return self.normal
         return self.tDist
 
-    def generatePoints(self):
-        self.training = self.generate(self.trainCount)
-        self.testing = self.generate(self.testCount)
+    # def generatePoints(self):
+    #     self.training = self.generate(self.trainCount)
+    #     self.testing = self.generate(self.testCount)
 
     def uniform(self, count):
         x, y = [], []
@@ -88,53 +87,47 @@ class Data:
             labels.append(np.full(count, i, dtype=np.int64))
         labels = np.concatenate(labels)
 
-        out = [(labels[i], x[i], y[i]) for i in range(len(x))]
+        # out = [[labels[i], x[i], y[i]] for i in range(len(x))]
+        out = [labels, x, y]
 
-        # param = {
-        #     "target": "label",
-        #     "columns": [
-        #         "label",
-        #         "x",
-        #         "y"
-        #     ]
-        # }
+        param = {
+            "target": "label",
+            "columns": [
+                "x",
+                "y"
+            ]
+        }
         #np.array([labels, x, y])
-        return LabelledTable(data=np.array(out), headers=["label", "x", "y"])
+        return Table(numpy=np.array(out).transpose(), param=param)
 
 
 if __name__ == '__main__':
 
-    pd.set_option('display.max_rows', None)
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.width', None)
-    pd.set_option('display.max_colwidth', None)
-
     # print(np.full(10, 100))
-    # xFeatures = [
-    #     Feature(minRange=0, maxRange=100),
-    #     Feature(minRange=-50, maxRange=50)
-    # ]
-    # yFeatures = [
-    #     Feature(minRange=0, maxRange=100),
-    #     Feature(minRange=-50, maxRange=50)
-    # ]
-    # data = Data(dist=Dist.Normal, xFeatures=xFeatures, yFeatures=yFeatures, trainCount=100, testCount=100)
-    #
+    data = Data(dist=Dist.Normal, xFeatures=[
+        Feature(minRange=0, maxRange=100),
+        Feature(minRange=-50, maxRange=50)
+    ], yFeatures=[
+        Feature(minRange=0, maxRange=100),
+        Feature(minRange=-50, maxRange=50)
+    ])
 
     data = Data(Dist.T, xFeatures=[
-                Feature(mean=0, std=0.5),
-                Feature(mean=2, std=0.5)
-                ], yFeatures=[
-                Feature(mean=0, std=0.5),
-                Feature(mean=2, std=0.5)
-                ], trainCount=50, testCount=100, p=0.25)
+        Feature(mean=0, std=0.5),
+        Feature(mean=2, std=0.5)
+    ], yFeatures=[
+        Feature(mean=0, std=0.5),
+        Feature(mean=2, std=0.5)
+    ], p=0.25)
 
-    # print("TRAINING")
-    # print(data.training.data)
+    training, testing = data.generate(100).partition()
+
+    print("TRAINING")
+    print(training.data)
 
     # print("TESTING")
-    # print(data.testing.data)
+    # print(testing.data)
 
-    import matplotlib.pyplot as plt
-    plt.scatter(data.training.getColumn(1), data.training.getColumn(2), c=data.training.getColumn(0), alpha=0.5)
-    plt.show()
+    # import matplotlib.pyplot as plt
+    # plt.scatter(training['x'], training['y'], c=training['label'], alpha=0.5)
+    # plt.show()

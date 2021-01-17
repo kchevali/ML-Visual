@@ -1,15 +1,12 @@
-from sklearn.tree import DecisionTreeClassifier
-from sklearn import metrics, linear_model
-from sklearn.metrics import mean_squared_error
+# from sklearn.tree import DecisionTreeClassifier
+# from sklearn import linear_model
+from graphics import Color
+from sklearn import metrics
 from scipy import spatial
-from myModels import MyLinear
 import numpy as np
 import helper as hp
-import pandas as pd
-from table import Table
-from graphics import *
-from math import inf, sqrt, log, pi, sin, cos
-import math
+from graphics import Points, HStack
+from math import inf, sqrt, log, pi, sin, cos, e
 # from random import uniform
 
 
@@ -35,7 +32,7 @@ class Model:
         self.isRegression = isRegression
 
     def getTablePtsXX(self):
-        return [self.getPt(self.table.x[i][0], self.table.x[i][1], self.table.classColors[self.table.y[i][0]]) for i in range(self.table.rowCount)]
+        return [self.getPt(self.table.x[i][0], self.table.x[i][1], self.table.classColors[str(self.table.y[i][0])]) for i in range(self.table.rowCount)]
 
     def getTablePtsXY(self):
         return [self.getPt(self.table.x[i][0], self.table.y[i], self.color) for i in range(self.table.rowCount)]
@@ -115,6 +112,8 @@ class Classifier(Model):
         self.colNameA, self.colNameB = self.table.xNames[0], self.table.xNames[1]
 
     def accuracy(self, testTable):
+        if testTable == None:
+            raise Exception("Model cannot find accuracy if testTable is None")
         correct = 0
         x, y = testTable.x, testTable.y
         for i in range(testTable.rowCount):
@@ -125,10 +124,10 @@ class Classifier(Model):
         pass
 
     def getScoreString(self):
-        return "Accuracy: " + str(round(100 * self.accuracy(testTable=self.testingTable), 2)) + "%"
+        return "Acc: " + str(round(100 * self.accuracy(testTable=self.testingTable), 2)) + "%"
 
     def defaultScoreString(self):
-        return "Accuracy: --"
+        return "Acc: --"
 
     def getCircleLabelPts(self, table=None):  # circle
         if table == None:
@@ -143,7 +142,7 @@ class Classifier(Model):
         for label in table.y:
             pts.append((0.5 * cos(trig * i) if rowCount > 1 else 0.0,
                         0.5 * sin(trig * i) if rowCount > 1 else 0.0,
-                        table.classColors[label[0]]))
+                        table.classColors[str(label[0])]))
             i += 1
 
         # if treeNode.parent != None:
@@ -239,6 +238,9 @@ class DecisionTree(Classifier):
     def getParentColumn(self):
         return self.curr.parent.colIndex
 
+    def getParentColName(self):
+        return self.curr.parent.getColName()
+
     def getColName(self):
         return self.curr.getColName()
 
@@ -295,8 +297,9 @@ class DTNode:
         self.colIndex = colIndex
         self.children = []
         for item in self.table.uniqueVals(self.colIndex):
+            newTable = self.table.matchValue(colIndex=self.colIndex, value=item)
             self.children.append(DTNode(
-                table=self.table.matchValue(colIndex=self.colIndex, value=item),
+                table=newTable,
                 parent=self, value=item
             ))
 
@@ -314,6 +317,79 @@ class DTNode:
 
     def getColName(self):
         return self.table.xNames[self.colIndex] if self.colIndex != None else None
+
+
+class RandomForest(Classifier):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.curr = self.newTree()
+        self.trees = []
+
+    def newTree(self):
+        return DecisionTree(table=self.table, testingTable=self.testingTable)
+
+    def predict(self, _x):
+        mostFreq = None
+        predictions = {}
+        predictions[mostFreq] = 0
+
+        for tree in self.trees:
+            p = tree.predict(_x)
+            if(p in predictions):
+                predictions[p] += 1
+            else:
+                predictions[p] = 1
+
+            if predictions[p] > predictions[mostFreq]:
+                mostFreq = p
+        return mostFreq
+
+    def saveTree(self):
+        self.trees.append(self.curr)
+        self.curr = self.newTree()
+
+    def add(self, *args, **kwargs):
+        return self.curr.add(*args, **kwargs)
+
+    def getParent(self, *args, **kwargs):
+        return self.curr.getParent(*args, **kwargs)
+
+    def getChildren(self, *args, **kwargs):
+        return self.curr.getChildren(*args, **kwargs)
+
+    def getColName(self, *args, **kwargs):
+        return self.curr.getColName(*args, **kwargs)
+
+    def getChild(self, *args, **kwargs):
+        return self.curr.getChild(*args, **kwargs)
+
+    def remove(self, *args, **kwargs):
+        return self.curr.remove(*args, **kwargs)
+
+    def hasChildren(self, *args, **kwargs):
+        return self.curr.hasChildren(*args, **kwargs)
+
+    def go(self, *args, **kwargs):
+        return self.curr.go(*args, **kwargs)
+
+    def getParentColName(self, *args, **kwargs):
+        return self.curr.getParentColName(*args, **kwargs)
+
+    def getValue(self, *args, **kwargs):
+        return self.curr.getValue(*args, **kwargs)
+
+    def isRoot(self, *args, **kwargs):
+        return self.curr.isRoot(*args, **kwargs)
+
+    def goBack(self, *args, **kwargs):
+        return self.curr.goBack(*args, **kwargs)
+
+    def getTable(self, *args, **kwargs):
+        return self.curr.getTable(*args, **kwargs)
+
+    def __len__(self):
+        return len(self.trees)
 
 
 class KNN(Classifier):
@@ -521,7 +597,7 @@ class Logistic(Regression):
 
     def getY(self, x):
         try:
-            exp = math.e**(x * self.cef[0] + self.cef[1])
+            exp = e**(x * self.cef[0] + self.cef[1])
             return (1.0 / (1.0 + exp))
         except:
             return 1.0
@@ -661,12 +737,13 @@ class SVM(Classifier):
 if __name__ == '__main__':
     hp.clear()
     print("Running Models MAIN")
-    table = Table(filePath="examples/decisionTree/small").createXXYTable()
-    train, test = table.partition()
-    knn = KNN(table=train, partition=0.8, k=3)
-    print("Accuracy:", 100 * knn.accuracy(testTable=test))
-    for _x in knn.x:
-        print(_x, end=" Closest: ")
-        for j in knn.getNeighbor(_x):
-            print(knn.x[j], knn.y[j], end=" | ")
-        print()
+    # from table import Table
+    # table = Table(filePath="examples/decisionTree/small").createXXYTable()
+    # train, test = table.partition()
+    # knn = KNN(table=train, partition=0.8, k=3)
+    # print("Accuracy:", 100 * knn.accuracy(testTable=test))
+    # for _x in knn.x:
+    #     print(_x, end=" Closest: ")
+    #     for j in knn.getNeighbor(_x):
+    #         print(knn.x[j], knn.y[j], end=" | ")
+    #     print()

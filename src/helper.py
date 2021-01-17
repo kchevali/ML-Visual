@@ -1,9 +1,8 @@
 import os
-import pygame as pg
-from time import time
-from random import randint
-from os import listdir
 from os.path import isfile, join
+import pygame as pg
+from random import randint
+
 import pygame.gfxdraw as pgx
 import json
 import subprocess
@@ -96,12 +95,29 @@ def randomString():
     return str(randint(0, 1 << 31))
 
 
+def resourcePath(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    base_path = os.path.abspath(".")
+    # try:
+    #     # PyInstaller creates a temp folder and stores path in _MEIPASS
+    #     base_path = sys._MEIPASS
+    # except Exception:
+    #     base_path = os.path.abspath(".")
+    if base_path != "/Users/kevin/Documents/Repos/TeachApp":
+        # running as executable
+        base_path = os.path.dirname(os.path.realpath(__file__))
+        relative_path = relative_path.split("/")[-1]
+
+    return os.path.join(base_path, relative_path)
+
+
 def getFiles(path, ext):
-    return [f.split(".")[0] for f in listdir(path) if isfile(join(path, f)) and f.endswith(ext)]
+    path = resourcePath(path)
+    return [f.split(".")[0] for f in os.listdir(path) if isfile(join(path, f)) and f.endswith(ext)]
 
 
 def loadJSON(filePath):
-    with open(filePath) as f:
+    with open(resourcePath(filePath)) as f:
         return json.load(f)
 
 

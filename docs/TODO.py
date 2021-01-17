@@ -299,4 +299,10 @@ TODO 1/3
     2. Upload code to website
     3. Upload the 4 models
     4. Find Candidates
+
+TODO 1/10
+    1. Add kernels: polynomial, RBF(exponential)
+    2. Test adding new data
+    3. ANN
+    
 """

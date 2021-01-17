@@ -4,12 +4,9 @@ import helper as hp
 import pygame as pg
 from pygame.mixer import Sound
 import pygame.freetype
-# import pygame.gfxdraw as pgx
-from math import inf
-from random import uniform
 from colorsys import hsv_to_rgb
 from collections import deque
-from table import Table
+
 import numpy as np
 
 # ===========================================================
@@ -204,6 +201,12 @@ class Frame:
     def getSize(self):
         return (self.getWidth(), self.getHeight())
 
+    def scrollUp(self):
+        pass
+
+    def scrollDown(self):
+        pass
+
     # Does not depend on isDraggable - this is asking if the container will accept the view
     # See gui.py
     def canDragView(self, view, container):
@@ -360,16 +363,9 @@ class Points(Ellipse):
         self.displayPts = [self.map(pt) for pt in self.pts]
         # print(self.displayPts)
 
-    # def _getTrainingPoints(self):
-    #     # check if categorical then use self.model.y[i] instead of self.model.x[i][1]
-    #     x, y = self.model.table.x, self.model.table.y
-    #     return [self._createPoint(x[i][0], x[i][1], self.model.table.classColors[y[i]]) for i in range(len(x))]
-
     def addPt(self, pt):
         if len(self.pts) < self.maxPts:
             self.pts.append(pt)
-            # self.model.getEq(self.pts)
-            # self.displayPts = self._getLinearPoints() if self.model.isLinear else self._getManyPoints()
             self.displayPts.append(self.map(pt))
         else:
             self.reset()
@@ -595,25 +591,41 @@ class Container(ResizableFrame):
 class Stack(ResizableFrame):
 
     # init args have default values for ZStack()
-    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=None, ratiosY=None, containerArgs=[], createCellViewMethod=None, hoverEnabled=True, **kwargs):
+    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=[], ratiosY=[], containerArgs=[], createCellViewMethod=None, hoverEnabled=True, **kwargs):
         super().__init__(**kwargs)
-        self.items = items if type(items) == list or type(items) == np.ndarray else [items]
-        self.limit = limit
-        self.totalRows = rows
-        self.totalCols = cols
-        self.totalDepth = depth
-        self.totalLength = self.totalRows * self.totalCols * self.totalDepth
+        self.buildStack(items=items, limit=limit, cols=cols, rows=rows, depth=depth, ratiosX=ratiosX, ratiosY=ratiosY,
+                        containerArgs=containerArgs, createCellViewMethod=createCellViewMethod, hoverEnabled=hoverEnabled)
+        self.canHold = True
+        self.isHidingViews = False
+
+    def buildStack(self, items=None, limit=None, cols=None, rows=None, depth=None, ratiosX=None, ratiosY=None, containerArgs=None, createCellViewMethod=None, hoverEnabled=None, **kwargs):
+        if not items is None:
+            self.items = items if type(items) == list or type(items) == np.ndarray else [items]
+        if limit != None:
+            self.limit = limit
+        if rows != None:
+            self.totalRows = rows
+        if cols != None:
+            self.totalCols = cols
+        if depth != None:
+            self.totalDepth = depth
+        if ratiosX != None:
+            self.ratiosX = ratiosX
+        if ratiosY != None:
+            self.ratiosY = ratiosY
+        if containerArgs != None:
+            self.containerArgs = containerArgs
         if createCellViewMethod != None:
             self.createCellView = createCellViewMethod
+        if hoverEnabled != None:
+            self.hoverEnabled = hoverEnabled
 
         self.ci, self.cj, self.ck = 0, 0, 0
         self.rows = min(self.totalRows, self.limit)
         self.cols = min(self.totalCols, self.limit)
         self.depth = min(self.totalDepth, self.limit)
+        self.totalLength = self.totalRows * self.totalCols * self.totalDepth
         self.length = self.rows * self.cols * self.depth
-        self.canHold = True
-        self.isHidingViews = False
-        self.hoverEnabled = hoverEnabled
 
         # self.selectedRow = None
         # self.selectedCol = None
@@ -629,9 +641,9 @@ class Stack(ResizableFrame):
                     # print("Index:", i, j, k, index)
                     view = self.createCellView(self, self.totalIndex(i, j, k))
                     container = Container(view=view, container=self,
-                                          ratioX=1.0 / self.cols if ratiosX == None else ratiosX[index],
-                                          ratioY=1.0 / self.rows if ratiosY == None else ratiosY[index],
-                                          **containerArgs[index] if index < len(containerArgs) else {})
+                                          ratioX=1.0 / self.cols if len(self.ratiosX) == 0 else self.ratiosX[index],
+                                          ratioY=1.0 / self.rows if len(self.ratiosY) == 0 else self.ratiosY[index],
+                                          **self.containerArgs[index] if index < len(self.containerArgs) else {})
                     self.containers.append(container)
 
     def createCellView(self, selfObj, index):
@@ -753,7 +765,6 @@ class Stack(ResizableFrame):
         self.cj -= dx
         self.ck -= dz
 
-    # TODO
     def getEmptyContainers(self, x, y):
         for view in self.getRootOrder():
             if view.isContainer() and view.view == None and view.isWithin(x, y):
@@ -815,6 +826,16 @@ class Stack(ResizableFrame):
     def peekView(self):
         return self.containers[-1].view
 
+    def scrollUp(self):
+        for view in self.getViews():
+            if view != None:
+                view.scrollUp()
+
+    def scrollDown(self):
+        for view in self.getViews():
+            if view != None:
+                view.scrollDown()
+
     def update(self):  # used in linear regression example page
         for c in self.containers:
             if c.view != None:
@@ -832,7 +853,7 @@ class Stack(ResizableFrame):
 
 class HStack(Stack):
 
-    def __init__(self, items=[], ratios=None, **kwargs):
+    def __init__(self, items=[], ratios=[], **kwargs):
         super().__init__(items=items, cols=len(items) if type(items) == list else 1, ratiosX=ratios, **kwargs)
 
     def updateFrame(self):
@@ -867,7 +888,7 @@ class HStack(Stack):
 
 class VStack(Stack):
 
-    def __init__(self, items=[], ratios=None, **kwargs):
+    def __init__(self, items=[], ratios=[], **kwargs):
         super().__init__(items=items, rows=len(items) if type(items) == list else 1, ratiosY=ratios, **kwargs)
 
     def updateFrame(self):
@@ -902,11 +923,17 @@ class VStack(Stack):
 
 class Grid(Stack):
 
-    def __init__(self, items=[], rows=1, cols=1, model=None, **kwargs):
-        if model == None:
+    def __init__(self, items=[], rows=1, cols=1, table=None, **kwargs):
+        if table == None:
             super().__init__(items=items, rows=rows, cols=cols, **kwargs)
         else:
-            super().__init__(items=model.table.flatten(), rows=model.table.rowCount + 1, cols=model.table.colCount + 1, **kwargs)
+            super().__init__(items=table.flatten(), rows=table.rowCount + 1, cols=table.colCount + 1, **kwargs)
+
+    def build(self, items=[], rows=1, cols=1, table=None):
+        if table == None:
+            self.buildStack(items=items, rows=rows, cols=cols)
+        else:
+            self.buildStack(items=table.flatten(), rows=table.rowCount + 1, cols=table.colCount + 1)
 
     def updateFrame(self):
         super().updateFrame()
@@ -973,12 +1000,6 @@ class ZStack(Stack):
         self.depth -= 1
         return super().popView()
 
-    def scrollUp(self):
-        pass
-
-    def scrollDown(self):
-        pass
-
     # def display(self):
     #     super().display()
         # if self.findKey("codeStack"):
@@ -992,7 +1013,7 @@ class ZStack(Stack):
 
 
 class Button(ZStack):
-    def __init__(self, items, run=None, isOn=True, setViewMethod=None, clickHoldTime=0.5, soundName="click", **kwargs):
+    def __init__(self, items, run=None, isOn=True, setViewMethod=None, clickHoldTime=0.5, soundName="click", volume=0.02, **kwargs):
         super().__init__(items=items, **kwargs)
         self.run = run
         self.setViewMethod = setViewMethod
@@ -1002,10 +1023,14 @@ class Button(ZStack):
         self.setOn(isOn=isOn)
         self.lastClickX = 0
         self.lastClickY = 0
-        self.setSoundName(soundName=soundName)
+        self.setSoundName(soundName=soundName, volume=volume)
 
-    def setSoundName(self, soundName):
-        self.sound = Sound("assets/audio/" + soundName + ".wav") if soundName != None else None
+    def setSoundName(self, soundName, volume=0.02):
+        if soundName != None:
+            self.sound = Sound(hp.resourcePath("assets/audio/" + soundName + ".wav"))
+            self.sound.set_volume(volume)
+        else:
+            self.sound = None
 
     def display(self):
         if not self.isHidden:
@@ -1052,18 +1077,20 @@ class Button(ZStack):
 
 
 if __name__ == '__main__':
-    def createCellView(selfObj, index):
-        return Rect(color=Color.blue)
+    pass
+    # def createCellView(selfObj, index):
+    #     return Rect(color=Color.blue)
 
-    table = Table(filePath="examples/decisionTree/movie")
-    grid = Grid(table=table)
-    index = 5
-    coords = grid.coord(index)
-    index2 = grid.index(*coords)
-    print("Rows:", grid.rows, "Cols:", grid.cols, "Depth:", grid.depth)
-    count = 0
-    # print("Match:", index, index2, coords)
-    for i in range(grid.length):
-        if index == index2:
-            count += 1
-    print("PASS" if count == grid.length else str(100 * count / grid.length))
+    # from table import Table
+    # table = Table(filePath="examples/decisionTree/movie")
+    # grid = Grid(table=table)
+    # index = 5
+    # coords = grid.coord(index)
+    # index2 = grid.index(*coords)
+    # print("Rows:", grid.rows, "Cols:", grid.cols, "Depth:", grid.depth)
+    # count = 0
+    # # print("Match:", index, index2, coords)
+    # for i in range(grid.length):
+    #     if index == index2:
+    #         count += 1
+    # print("PASS" if count == grid.length else str(100 * count / grid.length))

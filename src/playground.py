@@ -311,25 +311,22 @@
 
 #         return pred_y
 
-class A:
-    def run(self, **kwargs):
-        print("A.run()")
-        self.test(**kwargs)
+# class A:
+#     def run(self, **kwargs):
+#         print("A.run()")
+#         self.test(**kwargs)
 
-    def test(self):
-        print("A.test()")
+#     def test(self):
+#         print("A.test()")
 
 
-class B(A):
+# class B(A):
 
-    def test(self, p):
-        print("B.test()", p)
+#     def test(self, p):
+#         print("B.test()", p)
 
 
 if __name__ == '__main__':
-    a = A()
-    a.run(p=1)
-
     pass
     #     table = Table(filePath="examples/svm/iris").createXXYTable()
     #     train, test = table.partition(0.1)

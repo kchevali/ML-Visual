@@ -1,5 +1,3 @@
-import pygame as pg
-# from pygame import gfxdraw as pgx
 import helper as hp
 import pandas as pd
 import numpy as np
@@ -8,7 +6,6 @@ from sklearn.model_selection import train_test_split
 
 class Table:
 
-    # input should be (headers + data) or (cols + rows)
     def __init__(self, df=None, param=None, filePath=None, numpy=None, features=None, constrainX=None, constrainY=None):
         """
         Create a Table to store data.
@@ -51,10 +48,13 @@ class Table:
         self.constrainY = constrainY
 
         # process data frame
-        self.data = df if df is not None else (pd.read_csv(filePath + ".csv") if filePath != None else pd.DataFrame(data=numpy.transpose(), columns=self.colNames))
+        self.data = df if df is not None else (pd.read_csv(hp.resourcePath(self.filePath + ".csv")) if self.filePath != None else pd.DataFrame(data=numpy, columns=self.colNames))
         self.data = self.data.drop_duplicates(self.colNames)
         self.data = self.data[self.colNames]
-        print("Table Length:", len(self.data.index))
+        # print("Table Length:", len(self.data.index))
+
+        # convert float labels to int
+        self.data[self.yName] = self.data[self.yName].astype('int64')
 
         # constraining is used for logistic model to map range min,max to 0,1
         if(self.constrainX != None):
@@ -73,11 +73,13 @@ class Table:
         self.classCount = len(self.classSet)
         self.rowCount = len(self.data.index)  # total rows of data
         self.colCount = len(self.xNames)  # does not include target
+        self.isBoolCol = [self.data[colName].isin([0, 1]).all() for colName in self.colNames]
 
         self.classColors = {}
         i = 0
         for label in sorted(list(self.classSet)):
-            self.classColors[label] = hp.calmColor(i / self.classCount)
+            # using str(label) because Table.flatten() is used for Grid.items and it may convert to string
+            self.classColors[str(label)] = hp.calmColor(i / self.classCount)
             i += 1
 
         # self.selectedRow = None
@@ -85,8 +87,10 @@ class Table:
         self.lockedCols = []
         self.graphics = []
 
+        self.mapper = {d['column']: d['values'] for d in (self.param['map'] if "map" in self.param else {})}
+
         # Hide Code
-        # self.mapper = self.param['map'] if "map" in self.param else {}
+
         # self.columns = self.data.columns
         # self.loc = self.data.loc
         # self.x = np.array(self.x)
@@ -134,16 +138,17 @@ class Table:
     def addGraphic(self, graphic):
         self.graphics.append(graphic)
 
-    def tableChange(self, column, isSelect=None, isLock=None, isNewTable=False):
+    def tableChange(self, column=None, isSelect=None, isLock=None, isNewTable=False):
         """
         column: index (x values starting at 1)
         isSelect: True, False or None(no change)
         isLock:True, False or None(no change)
         """
+
         # can't lock/select a none column or unlock nothing
         # you can select what you unlock though
         if ((isLock or (isLock != False and isSelect)) and column == None) or (isLock == False and len(self.lockedCols) == 0) or (isSelect == False and self.selectedCol == None):
-            print("Fail Change | Cond 1:", ((isLock or isSelect) and column == None), "Cond 2:", (isLock == False and len(self.lockedCols) == 0), "Cond 3:", (isSelect == False and self.selectedCol == None))
+            # print("Fail Change | Cond 1:", ((isLock or isSelect) and column == None), "Cond 2:", (isLock == False and len(self.lockedCols) == 0), "Cond 3:", (isSelect == False and self.selectedCol == None))
             return
 
         if isLock:
@@ -161,12 +166,15 @@ class Table:
         for graphic in self.graphics:
             graphic.tableChange(column, isSelect, isLock, isNewTable)
 
+    def map(self, colIndex, value):
+        column = self.colNames[colIndex]
+        return self.mapper[column][value] if column in self.mapper and value in self.mapper[column] else str(value)
+
     def __getitem__(self, column):
         return self.data[column]
 
     # Hidden Methods
-        # def map(self, column, value):
-    #     return self.mapper[column][value]
+
     # def createXYTable(self, xIndex=0):
     #     param = self.param.copy()
     #     param['columns'] = [self.xNames[xIndex]]

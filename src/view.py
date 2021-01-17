@@ -1,14 +1,14 @@
-from graphics import *
+from graphics import ZStack, VStack, Label, Rect, HStack, Grid, Button, Color, Points, Container, Image
 import helper as hp
-from table import *
-from models import *
-from random import shuffle
-from math import sin, cos, pi
-from elements import *
-from comp import *
-import statistics as stat
-from time import time
-from base import *
+# from table import *
+# from models import *
+# from random import shuffle
+# from math import sin, cos, pi
+# from elements import *
+# from comp import *
+# import statistics as stat
+# from time import time
+from base import SingleModel, MultiModel
 
 # Solo Views
 modelTitle = "Temp"
@@ -124,7 +124,7 @@ class TableView(SingleModelView, Grid):
 
     def __init__(self, **kwargs):
         SingleModelView.__init__(self, **kwargs)
-        Grid.__init__(self, createCellViewMethod=self.createCellView, **kwargs)
+        Grid.__init__(self, table=self.table, createCellViewMethod=self.createCellView, **kwargs)
 
     # def updateTableView(self, **kwargs):
     #     prevContainer = self.tableView.container if self.tableView != None else None
@@ -138,19 +138,26 @@ class TableView(SingleModelView, Grid):
         if index == None:
             return None
         colIndex = index % grid.cols
-        # self.model is the current model
+        table = grid.model.getTable()
+        # print(grid.items[index], type(grid.items[index]))
+        displayItem = str(int(grid.items[index]) == 1) if index >= grid.cols and table.isBoolCol[colIndex] else table.map(colIndex, grid.items[index])  # mapped and str
+
+        # Rect Colors
+        # Header: Steel Blue (index < grid.cols)
+        # Label: Class Color (colIndex == 0)
+        # Other: Light Blue
         return ZStack([
-            Rect(color=Color.steelBlue if index < grid.cols else(grid.model.table.classColors[grid.items[index]]
+            Rect(color=Color.steelBlue if index < grid.cols else(table.classColors[str(grid.items[index])]
                                                                  if colIndex == 0 else Color.lightSteelBlue), border=3, cornerRadius=5, keywords="rect"),
-            Label(text=str(grid.items[index]), fontSize=20, color=Color.white, keywords="label")
+            Label(text=displayItem, fontSize=15, color=Color.white, keywords="label")
         ])
 
     def shiftTable(self, dy):
-        for model in self.models:
-            self.shift(dy=dy)
-            # self.colorTableTargets()
-            # self.updateHeaderSelectionButtons()
-            self.updateAll()
+        self.shift(dy=dy)
+        self.table.tableChange(self.table.selectedCol, isSelect=True)
+        # self.colorTableTargets()
+        # self.updateHeaderSelectionButtons()
+        self.updateAll()
 
     def scrollUp(self):
         self.shiftTable(dy=1)
@@ -159,8 +166,12 @@ class TableView(SingleModelView, Grid):
         self.shiftTable(dy=-1)
 
     def tableChange(self, colIndex, isSelect, isLock, isNewTable):
-        # if isNewTable:
-        #     TableView(model=self.model).setContainer(self.container)
+        # creates infinite loop...
+        if isNewTable:
+            self.build(table=self.model.getTable())
+            self.updateAll()
+            # TableView(model=self.model).setContainer(self.container)
+            return
         if colIndex == None or isSelect == None:
             return
         for index in range(colIndex + self.cols, self.length, self.cols):
@@ -187,7 +198,7 @@ class HeaderButtons(SingleModelView, HStack):
     def tableChange(self, column, isSelect, isLock, isNewTable):
         if column == None:
             return
-        print("Update Button:", column, "Is Select:", isSelect, "Is Lock:", isLock)
+        # print("Update Button:", column, "Is Select:", isSelect, "Is Lock:", isLock)
 
         button = self.getView(column - 1)
         rect = button.getView(0)
@@ -227,12 +238,14 @@ class TreeRoom(SingleModelView, VStack):
     def __init__(self, **kwargs):
         SingleModelView.__init__(self, **kwargs)
         view = Points(pts=self.model.getCircleLabelPts())
+        self.backButton = Button([
+            Rect(color=Color.gray, isDisabled=True),
+            Label(text="Back")  # , isDisabled=True
+        ], run=self.goBack, setViewMethod=self.updateBackButton)
+
         VStack.__init__(self, items=[
             view,
-            Button([
-                Rect(color=Color.blue),
-                Label(text="Back")  # , isDisabled=True
-            ], run=self.goBack)
+            self.backButton
         ], ratios=[0.9, 0.1])
         self.modelBranch = Branch(view=view, disjoint=Container())
 
@@ -240,8 +253,12 @@ class TreeRoom(SingleModelView, VStack):
     #     self.setPts(pts=self.model.getCircleLabelPts())
     #     self.modelBranch = Branch(view=self, disjoint=Container())
 
+    def updateBackButton(self, button):
+        button.isDisabled, button.getView(0).color = (True, Color.gray) if self.model.isRoot() else (False, Color.blue)
+
     def tableChange(self, colIndex, isSelect, isLock, isNewTable):
-        if isSelect == None:
+        self.updateBackButton(self.backButton)
+        if isSelect == None or isNewTable:
             return
         # rect = sender.getCousin(0)
         if isSelect:  # True
@@ -250,10 +267,8 @@ class TreeRoom(SingleModelView, VStack):
         else:  # False
             self.removeNodeTree()
             # rect.strokeColor = Color.gray
+        # self.updateBackButton(self.backButton)
         self.modelBranch.getContainer().updateAll()
-
-    # def newTable(self):
-    #     self.modelBranch.getContainer().updateAll()
 
     def splitTree(self, colIndex):
         self.model.add(colIndex)
@@ -263,11 +278,10 @@ class TreeRoom(SingleModelView, VStack):
         stack = VStack if prevStack != VStack else HStack
         label = [
             Button(
-                Label(text="Here:{}:{}".format(self.model.getParentColumn(), self.model.getValue()), fontSize=20,
+                Label(text="{}:{}".format(self.model.getParentColName(), self.model.getValue()), fontSize=10,
                       color=Color.white, dx=-0.95, dy=-1),
                 run=self.goBack)
         ] if self.model.getParent() != None else []
-        print("Label:", label)
 
         treeChildren = self.model.getChildren()
         totalClassCount = len(treeChildren)
@@ -280,7 +294,7 @@ class TreeRoom(SingleModelView, VStack):
                 VStack([
                     Button(Label(text="{}:{}".format(self.model.getColName(), self.model.getChild(i).value), fontSize=10, dx=-1), run=self.goBack),
                     Button(Points(pts=self.model.getCircleLabelPts(self.model.getChild(i).table), isConnected=False), run=self.goForward, tag=i)
-                ], ratios=[0.05, 0.95]) for i in range(len(treeChildren))
+                ], ratios=[0.05, 0.95], keywords="dotStack") for i in range(len(treeChildren))
             ], ratios=[
                 (child.table.classCount + 1) / totalClassCount for child in treeChildren
             ], border=20 if self.model.getParent() != None else 0, keywords="div")
@@ -289,19 +303,17 @@ class TreeRoom(SingleModelView, VStack):
     def goForward(self, sender):
         if self.model.hasChildren():
             # print("Forward: Children | Selected Col:", self.table.selectedCol)
-            self.goToIndexTree(index=sender.tag)
+            self.goToChildTree(index=sender.tag)
             # print("Forwar2: Children | Selected Col:", self.table.selectedCol)
 
             self.table.tableChange(self.table.selectedCol, isLock=True, isSelect=False, isNewTable=True)
             self.modelBranch.getContainer().updateAll()
             # self.updateContainers()
-        else:
-            print("Forward: No Children")
 
     def goBack(self, sender):
         if not self.model.isRoot():
             self.goBackTree()
-            self.table.tableChange(self.table.selectedCol, isSelect=False)
+            self.table.tableChange(self.table.selectedCol, isSelect=False, isNewTable=True)
             self.table.tableChange(None, isLock=False, isSelect=True, isNewTable=True)
 
     def removeNodeTree(self):
@@ -313,11 +325,13 @@ class TreeRoom(SingleModelView, VStack):
         self.modelBranch.move(self.modelBranch.disjoint.keyUp("z"))
         self.modelBranch.getContainer().updateAll()
 
-    def goToIndexTree(self, index):
+    def goToChildTree(self, index):
         self.model.go(index=index)
         container = self.modelBranch.view.keyDown("div")[index]
         stack = container.keyDown("z")
-        self.modelBranch.move(stack if stack != None else container.keyDown("dotStack"))
+        moveView = stack if stack != None else container.keyDown("dotStack")
+        # print("MOVE:", moveView)
+        self.modelBranch.move(moveView)
 
     # def selectColumn(self, sender):
     #     super().selectColumn(sender)
@@ -335,7 +349,7 @@ class TreeList(SingleModelView, VStack):
     def __init__(self, **kwargs):
         SingleModelView.__init__(self, **kwargs)
 
-        self.totalScoreLabel = Label("Total: [0%]", fontSize=20)
+        self.totalScoreLabel = Label("Total " + self.model.defaultScoreString(), fontSize=20)
         self.totalScore = ZStack([
             Rect(color=Color.steelBlue),
             self.totalScoreLabel
@@ -350,28 +364,30 @@ class TreeList(SingleModelView, VStack):
         ])
 
     def saveTree(self, sender):
-        accuracy = round(self.model.test(self.localTestTable) * 100)
-        self.model.modelTest(self.finalTestTable)
-
         bagItem = ZStack([
             Rect(color=Color.steelBlue),
-            Label(text="T:{} [{}%]".format(len(self.models), accuracy), fontSize=20)
+            Label(text=self.model.curr.getScoreString(), fontSize=20)
         ], dy=1)
-        bagItem.setContainer(self.bag[self.bagIndex])
-        self.bagIndex += 1
+        bagItem.setContainer(self[len(self.model)])
 
-        self.totalScoreLabel.setFont(text="Total: [{}%]".format(round(100 * self.getTotalScore())))
-        self.table, self.localTestTable = self.trainTable.partition()
+        self.totalScoreLabel.setFont(text="Total " + self.model.getScoreString())
+        self.model.saveTree()
+        self.table.tableChange()
+        self.updateAll()
+        # self.table, self.localTestTable = self.trainTable.partition()
 
-        self.model = DecisionTree(table=self.table)
-        self.models.append(self.model)
-        self.createTreeRoomView()
-        self.updateTableView()
+        # self.model = DecisionTree(table=self.table)
+        # self.models.append(self.model)
+        # self.createTreeRoomView()
+        # self.updateTableView()
 
-        self.bag.updateAll()
-        self.modelView.container.updateAll()
-        self.tableView.container.updateAll()
-        self.updateHeaderSelectionButtons()
+        # self.bag.updateAll()
+        # self.modelView.container.updateAll()
+        # self.tableView.container.updateAll()
+        # self.updateHeaderSelectionButtons()
+
+    def tableChange(self, colIndex, isSelect, isLock, isNewTable):
+        pass
 
 
 class GraphView(MultiModelView, ZStack):
@@ -529,7 +545,7 @@ class KNNGraphView(GraphView):
             # print("CLICK:", pred, self.models[0].table.classColors[pred])
 
             # change color of most recent one
-            self.userPts.setColor(-1, self.models[0].table.classColors[pred])
+            self.userPts.setColor(-1, self.models[0].table.classColors[str(pred)])
 
     def incMethod(self, sender):
         self.model.k += 2

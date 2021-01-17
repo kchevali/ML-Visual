@@ -1,0 +1,11 @@
+How to run pyinstaller
+pyinstaller ./_run_main.spec
+
+In case the spec file gets deleted add these data files to the spec file:
+
+project_files=[
+    ( 'examples/*', '.' ),
+    ( 'assets/*', '.' )
+]
+
+Next add project_files to the data args in Analysis (~line 14)

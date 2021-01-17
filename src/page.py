@@ -1,15 +1,15 @@
-from graphics import *
+from graphics import Button, Label, HStack, Color, ZStack, Rect, VStack
 import helper as hp
-from table import *
-from models import *
+from table import Table
+from models import DecisionTree, RandomForest, KNN, Linear, Logistic, SVM
 from random import shuffle
-from math import sin, cos, pi
-from elements import *
-from comp import *
+from elements import createLabel, createButton
+from comp import Data, Dist, Feature
 import statistics as stat
 from time import time
-from view import *
-from base import *
+from view import TableView, TreeRoom, HeaderButtons, TreeList, GraphView, KNNGraphView, SVMGraphView, LinearGraphView, TextboxView, IntroView, InfoView
+from base import SingleModel, MultiModel
+import numpy as np
 
 
 modelTitle = ""
@@ -54,7 +54,6 @@ class ModelPage(VStack):
         return self.content.draggedView(view=view)
 
     def canDragView(self, view, container):
-        print("CAN DRAG VIEW: MODEL")
         return self.content.canDragView(view, container)
 
     def scrollUp(self):
@@ -104,7 +103,7 @@ class MenuPage(ModelPage):
                     ], hideAllContainers=True)
                 ]),
                 None,
-                self.createMenuButton(text="Compare Models", color=Color.green, tag=self.createComp),
+                self.createMenuButton(text="Compare Models", color=Color.gray)  # , tag=self.createComp),
             ], ratios=[0.8, 0.05, 0.15]),
             None
         ], ratios=[0.15, 0.7, 0.15])
@@ -119,8 +118,8 @@ class MenuPage(ModelPage):
             ("Intro", IntroDTPage),
             ("Example", ExampleDTPage),
             ("Improve", ExceriseDTPage),
-            ("Coding", CodingDTPage),
-            ("More Info", InfoDTPage)
+            ("Coding", CodingDTPage)
+            # ("More Info", InfoDTPage)
         ])
 
     def createKNN(self):
@@ -128,8 +127,8 @@ class MenuPage(ModelPage):
                          pages=[
             ("Intro", IntroKNNPage),
             ("Example", ExampleKNNPage),
-            ("Coding", CodingKNNPage),
-            ("More Info", InfoKNNPage)
+            ("Coding", CodingKNNPage)
+            # ("More Info", InfoKNNPage)
         ])
 
     def createLinear(self):
@@ -139,8 +138,8 @@ class MenuPage(ModelPage):
             ("Linear", ExampleLinearPage),
             ("Quadratic", QuadLinearPage),
             # ("Subset", SubsetLinearPage),
-            ("Coding", CodingLinearPage),
-            ("More Info", InfoLinearPage)
+            ("Coding", CodingLinearPage)
+            # ("More Info", InfoLinearPage)
         ])
 
     def createLogistic(self):
@@ -155,7 +154,7 @@ class MenuPage(ModelPage):
     def createSVM(self):
         return ModelPage(content=ExampleSVMPage(), title="Support Vector Machine",
                          pages=[
-            # ("Intro", IntroLogisticPage),
+            ("Intro", IntroSVMPage),
             ("Example", ExampleSVMPage)
             # ("Coding", CodingLogisticPage),
             # ("More Info", InfoLogisticPage)
@@ -357,7 +356,7 @@ class IntroDTPage(IntroView):
 class ExampleDTPage(SingleModel, ZStack):
     def __init__(self, **kwargs):
         SingleModel.__init__(self, **kwargs)
-        self.setTable(Table(filePath="examples/decisionTree/movie"))
+        self.setTable(Table(filePath="examples/decisionTree/dt_movie"))
         self.setModel(DecisionTree(table=self.table, testing=self.testingTable))
 
         ZStack.__init__(self, [
@@ -390,11 +389,11 @@ class ExampleDTPage(SingleModel, ZStack):
         ])
 
 
-class ExceriseDTPage(MultiModel, ZStack):
+class ExceriseDTPage(SingleModel, ZStack):
     def __init__(self):
         SingleModel.__init__(self)
-        self.setTable(Table(filePath="examples/decisionTree/zoo"))
-        self.addModel(DecisionTree(table=self.table, testing=self.testingTable))
+        self.setTable(Table(filePath="examples/decisionTree/dt_zoo"), partition=0.3)
+        self.setModel(RandomForest(table=self.table, testingTable=self.testingTable))
 
         ZStack.__init__(self, [
             HStack([
@@ -402,10 +401,10 @@ class ExceriseDTPage(MultiModel, ZStack):
                     HStack([
                         TreeList(model=self.model),
                         TableView(model=self.model),
-                        TableView(model=self.model),
+                        TreeRoom(model=self.model),
 
                     ], ratios=[0.15, 0.55, 0.3]),
-                    self.createHeaderButtons()
+                    HeaderButtons(model=self.model)
 
                 ], ratios=[0.9, 0.1])
             ])
@@ -414,7 +413,7 @@ class ExceriseDTPage(MultiModel, ZStack):
 
 class CodingDTPage(CodingPage):
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/decisionTree/medical"))
+        self.setTable(Table(filePath="examples/decisionTree/dt_medical"))
         self.setModel(DecisionTree(table=self.table, testingTable=self.testingTable))
 
         # Codes
@@ -451,7 +450,7 @@ class ExampleKNNPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
 
-        self.setTable(Table(filePath="examples/knn/iris"))
+        self.setTable(Table(filePath="examples/knn/knn_iris", features=2))
         self.addModel(KNN(table=self.table, testingTable=self.testingTable, drawTable=True))
 
         ZStack.__init__(self, [
@@ -464,7 +463,7 @@ class ExampleKNNPage(MultiModel, ZStack):
 
 class CodingKNNPage(CodingPage):
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/knn/iris"))
+        self.setTable(Table(filePath="examples/knn/knn_iris"))
         self.setModel(KNN(table=self.table, testingTable=self.testingTable, drawTable=True))
         # Codes
         codes = [
@@ -498,7 +497,7 @@ class IntroLinearPage(IntroView):
 class ExampleLinearPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/linear/iris", features=1), partition=0.3)
+        self.setTable(Table(filePath="examples/linear/linear_iris", features=1), partition=0.3)
         self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=1, drawTable=True, isUserSet=True))
         self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=1, drawTable=False, color=Color.blue))
         ZStack.__init__(self, [
@@ -517,7 +516,7 @@ class ExampleLinearPage(MultiModel, ZStack):
 class QuadLinearPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/linear/iris", features=1), partition=0.3)
+        self.setTable(Table(filePath="examples/linear/linear_iris", features=1), partition=0.3)
         self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=2, drawTable=True, isUserSet=True))
         self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=2, drawTable=False, color=Color.blue))
         ZStack.__init__(self, [
@@ -546,14 +545,14 @@ class QuadLinearPage(MultiModel, ZStack):
 
 #         super().__init__(textboxScript=[
 #             ("Welcome to the Linear Regression Simulator!", 0, 0)
-#         ], table=Table(filePath="examples/linear/iris"), drawComp=True, item=items)
+#         ], table=Table(filePath="examples/linear/linear_iris"), drawComp=True, item=items)
 #         # self.updateHeaderSelectionButtons()
 
 
 class CodingLinearPage(CodingPage):
 
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/linear/iris", features=1), partition=0.3)
+        self.setTable(Table(filePath="examples/linear/linear_iris", features=1), partition=0.3)
         self.setModel(Linear(table=self.table, testingTable=self.testingTable))
         # Codes
         codes = [
@@ -586,7 +585,7 @@ class IntroLogisticPage(IntroView):
 class ExampleLogisticPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/logistic/sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1), partition=0.3)
+        self.setTable(Table(filePath="examples/logistic/logistic_sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1), partition=0.3)
         self.addModel(Logistic(table=self.table, testingTable=self.testingTable, drawTable=True, isUserSet=True))
         ZStack.__init__(self, [
             VStack([
@@ -601,7 +600,7 @@ class ExampleLogisticPage(MultiModel, ZStack):
 
 class CodingLogisticPage(CodingPage):
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/logistic/sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1), partition=0.3)
+        self.setTable(Table(filePath="examples/logistic/logistic_sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1), partition=0.3)
         self.setModel(Logistic(table=self.table, testingTable=self.testingTable, drawTable=False, isUserSet=False))
         # Codes
         codes = [
@@ -626,10 +625,16 @@ class InfoLogisticPage(InfoView):
 # SVM
 
 
+class IntroSVMPage(IntroView):
+    def __init__(self):
+        description = ["Welcome to the Support Vector Machine Introduction Page"]
+        super().__init__(label=Label(description))
+
+
 class ExampleSVMPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/svm/test", features=2))  # , constrainX=(0, 1)
+        self.setTable(Table(filePath="examples/svm/svm_iris", features=2))  # , constrainX=(0, 1)
         self.addCompModel(SVM(table=self.table, testingTable=self.testingTable, drawTable=True))
         ZStack.__init__(self, [
             VStack([
@@ -640,12 +645,34 @@ class ExampleSVMPage(MultiModel, ZStack):
                 ("Welcome to the SVM Simulator!", 0, 0)
             ])
         ])
-        print("Table")
-        print(self.table.data)
 
 
-class CompPage(IntroView):
+class CompPage(MultiModel, ZStack):
     def __init__(self):
+
+        MultiModel.__init__(self)
+
+        #     # Scenario 1
+        data = Data(Dist.T, xFeatures=[
+            Feature(mean=0, std=1),
+            Feature(mean=1, std=1)
+        ], yFeatures=[
+            Feature(mean=0, std=1),
+            Feature(mean=1, std=1)
+        ], p=0.25)
+
+        self.setTable(data.generate(100), partition=0.3)
+        self.addModel(KNN(table=self.table, testingTable=self.testingTable, drawTable=True))
+        # self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=1, drawTable=False, color=Color.blue))
+        ZStack.__init__(self, [
+            VStack([
+                KNNGraphView(models=self.models, compModels=self.compModels, hasAxis=True, enableUserPts=True)
+                # self.createHeaderButtons()
+            ], ratios=[0.9, 0.1]),
+            TextboxView(textboxScript=[
+                ("Welcome to the Model Comparator!", 0, 0)
+            ])
+        ])
 
         # self.models = [(KNN, {
         #         "k": 1,
@@ -655,83 +682,83 @@ class CompPage(IntroView):
         #     })]
         # self.models = [model(**args) for model, args in self.modelClass]
 
-        modelCount = 3
-        runCount = 10
-        error = [[] for _ in range(modelCount)]
+        # modelCount = 3
+        # runCount = 10
+        # error = [[] for _ in range(modelCount)]
 
-        startTime = time()
-        for i in range(runCount):
+        # startTime = time()
+        # for i in range(runCount):
 
-            # Scenario 1
-            data = Data(Dist.T, xFeatures=[
-                Feature(mean=0, std=1),
-                Feature(mean=1, std=1)
-            ], yFeatures=[
-                Feature(mean=0, std=1),
-                Feature(mean=1, std=1)
-            ], trainCount=50, testCount=100, p=0.25)
+        #     # Scenario 1
+        #     data = Data(Dist.T, xFeatures=[
+        #         Feature(mean=0, std=1),
+        #         Feature(mean=1, std=1)
+        #     ], yFeatures=[
+        #         Feature(mean=0, std=1),
+        #         Feature(mean=1, std=1)
+        #     ], trainCount=50, testCount=100, p=0.25)
 
-            # print(data.training.data)
-            # print(data.testing.data)
-            # data = Data(Dist.Normal, xFeatures=[
-            #     Feature(mean=10, std=1),
-            #     Feature(mean=0, std=0.5)
-            # ], yFeatures=[
-            #     Feature(mean=10, std=1),
-            #     Feature(mean=0, std=0.5)
-            # ], trainCount=20, testCount=20, p=0.0)
+        # print(data.training.data)
+        # print(data.testing.data)
+        # data = Data(Dist.Normal, xFeatures=[
+        #     Feature(mean=10, std=1),
+        #     Feature(mean=0, std=0.5)
+        # ], yFeatures=[
+        #     Feature(mean=10, std=1),
+        #     Feature(mean=0, std=0.5)
+        # ], trainCount=20, testCount=20, p=0.0)
 
-            # Scenario 2
-            # data = Data(Dist.T, xFeatures=[
-            #     Feature(mean=10, std=1),
-            #     Feature(mean=0, std=0.5)
-            # ], yFeatures=[
-            #     Feature(mean=10, std=1),
-            #     Feature(mean=0, std=0.5)
-            # ], trainCount=50, testCount=50, p=0.0)
+        # Scenario 2
+        # data = Data(Dist.T, xFeatures=[
+        #     Feature(mean=10, std=1),
+        #     Feature(mean=0, std=0.5)
+        # ], yFeatures=[
+        #     Feature(mean=10, std=1),
+        #     Feature(mean=0, std=0.5)
+        # ], trainCount=50, testCount=50, p=0.0)
 
-            # Scenario 3
-            # data = Data(Dist.Normal, xFeatures=[
-            #     Feature(mean=10, std=1),
-            #     Feature(mean=0, std=0.5)
-            # ], yFeatures=[
-            #     Feature(mean=10, std=1),
-            #     Feature(mean=0, std=0.5)
-            # ], trainCount=50, testCount=50, p=0.5)
+        # Scenario 3
+        # data = Data(Dist.Normal, xFeatures=[
+        #     Feature(mean=10, std=1),
+        #     Feature(mean=0, std=0.5)
+        # ], yFeatures=[
+        #     Feature(mean=10, std=1),
+        #     Feature(mean=0, std=0.5)
+        # ], trainCount=50, testCount=50, p=0.5)
 
-            self.models = [
-                KNN(bestK=True, table=data.training, testingTable=data.testing),
-                KNN(k=1, table=data.training, testingTable=data.testing),
-                Logistic(table=data.training, testingTable=self.testingTable)
-            ]
+        #     self.models = [
+        #         KNN(bestK=True, table=data.training, testingTable=data.testing),
+        #         KNN(k=1, table=data.training, testingTable=data.testing),
+        #         Logistic(table=data.training, testingTable=self.testingTable)
+        #     ]
 
-            # print("PREDICTION:", self.models[0].predictPoint(10, 10))
+        #     # print("PREDICTION:", self.models[0].predictPoint(10, 10))
 
-            for i in range(len(self.models)):
-                error[i].append(self.models[i].error())
+        #     for i in range(len(self.models)):
+        #         error[i].append(self.models[i].error())
 
-            print("Ran:", (i + 1), "/", runCount, end="\r")
-        print("Get Error Time:", round(time() - startTime, 2))
-        for i in range(len(self.models)):
-            print("\nModel", i + 1)
-            print("\tMean:", stat.mean(error[i]))
-            print("\tSt Dev:", stat.stdev(error[i]))
-            print("\tMin:", min(error[i]))
-            print("\tMax:", max(error[i]))
+        #     print("Ran:", (i + 1), "/", runCount, end="\r")
+        # print("Get Error Time:", round(time() - startTime, 2))
+        # for i in range(len(self.models)):
+        #     print("\nModel", i + 1)
+        #     print("\tMean:", stat.mean(error[i]))
+        #     print("\tSt Dev:", stat.stdev(error[i]))
+        #     print("\tMin:", min(error[i]))
+        #     print("\tMax:", max(error[i]))
 
-        import matplotlib.pyplot as plt
+        # import matplotlib.pyplot as plt
 
-        x = np.array([i for i in range(len(self.models))])
-        y = np.array([stat.mean(e) for e in error])
-        std = np.array([stat.stdev(e) for e in error])
-        # colors = [(model.color[0] / 255, model.color[1] / 255, model.color[2] / 255) for model in self.models]
-        # print(colors)
-        # ['red', 'green', 'blue', 'cyan', 'magenta']
-        plt.errorbar(x, y, std, linestyle='None', marker='.')
-        plt.show()
+        # x = np.array([i for i in range(len(self.models))])
+        # y = np.array([stat.mean(e) for e in error])
+        # std = np.array([stat.stdev(e) for e in error])
+        # # colors = [(model.color[0] / 255, model.color[1] / 255, model.color[2] / 255) for model in self.models]
+        # # print(colors)
+        # # ['red', 'green', 'blue', 'cyan', 'magenta']
+        # plt.errorbar(x, y, std, linestyle='None', marker='.')
+        # plt.show()
 
-        description = ["Welcome to the Comparsion Model Page"]
-        super().__init__(errorLabel=Label(description))
+        # description = ["Welcome to the Comparsion Model Page"]
+        # super().__init__(errorLabel=Label(description))
 
 # =====================================================================
 # Support Classes
@@ -747,8 +774,9 @@ class Code:
 
 
 if __name__ == '__main__':
-    pd.set_option('display.max_rows', None)
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.width', None)
-    pd.set_option('display.max_colwidth', None)
-    page = CompPage()
+    pass
+    # pd.set_option('display.max_rows', None)
+    # pd.set_option('display.max_columns', None)
+    # pd.set_option('display.width', None)
+    # pd.set_option('display.max_colwidth', None)
+    # page = CompPage()
