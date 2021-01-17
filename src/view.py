@@ -424,8 +424,12 @@ class GraphView(MultiModelView, ZStack):
         model.addGraphics(("pts", Points(pts=[], color=model.color, isConnected=True)))
         if model.isRegression:
             model.addGraphics(
-                ("err", Label("Error: --", fontSize=15, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15)),
+                ("err", Label(model.defaultScoreString(), fontSize=15, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15)),
                 ("eq", Label("Y=--", fontSize=15, color=model.color, dx=1, dy=-1, offsetY=120 + 45 * len(self.models), offsetX=-15))
+            )
+        if model.isClassification:
+            model.addGraphics(
+                ("acc", Label(model.getScoreString(), fontSize=15, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15))
             )
         self.graphics += [graphic for graphic in model.graphics]
 
@@ -498,12 +502,12 @@ class GraphView(MultiModelView, ZStack):
         self.addCompButton = Button([
             Rect(color=Color.backgroundColor, cornerRadius=10, strokeColor=Color.steelBlue, strokeWidth=3),
             Label("ML Results", fontSize=15)
-        ], lockedWidth=150, lockedHeight=80, dx=1, dy=-1, offsetX=-10, offsetY=10, tag=0, run=self.startComp)
+        ], lockedWidth=150, lockedHeight=80, dx=1, dy=-1, offsetX=-10, offsetY=10, run=self.startComp)
         return self.addCompButton
 
     def startComp(self, sender):
-        if(sender.tag < len(self.compModels)):
-            self.compModels[sender.tag].startTraining()
+        for model in self.compModels:
+            model.startTraining()
 
     def update(self):
         for model in self.compModels:

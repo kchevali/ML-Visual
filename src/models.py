@@ -11,7 +11,8 @@ from math import inf, sqrt, log, pi, sin, cos, e
 
 
 class Model:
-    def __init__(self, table, testingTable=None, color=Color.red, drawTable=False, isUserSet=False, isClassification=False, isRegression=False, **kwargs):
+    def __init__(self, table, testingTable=None, name="", color=Color.red, drawTable=False, isUserSet=False, isClassification=False, isRegression=False, **kwargs):
+        self.name = name
         self.table = table
         self.testingTable = testingTable
         self.color = color
@@ -124,10 +125,10 @@ class Classifier(Model):
         pass
 
     def getScoreString(self):
-        return "Acc: " + str(round(100 * self.accuracy(testTable=self.testingTable), 2)) + "%"
+        return self.name + " Acc: " + str(round(100 * self.accuracy(testTable=self.testingTable), 2)) + "%"
 
     def defaultScoreString(self):
-        return "Acc: --"
+        return self.name + " Acc: --"
 
     def getCircleLabelPts(self, table=None):  # circle
         if table == None:
@@ -185,17 +186,17 @@ class Regression(Model):
         raise NotImplementedError("Please Implement getEq")
 
     def getScoreString(self):
-        return "Error: " + str(round(self.error(testTable=self.testingTable), 4))
+        return self.name + " Error: " + str(round(self.error(testTable=self.testingTable), 4))
 
     def defaultScoreString(self):
-        return "Error: --"
+        return self.name + " Error: --"
 
     def cefString(self, constant, power, showPlus=True, roundValue=2):
         while type(constant) == np.ndarray:
             constant = constant[0]
         constant = round(constant, roundValue)
         if constant == 0:
-            return ""
+            return "0"
         return ("+" if constant > 0 and showPlus else "") + str(constant) + ("" if power <= 0 else ("x" + ("" if power == 1 else hp.superscript(power))))
 
     def getPts(self, start=None, end=None, count=40):  # get many points
@@ -412,7 +413,9 @@ class KNN(Classifier):
 
     def predict(self, _x):
         ys = np.array([self.table.y[i][0] for i in self.getNeighbor(_x)])
-        return np.argmax(np.bincount(ys))
+        # return np.argmax(np.bincount(ys))
+        u, indices = np.unique(ys, return_inverse=True)
+        return u[np.argmax(np.bincount(indices))]
 
     def findBestK(self, testTable):
         acc = self.accuracy(testTable=testTable)
@@ -490,7 +493,7 @@ class Linear(Regression):
             # print("DJ:", self.dJ, "CEF:", self.cef)
             self.getGraphic("pts").setPts(self.getPts())
             self.getGraphic("eq").setFont(text=self.getEqString())
-            self.getGraphic("err").setFont(text="Error: " + self.getScoreString())
+            self.getGraphic("err").setFont(text=self.getScoreString())
             return
         print("FIT DONE")
         self.isRunning = False
@@ -566,7 +569,7 @@ class Linear(Regression):
         out = "Y="
         n = self.n
         for i in range(self.n + 1):
-            out += self.cefString(constant=self.cef[i], power=n, showPlus=i > 0)
+            out += self.cefString(constant=self.cef[i], power=n, showPlus=i > 0, roundValue=7)
             n -= 1
         return out
 
@@ -689,6 +692,7 @@ class SVM(Classifier):
                             yi = i
                             if not yi * (np.dot(w_t, xi) + b) >= 1:
                                 found_option = False
+                                break
                     if found_option:
                         """
                         all points in dataset satisfy y(w.x)+b>=1 for this cuurent w_t, b
@@ -716,6 +720,7 @@ class SVM(Classifier):
         # start with new self.latest_optimum (initial values for w)
         self.latest_optimum = opt_choice[0][0] + step * 2
 
+        self.getGraphic("acc").setFont(text=self.getScoreString())
         for i, pts in enumerate(self.getPts()):
             self.getGraphic("pts" + ("" if i == 0 else str(i + 1))).setPts(pts)
 
@@ -731,7 +736,8 @@ class SVM(Classifier):
         return [self.getLinearPts(isLinear=True, v=v) for v in [0, -1, 1]]
 
     def predict(self, x):
-        return [1 if i >= 0 else 0 for i in (x @ self.w.T + self.b)]
+        return 1 if (x @ self.w.T + self.b) >= 0 else -1
+        # return [1 if i >= 0 else 0 for i in (x @ self.w.T + self.b)]
 
 
 if __name__ == '__main__':

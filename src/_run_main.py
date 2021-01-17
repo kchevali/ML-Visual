@@ -9,5 +9,5 @@ if __name__ == '__main__':
     createGUI()
 
     from graphics import ZStack
-    from page import CompPage
-    runGUI(ZStack(items=CompPage()))
+    from page import MenuPage
+    runGUI(ZStack(items=MenuPage()))

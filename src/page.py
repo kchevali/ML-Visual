@@ -4,7 +4,7 @@ from table import Table
 from models import DecisionTree, RandomForest, KNN, Linear, Logistic, SVM
 from random import shuffle
 from elements import createLabel, createButton
-from comp import Data, Dist, Feature
+from comp import Data
 import statistics as stat
 from time import time
 from view import TableView, TreeRoom, HeaderButtons, TreeList, GraphView, KNNGraphView, SVMGraphView, LinearGraphView, TextboxView, IntroView, InfoView
@@ -103,7 +103,7 @@ class MenuPage(ModelPage):
                     ], hideAllContainers=True)
                 ]),
                 None,
-                self.createMenuButton(text="Compare Models", color=Color.gray)  # , tag=self.createComp),
+                self.createMenuButton(text="Compare Models", color=Color.green, tag=self.createComp)
             ], ratios=[0.8, 0.05, 0.15]),
             None
         ], ratios=[0.15, 0.7, 0.15])
@@ -450,7 +450,7 @@ class ExampleKNNPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
 
-        self.setTable(Table(filePath="examples/knn/knn_iris", features=2))
+        self.setTable(Table(filePath="examples/knn/knn_iris", features=2), partition=0.3)
         self.addModel(KNN(table=self.table, testingTable=self.testingTable, drawTable=True))
 
         ZStack.__init__(self, [
@@ -463,7 +463,7 @@ class ExampleKNNPage(MultiModel, ZStack):
 
 class CodingKNNPage(CodingPage):
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/knn/knn_iris"))
+        self.setTable(Table(filePath="examples/knn/knn_iris"), partition=0.3)
         self.setModel(KNN(table=self.table, testingTable=self.testingTable, drawTable=True))
         # Codes
         codes = [
@@ -502,13 +502,13 @@ class ExampleLinearPage(MultiModel, ZStack):
         self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=1, drawTable=False, color=Color.blue))
         ZStack.__init__(self, [
             VStack([
-                LinearGraphView(models=self.models, compModels=self.compModels, hasAxis=True)
+                LinearGraphView(models=self.models, compModels=self.compModels, hasAxis=True, hoverEnabled=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
                 ("Welcome to the Linear Regression Simulator!", 0, 0)
             ])
-        ])
+        ], hoverEnabled=True)
         # self.updateHeaderSelectionButtons()
         # print(view)
 
@@ -521,13 +521,13 @@ class QuadLinearPage(MultiModel, ZStack):
         self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=2, drawTable=False, color=Color.blue))
         ZStack.__init__(self, [
             VStack([
-                LinearGraphView(models=self.models, compModels=self.compModels, hasAxis=True)
+                LinearGraphView(models=self.models, compModels=self.compModels, hasAxis=True, hoverEnabled=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
                 ("Welcome to the Linear Regression Simulator!", 0, 0)
             ])
-        ])
+        ], hoverEnabled=True)
         # self.updateHeaderSelectionButtons()
         # print(view)
 
@@ -589,13 +589,13 @@ class ExampleLogisticPage(MultiModel, ZStack):
         self.addModel(Logistic(table=self.table, testingTable=self.testingTable, drawTable=True, isUserSet=True))
         ZStack.__init__(self, [
             VStack([
-                GraphView(models=self.models, hasAxis=True)
+                GraphView(models=self.models, hasAxis=True, hoverEnabled=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
                 ("Welcome to the Logistic Regression Simulator!", 0, 0)
             ])
-        ])
+        ], hoverEnabled=True)
 
 
 class CodingLogisticPage(CodingPage):
@@ -634,7 +634,7 @@ class IntroSVMPage(IntroView):
 class ExampleSVMPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/svm/svm_iris", features=2))  # , constrainX=(0, 1)
+        self.setTable(Table(filePath="examples/svm/svm_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
         self.addCompModel(SVM(table=self.table, testingTable=self.testingTable, drawTable=True))
         ZStack.__init__(self, [
             VStack([
@@ -652,21 +652,55 @@ class CompPage(MultiModel, ZStack):
 
         MultiModel.__init__(self)
 
-        #     # Scenario 1
-        data = Data(Dist.T, xFeatures=[
-            Feature(mean=0, std=1),
-            Feature(mean=1, std=1)
-        ], yFeatures=[
-            Feature(mean=0, std=1),
-            Feature(mean=1, std=1)
-        ], p=0.25)
+        def x2(x):
+            return x * x
 
-        self.setTable(data.generate(100), partition=0.3)
-        self.addModel(KNN(table=self.table, testingTable=self.testingTable, drawTable=True))
-        # self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=1, drawTable=False, color=Color.blue))
+        # svm_data = Data([{
+        #     "type": "double",
+        #     "x1": {
+        #         "dist": "normal",
+        #         "mean": 5,
+        #         "std": 2
+        #     },
+        #     "y1": {
+        #         "dist": "normal",
+        #         "mean": 0,
+        #         "std": 8
+        #     },
+        #     "x2": {
+        #         "dist": "normal",
+        #         "mean": 3,
+        #         "std": 1
+        #     },
+        #     "y2": {
+        #         "dist": "normal",
+        #         "mean": 50,
+        #         "std": 10
+        #     },
+        #     "func1": x2
+        # }], labelValues=[-1, 1])
+        data = Data([{
+            "type": "single",
+            "x": {
+                "dist": "normal",
+                "mean": 5,
+                "std": 2
+            },
+            "y": {
+                "dist": "normal",
+                "mean": 0,
+                "std": 8
+            },
+            "func": x2
+        }])
+
+        self.setTable(data.getTable(), partition=0.3)
+        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, name="Linear", n=1, drawTable=True, alpha=1e-5))
+        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, name="Quadratic", color=Color.blue, n=2, drawTable=False, alpha=1e-9))
+        # self.addCompModel(Logistic(table=self.table, testingTable=self.testingTable, name="Logistic", color=Color.green, drawTable=False))
         ZStack.__init__(self, [
             VStack([
-                KNNGraphView(models=self.models, compModels=self.compModels, hasAxis=True, enableUserPts=True)
+                GraphView(models=self.models, compModels=self.compModels, hasAxis=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[

@@ -591,7 +591,7 @@ class Container(ResizableFrame):
 class Stack(ResizableFrame):
 
     # init args have default values for ZStack()
-    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=[], ratiosY=[], containerArgs=[], createCellViewMethod=None, hoverEnabled=True, **kwargs):
+    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=[], ratiosY=[], containerArgs=[], createCellViewMethod=None, hoverEnabled=False, **kwargs):
         super().__init__(**kwargs)
         self.buildStack(items=items, limit=limit, cols=cols, rows=rows, depth=depth, ratiosX=ratiosX, ratiosY=ratiosY,
                         containerArgs=containerArgs, createCellViewMethod=createCellViewMethod, hoverEnabled=hoverEnabled)

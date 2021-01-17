@@ -4,99 +4,90 @@ from math import sqrt
 from table import Table
 
 
-class Feature:
-
-    def __init__(self, mean=None, std=None, minRange=None, maxRange=None):
-        """
-        uniform: minRange/maxRange
-        other: mean/std
-        """
-        self.a = mean if mean != None else minRange
-        self.b = std if std != None else maxRange
-
-
-# class Dataset:
-#     def __init__(self, x, y, labels):
-#         self.x = x
-#         self.y = y
-#         self.labels = labels
-
-#     def zip(self):
-#         return np.transpose(np.array([self.x, self.y, self.labels]))
-
-
-class Dist(Enum):
-    T = 0
-    Normal = 1
-    Uniform = 2
-
-
 class Data:
-    def __init__(self, xDist, yDist, xFeatures, yFeatures, p=0.5, funcs=None):  # , trainCount, testCount
-        self.xDist = xDist
-        self.yDist = yDist
-        self.xFeatures = xFeatures
-        self.yFeatures = yFeatures
-        self.p = p  # correlation coefficient
-        self.genX = self.getGen(self.xDist)
-        self.genY = self.getGen(self.yDist)
-        self.funcs = [self.func for _ in range(len(xFeatures))] if funcs == None else funcs
+    def __init__(self, params=[], labelValues=None):  # , trainCount, testCount
+        """
+        params = [dict]
+        """
+        self.params = params
+        self.labelValues = labelValues
 
-    def generate(self, count):
-        x_arr = self.genX(features=self.xFeatures, count=count)
-        y_arr = self.genY(features=self.yFeatures, count=count)
-        x = np.concatenate(x_arr)
-        y = np.concatenate([y_arr[i] + self.funcs[i](x_arr[i]) for i in range(len(x_arr))])
+        self.x = []
+        self.y = []
+        self.labels = []
 
-        labels = []
-        for i in range(len(self.xFeatures)):
-            labels.append(np.full(count, i, dtype=np.int64))
-        labels = np.concatenate(labels)
+        def func(x):
+            return 0
 
-        # out = [[labels[i], x[i], y[i]] for i in range(len(x))]
-        out = [labels, x, y]
-        param = {
-            "target": "label",
-            "columns": [
-                "x",
-                "y"
-            ]
-        }
-        # np.array([labels, x, y])
-        return Table(numpy=np.array(out).transpose(), param=param)
+        for param in self.params:
+            pType = param["type"] if "type" in param else "single"
+            count = param["count"] if "count" in param else 250
 
-    def getGen(self, dist):
-        if dist == Dist.Uniform:
-            return self.uniform
-        return self.normal if dist == Dist.Normal else self.tDist
+            if pType == "single":
+                correlation = param["correlation"] if "correlation" in param else 0
+                func1 = param["func"] if "func" in param else func
+                self.store(*self.getPtsDouble(p1=param["x"], p2=param["y"], count=count, correlation=correlation), count=count, func=func1)
+            else:
+                correlationX = param["correlationX"] if "correlationX" in param else 0
+                correlationY = param["correlationY"] if "correlationY" in param else 0
+                func1 = param["func1"] if "func1" in param else func
+                func2 = param["func2"] if "func2" in param else func
 
-    def uniform(self, features, count):
-        return [np.random.uniform(features[i].a, features[i].b, count) for i in range(len(features))]
+                x1, x2 = self.getPtsDouble(p1=param["x1"], p2=param["x2"], count=count, correlation=correlationX)
+                y1, y2 = self.getPtsDouble(p1=param["y1"], p2=param["y2"], count=count, correlation=correlationY)
+                self.store(x=x1, y=y1, count=count, func=func1)
+                self.store(x=x2, y=y2, count=count, func=func2)
 
-    def correlated(self, pts1, pts2, count, fx1, fx2):
-        pts3 = pts1 * self.p + pts2 * sqrt(1 - self.p * self.p)  # x1 & x2 -> x3
-        return [fx1.a + fx1.b * pts1, fx2.a + fx2.b * pts3]  # x1,x3
+    def readDict(self, p):
+        dist = p["dist"]
+        if dist == "uniform":
+            return (np.random.uniform, (p["min"], p["max"]))
+        elif dist == "normal":
+            return (np.random.normal, (p["mean"], p["std"]))
 
-    def normal(self, features, count):
-        return self.correlated(
-            pts1=np.random.normal(0, 1, count),
-            pts2=np.random.normal(0, 1, count),
-            count=count,
-            fx1=features[0],
-            fx2=features[1]
-        )
+        # df = degrees of freedom
+        return (np.random.standard_t, (p["df"]))
 
-    def tDist(self, features, count):
-        return self.correlated(
-            pts1=np.random.standard_t(1, count),
-            pts2=np.random.standard_t(1, count),
-            count=count,
-            fx1=features[0],
-            fx2=features[1]
-        )
+    def getPtsSingle(self, p, count):
+        run, args = self.readDict(p)
+        return run(*args, size=count)
 
-    def func(self, x):
-        return x
+    def getPtsCorr(self, p1, p2, count, correlation):
+        gen1, (mean1, std1) = self.readDict(p1)
+        gen2, (mean2, std2) = self.readDict(p2)
+        pts1 = gen1(size=count)
+        pts2 = gen2(size=count)
+        return (mean1 + std1 * pts1, mean2 + std2 * (pts1 * correlation + pts2 * sqrt(1 - correlation * correlation)))  # x1,x3
+
+    def getPtsDouble(self, p1, p2, count, correlation):
+        if correlation != 0:
+            return self.getPtsCorr(p1=p1, p2=p2, count=count, correlation=correlation)
+        else:
+            return self.getPtsSingle(p=p1, count=count), self.getPtsSingle(p=p2, count=count)
+
+    def store(self, x, y, count, func):
+        y += func(x)
+        self.x.append(x)
+        self.y.append(y)
+
+        if self.labelValues != None:
+            index = len(self.labels)
+            while index >= len(self.labelValues):
+                self.labelValues.append(self.labelValues[-1] + 1)
+            self.labels.append(np.full(count, self.labelValues[index], dtype=np.int64))
+
+    def getTable(self):
+        x = np.concatenate(self.x)
+        y = np.concatenate(self.y)
+
+        if self.labelValues == None:
+            p = {"target": "y", "columns": ["x"]}
+            arr = [x, y]
+        else:
+            p = {"target": "label", "columns": ["x", "y"]}
+            arr = [np.concatenate(self.labels), x, y]
+
+        return Table(numpy=np.array(arr).transpose(), param=p)
 
 
 if __name__ == '__main__':
@@ -107,24 +98,85 @@ if __name__ == '__main__':
 
     def negx2(x):
         return -x * x
-    # print(np.full(10, 100))
-    data = Data(xDist=Dist.Uniform, yDist=Dist.Normal, xFeatures=[
-        Feature(minRange=0, maxRange=100),
-        Feature(minRange=-50, maxRange=50)
-    ], yFeatures=[
-        Feature(mean=0, std=1000),
-        Feature(mean=-50, std=50)
-    ], p=1, funcs=[x2, negx2])
 
-    # data = Data(xDist=Dist.Normal, yDist=Dist.T, xFeatures=[
-    #     Feature(mean=0, std=0.5),
-    #     Feature(mean=2, std=0.5)
-    # ], yFeatures=[
-    #     Feature(mean=0, std=0.5),
-    #     Feature(mean=2, std=0.5)
-    # ], p=0.25)
+    dataOptions1 = [{
+        "x": {
+            "dist": "normal",
+            "mean": 0,
+            "std": 0.1
+        },
+        "y": {
+            "dist": "normal",
+            "mean": 0,
+            "std": 0.1
+        }
+    }]
+    dataOptions2 = [{
+        "x": {
+            "dist": "uniform",
+            "min": 0,
+            "max": 1
+        },
+        "y": {
+            "dist": "normal",
+            "mean": 0,
+            "std": 1
+        },
+    }]
+    dataOptions3 = [{
+        "x": {
+            "dist": "normal",
+            "mean": 100,
+            "std": 10
+        },
+        "y": {
+            "dist": "normal",
+            "mean": 0,
+            "std": 400
+        },
+        "func": x2
+    }]
+    dataOptions4 = [{
+        "x": {
+            "dist": "normal",
+            "mean": 0,
+            "std": 1
+        },
+        "y": {
+            "dist": "normal",
+            "mean": 0,
+            "std": 1
+        },
+        "correlation": 0.9
+    }]
 
-    training, testing = data.generate(1000).partition()
+    dataOptions5 = [{
+        "type": "double",
+        "x1": {
+                "dist": "normal",
+                "mean": 5,
+                "std": 2
+        },
+        "y1": {
+            "dist": "normal",
+            "mean": 0,
+            "std": 8
+        },
+        "x2": {
+            "dist": "normal",
+            "mean": 3,
+            "std": 1
+        },
+        "y2": {
+            "dist": "normal",
+            "mean": 50,
+            "std": 10
+        },
+        "func1": x2
+    }]
+
+    training = Data(params=dataOptions5).getTable()
+    # training, testing = table.partition()
 
     print("TRAINING")
     print(training.data)
@@ -132,6 +184,6 @@ if __name__ == '__main__':
     # print("TESTING")
     # print(testing.data)
 
-    import matplotlib.pyplot as plt
-    plt.scatter(training['x'], training['y'], c=training['label'], alpha=0.5)
-    plt.show()
+    # import matplotlib.pyplot as plt
+    # plt.scatter(training['x'], training['y'], c=training['label'], alpha=0.5)
+    # plt.show()

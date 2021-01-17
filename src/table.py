@@ -54,7 +54,7 @@ class Table:
         # print("Table Length:", len(self.data.index))
 
         # convert float labels to int
-        self.data[self.yName] = self.data[self.yName].astype('int64')
+        # self.data[self.yName] = self.data[self.yName].astype('int64')
 
         # constraining is used for logistic model to map range min,max to 0,1
         if(self.constrainX != None):
