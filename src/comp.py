@@ -7,6 +7,10 @@ from table import Table
 class Feature:
 
     def __init__(self, mean=None, std=None, minRange=None, maxRange=None):
+        """
+        uniform: minRange/maxRange
+        other: mean/std
+        """
         self.a = mean if mean != None else minRange
         self.b = std if std != None else maxRange
 
@@ -28,60 +32,18 @@ class Dist(Enum):
 
 
 class Data:
-    def __init__(self, dist, xFeatures, yFeatures, p=0.5):  # , trainCount, testCount
-        self.dist = dist
+    def __init__(self, xDist, yDist, xFeatures, yFeatures, p=0.5):  # , trainCount, testCount
+        self.xDist = xDist
+        self.yDist = yDist
         self.xFeatures = xFeatures
         self.yFeatures = yFeatures
-        # self.trainCount = trainCount
-        # self.testCount = testCount
         self.p = p  # correlation coefficient
-        self.generate = self.selectGenMethod()
-        # self.generatePoints()
-        # self.points = [TRAIN,TEST] : TRAIN-[(x,y)-several classes]
+        self.genX = self.getGen(self.xDist)
+        self.genY = self.getGen(self.yDist)
 
-    def selectGenMethod(self):
-        if(self.dist == Dist.Uniform):
-            return self.uniform
-        if(self.dist == Dist.Normal):
-            return self.normal
-        return self.tDist
-
-    # def generatePoints(self):
-    #     self.training = self.generate(self.trainCount)
-    #     self.testing = self.generate(self.testCount)
-
-    def uniform(self, count):
-        x, y = [], []
-        for i in range(len(self.xFeatures)):
-            fx = self.xFeatures[i]
-            fy = self.yFeatures[i]
-            x.append(np.random.uniform(fx.a, fx.b, count))
-            y.append(np.random.uniform(fy.a, fy.b, count))
-        return self.createTable(np.concatenate(x), np.concatenate(y), count)
-
-    def correlated_single(self, pts1, pts2, count, fx1, fx2):
-        pts3 = pts1 * self.p + pts2 * sqrt(1 - self.p * self.p)  # x2
-        return np.concatenate([fx1.a + fx1.b * pts1, fx2.a + fx2.b * pts3])
-
-    def correlated(self, ptsX, ptsY, count):
-        assert len(self.xFeatures) == 2 and len(self.yFeatures) == 2, "Can't correlate when the number of features != 2"
-        x = self.correlated_single(*ptsX, count, self.xFeatures[0], self.xFeatures[1])
-        y = self.correlated_single(*ptsY, count, self.yFeatures[0], self.yFeatures[1])
-        return self.createTable(x, y, count)
-
-    def normal(self, count):
-        return self.correlated(
-            (np.random.normal(0, 1, count), np.random.normal(0, 1, count)),
-            (np.random.normal(0, 1, count), np.random.normal(0, 1, count)),
-            count)
-
-    def tDist(self, count):
-        return self.correlated(
-            (np.random.standard_t(1, count), np.random.standard_t(1, count)),
-            (np.random.standard_t(1, count), np.random.standard_t(1, count)),
-            count)
-
-    def createTable(self, x, y, count):
+    def generate(self, count):
+        x = self.genX(features=self.xFeatures, count=count)
+        y = self.genY(features=self.yFeatures, count=count)
         labels = []
         for i in range(len(self.xFeatures)):
             labels.append(np.full(count, i, dtype=np.int64))
@@ -89,7 +51,6 @@ class Data:
 
         # out = [[labels[i], x[i], y[i]] for i in range(len(x))]
         out = [labels, x, y]
-
         param = {
             "target": "label",
             "columns": [
@@ -100,27 +61,60 @@ class Data:
         #np.array([labels, x, y])
         return Table(numpy=np.array(out).transpose(), param=param)
 
+    def getGen(self, dist):
+        if dist == Dist.Uniform:
+            return self.uniform
+        return self.normal if dist == Dist.Normal else self.tDist
+
+    def uniform(self, features, count):
+        return np.concatenate([np.random.uniform(features[i].a, features[i].b, count) for i in range(len(features))])
+
+    def correlated(self, pts1, pts2, count, fx1, fx2):
+        pts3 = pts1 * self.p + pts2 * sqrt(1 - self.p * self.p)  # x2
+        return np.concatenate([fx1.a + fx1.b * pts1, fx2.a + fx2.b * pts3])
+
+    def normal(self, features, count):
+        return self.correlated(
+            pts1=np.random.normal(0, 1, count),
+            pts2=np.random.normal(0, 1, count),
+            count=count,
+            fx1=features[0],
+            fx2=features[1]
+        )
+
+    def tDist(self, features, count):
+        return self.correlated(
+            pts1=np.random.standard_t(1, count),
+            pts2=np.random.standard_t(1, count),
+            count=count,
+            fx1=features[0],
+            fx2=features[1]
+        )
+
+    def func(self, x):
+        return x * x
+
 
 if __name__ == '__main__':
-
+    print("RUNNING COMP")
     # print(np.full(10, 100))
-    data = Data(dist=Dist.Normal, xFeatures=[
+    data = Data(xDist=Dist.Uniform, yDist=Dist.Normal, xFeatures=[
         Feature(minRange=0, maxRange=100),
         Feature(minRange=-50, maxRange=50)
     ], yFeatures=[
-        Feature(minRange=0, maxRange=100),
-        Feature(minRange=-50, maxRange=50)
-    ])
+        Feature(mean=0, std=100),
+        Feature(mean=-50, std=50)
+    ], p=1)
 
-    data = Data(Dist.T, xFeatures=[
-        Feature(mean=0, std=0.5),
-        Feature(mean=2, std=0.5)
-    ], yFeatures=[
-        Feature(mean=0, std=0.5),
-        Feature(mean=2, std=0.5)
-    ], p=0.25)
+    # data = Data(xDist=Dist.Normal, yDist=Dist.T, xFeatures=[
+    #     Feature(mean=0, std=0.5),
+    #     Feature(mean=2, std=0.5)
+    # ], yFeatures=[
+    #     Feature(mean=0, std=0.5),
+    #     Feature(mean=2, std=0.5)
+    # ], p=0.25)
 
-    training, testing = data.generate(100).partition()
+    training, testing = data.generate(1000).partition()
 
     print("TRAINING")
     print(training.data)
@@ -128,6 +122,6 @@ if __name__ == '__main__':
     # print("TESTING")
     # print(testing.data)
 
-    # import matplotlib.pyplot as plt
-    # plt.scatter(training['x'], training['y'], c=training['label'], alpha=0.5)
-    # plt.show()
+    import matplotlib.pyplot as plt
+    plt.scatter(training['x'], training['y'], c=training['label'], alpha=0.5)
+    plt.show()
