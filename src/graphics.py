@@ -63,6 +63,7 @@ class Frame:
         self.x = x
         self.y = y
         self.pos = (self.x, self.y)
+        self.displayPos = hp.getDisplayCoord(self.pos)
 
     def setAlignment(self, dx=None, dy=None):
         if dx != None:
@@ -290,7 +291,7 @@ class Color(ResizableFrame):
     def display(self):
         if not self.isHidden:
             super().display()
-            pg.draw.rect(g, self.color, (self.x, self.y, self.getWidth(), self.getHeight()))
+            pg.draw.rect(g, self.color, (*self.displayPos, self.getWidth(), self.getHeight()))
 
     def __str__(self, indent=""):
         return "Color:{}".format(self.getID())
@@ -323,7 +324,7 @@ class Rect(Shape):
             #     hp.draw_bordered_rounded_rect(surface=g, color=self.color, rect=(self.x, self.y, self.getWidth(), self.getHeight()), width=0, border_radius=self.cornerRadius)
             # if self.storkeColor  and self.strokeWidth > 0:
             # print("RECT:", (self.x, self.y, self.getWidth(), self.getHeight()))
-            hp.draw_bordered_rounded_rect(g, rect=(self.x, self.y, self.getWidth(), self.getHeight()), color=self.color,
+            hp.draw_bordered_rounded_rect(g, rect=(*self.displayPos, self.getWidth(), self.getHeight()), color=self.color,
                                           border_color=self.strokeColor, corner_radius=self.cornerRadius, border_thickness=self.strokeWidth)
 
     def __str__(self, indent=""):
@@ -339,7 +340,7 @@ class Ellipse(Shape):
             # y += h
             # print("Color:", self.color, self.color is not None)
             if self.color is not None:
-                pg.draw.ellipse(g, self.color, (self.x, self.y, self.getWidth(), self.getHeight()))
+                pg.draw.ellipse(g, self.color, (*self.displayPos, self.getWidth(), self.getHeight()))
             # if self.strokeColor and self.strokeWidth > 0:
             #     pgx.aaellipse(g, x, y, w, h, self.strokeColor)
 
@@ -349,7 +350,7 @@ class Ellipse(Shape):
 
 class Points(Ellipse):
     # pts should be between -1 and 1
-    def __init__(self, pts=[], color=None, isConnected=False, maxPts=0, ptSize=5, isCircle=True, **kwargs):
+    def __init__(self, pts=[], color=None, isConnected=False, maxPts=0, ptSize=12, isCircle=True, **kwargs):
         super().__init__(color=color, **kwargs)
         self.setPts(pts)  # [-1,1]
         self.isConnected = isConnected
@@ -386,13 +387,13 @@ class Points(Ellipse):
             if not self.isConnected:
                 if self.isCircle:
                     for i in range(len(self.displayPts)):
-                        pg.draw.ellipse(g, self.displayPts[i][2], (self.displayPts[i][0], self.displayPts[i][1], self.ptSize, self.ptSize))
+                        pg.draw.ellipse(g, self.displayPts[i][2], (*hp.getDisplayCoord(self.displayPts[i]), self.ptSize, self.ptSize))
                 else:
                     for i in range(len(self.displayPts)):
-                        pg.draw.rect(g, self.displayPts[i][2], (self.displayPts[i][0], self.displayPts[i][1], self.ptSize, self.ptSize))
+                        pg.draw.rect(g, self.displayPts[i][2], (*hp.getDisplayCoord(self.displayPts[i]), self.ptSize, self.ptSize))
             else:
                 for i in range(1, len(self.displayPts)):
-                    pg.draw.line(g, self.color, tuple(self.displayPts[i - 1][0:2]), tuple(self.displayPts[i][0:2]), width=self.ptSize)
+                    pg.draw.line(g, self.color, hp.getDisplayCoord(self.displayPts[i - 1][0:2]), hp.getDisplayCoord(self.displayPts[i][0:2]), width=self.ptSize)
 
     def setColor(self, index, color):
         self.pts[index] = (self.pts[index][0], self.pts[index][1], color)
@@ -401,6 +402,9 @@ class Points(Ellipse):
     def reset(self):
         self.pts = []
         self.displayPts = []
+
+    def __len__(self):
+        return len(self.pts)
 
 
 class Image(ResizableFrame):
@@ -418,7 +422,7 @@ class Image(ResizableFrame):
     def display(self):
         if not self.isHidden:
             super().display()
-            g.blit(self.surface, (self.x, self.y, self.getWidth(), self.getHeight()))
+            g.blit(self.surface, (*self.displayPos, self.getWidth(), self.getHeight()))
 
     def __str__(self, indent=""):
         return "Image:'{}'".format(self.imageName)
@@ -452,7 +456,7 @@ class Label(Frame):
             self.font = pg.freetype.SysFont(self.fontName, self.fontSize)
             Label.fontCache[fontKey] = self.font
 
-        self.font.vertical = self.isVertical
+        self.font.rotation = 90 if self.isVertical else 0
         self.updateFrame()  # -- most current/ removed since causing extra updates
         # however, better calls are still needed
 
@@ -499,7 +503,7 @@ class Label(Frame):
         if not self.isHidden:
             super().display()
             for i in range(len(self.text)):
-                self.font.render_to(g, self.rects[i].topleft, self.text[i], self.color, size=self.fontSize)
+                self.font.render_to(g, hp.getDisplayCoord(self.rects[i].topleft), self.text[i], self.color, size=self.fontSize)
             # g.blit(self.surface, self.pos)
             # for i, surface in enumerate(self.surfaces):
             #     g.blit(surface, (self.x, self.y + self.fontSize * i))
@@ -534,7 +538,7 @@ class Container(ResizableFrame):
     def display(self):
         if not self.isHidden:
             if (self.view == None and self.showEmpty) or (self.view != None and not self.view.hideContainer and (self.container == None or not self.container.hideAllContainers)):
-                pg.draw.rect(g, Color.darkGray, (self.x, self.y, self.getWidth(), self.getHeight()), 2)
+                pg.draw.rect(g, Color.darkGray, (*self.displayPos, self.getWidth(), self.getHeight()), 2)
             super().display()
             if self.view != None:
                 self.view.display()

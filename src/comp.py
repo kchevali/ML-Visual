@@ -121,7 +121,7 @@ if __name__ == '__main__':
             "dist": "normal",
             "mean": 0,
             "std": 1
-        },
+        }
     }]
     dataOptions3 = [{
         "x": {
@@ -137,25 +137,26 @@ if __name__ == '__main__':
         "func": x2
     }]
     dataOptions4 = [{
+        "type": "single",
         "x": {
             "dist": "normal",
-            "mean": 0,
-            "std": 1
+            "mean": 5,
+            "std": 2
         },
         "y": {
             "dist": "normal",
             "mean": 0,
-            "std": 1
+            "std": 0.0001
         },
-        "correlation": 0.9
+        "func": x2
     }]
 
     dataOptions5 = [{
         "type": "double",
         "x1": {
-                "dist": "normal",
-                "mean": 5,
-                "std": 2
+            "dist": "normal",
+            "mean": 5,
+            "std": 2
         },
         "y1": {
             "dist": "normal",
@@ -175,7 +176,7 @@ if __name__ == '__main__':
         "func1": x2
     }]
 
-    training = Data(params=dataOptions5).getTable()
+    training = Data(params=dataOptions4, labelValues=[0, 1]).getTable()
     # training, testing = table.partition()
 
     print("TRAINING")
@@ -184,6 +185,6 @@ if __name__ == '__main__':
     # print("TESTING")
     # print(testing.data)
 
-    # import matplotlib.pyplot as plt
-    # plt.scatter(training['x'], training['y'], c=training['label'], alpha=0.5)
-    # plt.show()
+    import matplotlib.pyplot as plt
+    plt.scatter(training['x'], training['y'], c=training['label'], alpha=0.5)
+    plt.show()

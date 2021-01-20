@@ -304,5 +304,25 @@ TODO 1/10
     1. Add kernels: polynomial, RBF(exponential)
     2. Test adding new data
     3. ANN
+
+TODO 1/17
+    -Acc/Eq/Error text - make font larger
+    -Make dots larger (Linear, DT, KNN)
+    -Change dot color (Linear - red line/dots)
+    -Add increment function (increase k)
+    -Coding Linear - pick n
+    -show training error (Linear)
+    -rotate y axis text
+    -add cross validation to coding (KNN - best K)
+    -Compare with ML Library to test results (especially logistic, maybe SVM - don't worry about the animation)
+    -DT: room view label color needs to match table color
+    -DT Bagging:  reset graphics when saving tree
+    -Check Linear/Quadratic fitting algorithm (Error - Comp Page)
+    -fix axis name ("petalLength" -> "Petal Length")
+    -Logistic - add ML visualization/comparsion
+    -add more data, clean up data (KNN - only has 1)
+    -Hide Comparsion model for now
+
+    -hide accuracy before training (SVM)
     
 """

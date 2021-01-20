@@ -124,23 +124,12 @@ def loadJSON(filePath):
 def openFile(sender):
     subprocess.run(['open', sender.tag], check=True)
 
-# shift 3D Array
-# def shift(self, dx=0, dy=0, dz=0):
-#         cx, cy, cz = 0 if dx <= 0 else self.cols - 1, 0 if dy <= 0 else self.rows - 1, 0 if dz <= 0 else self.depth - 1
-#         ddx, ddy, ddz = -1 if dx > 0 else 1, -1 if dy > 0 else 1, -1 if dz > 0 else 1
-#         for i in range(self.rows):
-#             for j in range(self.cols):
-#                 for k in range(self.depth):
-#                     x, y, z = cx + j * ddx, cy + i * ddy, cz + k * ddz
-#                     a, b = self.index(y - dy, x - dx, z - dz), self.index(y, x, z)
-#                     if a != None:
-#                         if b != None:
-#                             self.arr[b] = self.arr[a]
-#                         if a != b:
-#                             self.arr[a] = 0
-#                     elif b != None:
-#                         self.arr[b] = 0
-#         return self
+
+def getDisplayCoord(coord):
+    from gui import windowHeight
+    # return coord[0], windowHeight - coord[1]
+    # TODO - code above moves the origin to the bottom left - fix issues when you have time
+    return coord[0], coord[1]
 
 
 def draw_rounded_rect(surface, rect, color, corner_radius):

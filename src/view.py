@@ -154,7 +154,7 @@ class TableView(SingleModelView, Grid):
 
     def shiftTable(self, dy):
         self.shift(dy=dy)
-        self.table.tableChange(self.table.selectedCol, isSelect=True)
+        # self.table.tableChange(self.table.selectedCol, isSelect=True)
         # self.colorTableTargets()
         # self.updateHeaderSelectionButtons()
         self.updateAll()
@@ -288,6 +288,9 @@ class TreeRoom(SingleModelView, VStack):
         for child in treeChildren:
             totalClassCount += child.table.classCount
         # print("Total Class Count:", totalClassCount)
+        # print("SPLIT:")
+        # for i in range(len(treeChildren)):
+        #     print(self.model.getChild(i).table.data)
 
         self.modelBranch.setView(view=ZStack(items=label + [
             stack(items=[
@@ -391,14 +394,20 @@ class TreeList(SingleModelView, VStack):
 
 
 class GraphView(MultiModelView, ZStack):
-    def __init__(self, hasAxis=False, enableUserPts=False, **kwargs):
+    def __init__(self, hasAxis=False, enableUserPts=False, enableIncButton=False, **kwargs):
         self.graphics = []
         MultiModelView.__init__(self, **kwargs)
         self.hasAxis = hasAxis
-        self.userPts = Points(maxPts=100, isCircle=False, ptSize=8) if enableUserPts else None
+        self.userPts = Points(maxPts=1000, isCircle=False, ptSize=8) if enableUserPts else None
         self.legend = None
 
-        self.graphGrid = Button([self.userPts] + [self.legend] + self.graphics, run=self.clickGraph)
+        self.graphGrid = ZStack([
+            Button([
+                Points(pts=self.table.getPts(), color=Color.green, isConnected=False),
+                self.userPts, self.legend
+            ] + self.graphics, run=self.clickGraph),
+            self.createIncButton() if enableIncButton else None
+        ])
 
         ZStack.__init__(self, [
             HStack([
@@ -424,12 +433,12 @@ class GraphView(MultiModelView, ZStack):
         model.addGraphics(("pts", Points(pts=[], color=model.color, isConnected=True)))
         if model.isRegression:
             model.addGraphics(
-                ("err", Label(model.defaultScoreString(), fontSize=15, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15)),
-                ("eq", Label("Y=--", fontSize=15, color=model.color, dx=1, dy=-1, offsetY=120 + 45 * len(self.models), offsetX=-15))
+                ("err", Label(model.defaultScoreString(), fontSize=20, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15)),
+                ("eq", Label("Y=--", fontSize=20, color=model.color, dx=1, dy=-1, offsetY=120 + 45 * len(self.models), offsetX=-15))
             )
         if model.isClassification:
             model.addGraphics(
-                ("acc", Label(model.getScoreString(), fontSize=15, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15))
+                ("acc", Label(model.getScoreString(), fontSize=20, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15))
             )
         self.graphics += [graphic for graphic in model.graphics]
 
@@ -451,25 +460,11 @@ class GraphView(MultiModelView, ZStack):
             VStack(legendItems, ratios=[0.8 / len(legendItems) for item in legendItems], offsetY=10, hideAllContainers=True)
         ], lockedWidth=150, lockedHeight=180, dx=0.8, dy=-0.8, hideAllContainers=True)
 
-    # def createDots(self):
-    #     items = []
-    #     for index, row in self.table.iterrows():
-    #         items.append(Ellipse(color=self.model.classColors[row[self.table.targetName]] if self.model.isCategorical else Color.steelBlue,
-    #                              strokeColor=Color.white, strokeWidth=3, dx=row[self.table.first()], dy=row[self.table.second()], lockedWidth=15, lockedHeight=15))
-    #     return items
-
     def createAxis(self, model, isVertical):
         return None if not self.hasAxis else ZStack([
             Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
             Label(model.colNameB if isVertical else model.colNameA, fontSize=25, color=Color.white, isVertical=isVertical)
         ])
-
-    # def createLines(self, color, errorOffset, eqOffset, **kwargs):
-    #     lines = Lines(color=color)
-    #     errorLabel = Label("Error: --", color=color, offsetY=errorOffset, **kwargs)
-    #     eqLabel = Label("Y=--", color=color, offsetY=eqOffset, **kwargs)
-    #     self.modelView.addAllViews(lines, errorLabel, eqLabel)
-    #     return lines, errorLabel, eqLabel
 
     def clickGraph(self, sender):
         if self.userPts != None:
@@ -482,20 +477,11 @@ class GraphView(MultiModelView, ZStack):
                 x = hp.map(sender.lastClickX, sender.x, sender.x + sender.getWidth(), model.minX1, model.maxX1)
                 y = hp.map(sender.lastClickY, sender.y, sender.y + sender.getHeight(), model.minX2, model.maxX2)
                 model.addPt(x, y)
-        # if self.drawModel:
-        #     points = self.model.addPt((sender.lastClickX, sender.lastClickY))
-
-        #     if points != None:
-        #         self.modelLine.points = points
-        #         self.modelError.setFont(text="Error: {}".format(round(self.model.getError(), 4)))
-        #         self.modelEq.setFont(text=self.model.getEqString())
-        #     else:
-        #         self.modelLine.points = []
 
     def createIncButton(self, **kwargs):
         pass
 
-    def incMethod(self, sender):
+    def createIncMethod(self, sender):
         pass
 
     def createAddCompButton(self):
@@ -514,28 +500,18 @@ class GraphView(MultiModelView, ZStack):
             if model.isRunning:
                 model.fit()
 
-                # self.compLine.points = self.compModel.getEdgePoints()
-                # self.compError.setFont(text="ML Error: {}".format(round(self.compModel.getError(), 4)))
-                # self.compEq.setFont(text=self.compModel.getEqString())
-
-            # print("COMP:", self.compModel.cef, "ERROR:", self.compModel.dJ)
-
     def hoverMouse(self, x, y):
         if self.hoverEnabled:
             for model in self.models:
                 if model.isUserSet:
                     x1 = hp.map(x, self.graphGrid.x, self.graphGrid.x + self.graphGrid.getWidth(), model.minX1, model.maxX1)
                     y1 = hp.map(y, self.graphGrid.y, self.graphGrid.y + self.graphGrid.getHeight(), model.minX2, model.maxX2)
-                    # print("H:", x1, y1, "X1:", model.minX1, model.maxX1, "X2:", model.minX2, model.maxX2)
                     model.addPt(x1, y1, storePt=False)
-            # points = self.model.addPt((x, y), storePoint=False)
-            # if points != None:
-            #     self.modelLine.points = points
-            #     self.modelError.setFont(text="Error: {}".format(round(self.model.getError(), 4)))
-            #     self.modelEq.setFont(text=self.model.getEqString())
 
 
 class KNNGraphView(GraphView):
+    def __init__(self, **kwargs):
+        super().__init__(enableIncButton=True, **kwargs)
 
     def clickGraph(self, sender):
         super().clickGraph(sender)
@@ -551,18 +527,31 @@ class KNNGraphView(GraphView):
             # change color of most recent one
             self.userPts.setColor(-1, self.models[0].table.classColors[str(pred)])
 
+    def updateUserPts(self):
+        for i in range(len(self.userPts)):
+            x1, x2, _ = self.userPts.pts[i]
+            x = [
+                hp.map(x1, -1, 1, self.models[0].minX1, self.models[0].maxX1),
+                hp.map(x2, -1, 1, self.models[0].minX2, self.models[0].maxX2),
+            ]
+            pred = self.models[0].predict(x)
+            self.userPts.setColor(i, self.models[0].table.classColors[str(pred)])
+
     def incMethod(self, sender):
-        self.model.k += 2
-        if self.model.k > 10:
-            self.model.k = 1
-        self.codingAddLabel.setFont("K: {}".format(self.model.k))
+        for model in self.models:
+            model.k += 2
+            if model.k > 10:
+                model.k = 1
+            self.incButtonLabel.setFont("K: {}".format(model.k))
+            self.updateUserPts()
 
     def createIncButton(self, **kwargs):
-        self.codingAddLabel = Label("K: {}".format(self.model.k))
-        return Button([
-            Rect(color=Color.backgroundColor, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
-            self.codingAddLabel
-        ], run=self.incMethod, lockedWidth=130, lockedHeight=80, **kwargs)
+        for model in self.models:
+            self.incButtonLabel = Label("K: {}".format(model.k))
+            return Button([
+                Rect(color=Color.backgroundColor, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
+                self.incButtonLabel
+            ], run=self.incMethod, lockedWidth=130, lockedHeight=80, dx=1, dy=-1, ** kwargs)
 
 
 class LinearGraphView(GraphView):

@@ -5,17 +5,17 @@ import helper as hp
 
 if not 'g' in globals():
     g = None
-    width, height = 0, 0
+    windowWidth, windowHeight = 0, 0
 
 
 def createGUI():
-    global width, height, g
-    width = 1050
-    height = 700
+    global windowWidth, windowHeight, g
+    windowWidth = 1050
+    windowHeight = 700
     pg.init()
     # pg.font.init()
     pg.freetype.init()
-    g = pg.display.set_mode((width, height), pg.RESIZABLE)
+    g = pg.display.set_mode((windowWidth, windowHeight), pg.RESIZABLE)
 
 
 def runGUI(page):
@@ -36,7 +36,7 @@ def runGUI(page):
         from page import createMouseDebug
         mouseDebug = createMouseDebug()
         page.addView(mouseDebug)
-    page.setSize(width=width, height=height)
+    page.setSize(width=windowWidth, height=windowHeight)
     page.updateAll()
     print("Loading Complete!")
 
@@ -49,7 +49,7 @@ def runGUI(page):
     while isRun:
         mouseX, mouseY = pg.mouse.get_pos()
         if isDebug:
-            dx, dy = hp.calcAlignment(x=mouseX, y=mouseY, dw=width, dh=height, isX=True, isY=True)
+            dx, dy = hp.calcAlignment(x=mouseX, y=mouseY, dw=windowWidth, dh=windowHeight, isX=True, isY=True)
             mouseDebug.keyDown("text").setFont(text="({},{})".format(round(dx, 2), round(dy, 2)))
             mouseDebug.updateAll()
 

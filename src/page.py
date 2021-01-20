@@ -451,7 +451,7 @@ class ExampleKNNPage(MultiModel, ZStack):
         MultiModel.__init__(self)
 
         self.setTable(Table(filePath="examples/knn/knn_iris", features=2), partition=0.3)
-        self.addModel(KNN(table=self.table, testingTable=self.testingTable, drawTable=True))
+        self.addModel(KNN(table=self.table, testingTable=self.testingTable))
 
         ZStack.__init__(self, [
             KNNGraphView(models=self.models, hasAxis=True, enableUserPts=True),
@@ -463,8 +463,8 @@ class ExampleKNNPage(MultiModel, ZStack):
 
 class CodingKNNPage(CodingPage):
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/knn/knn_iris"), partition=0.3)
-        self.setModel(KNN(table=self.table, testingTable=self.testingTable, drawTable=True))
+        self.setTable(Table(filePath="examples/knn/knn_iris", drawTable=False), partition=0.3)
+        self.setModel(KNN(table=self.table, testingTable=self.testingTable))
         # Codes
         codes = [
             Code("model = KNeighborClassifier()", "Load Model", 1),
@@ -490,7 +490,11 @@ class InfoKNNPage(InfoView):
 
 class IntroLinearPage(IntroView):
     def __init__(self):
-        description = ["Welcome to the Linear Regression Introduction Page"]
+        description = [
+            "    Linear regression is a very simple but useful tool for predicting a",
+            "quantitative response. Linear regression has been applied to many data analysis",
+            "problems and also serves as a good starting point for other approaches such as",
+            "logistic regression and support vector machine."]
         super().__init__(label=Label(description))
 
 
@@ -498,8 +502,8 @@ class ExampleLinearPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/linear/linear_iris", features=1), partition=0.3)
-        self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=1, drawTable=True, isUserSet=True))
-        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=1, drawTable=False, color=Color.blue))
+        self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=1, isUserSet=True))
+        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=1, color=Color.blue))
         ZStack.__init__(self, [
             VStack([
                 LinearGraphView(models=self.models, compModels=self.compModels, hasAxis=True, hoverEnabled=True)
@@ -517,8 +521,8 @@ class QuadLinearPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/linear/linear_iris", features=1), partition=0.3)
-        self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=2, drawTable=True, isUserSet=True))
-        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=2, drawTable=False, color=Color.blue))
+        self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=2, isUserSet=True))
+        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=2, color=Color.blue))
         ZStack.__init__(self, [
             VStack([
                 LinearGraphView(models=self.models, compModels=self.compModels, hasAxis=True, hoverEnabled=True)
@@ -552,7 +556,7 @@ class QuadLinearPage(MultiModel, ZStack):
 class CodingLinearPage(CodingPage):
 
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/linear/linear_iris", features=1), partition=0.3)
+        self.setTable(Table(filePath="examples/linear/linear_iris", features=1, drawTable=False), partition=0.3)
         self.setModel(Linear(table=self.table, testingTable=self.testingTable))
         # Codes
         codes = [
@@ -586,7 +590,7 @@ class ExampleLogisticPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/logistic/logistic_sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1), partition=0.3)
-        self.addModel(Logistic(table=self.table, testingTable=self.testingTable, drawTable=True, isUserSet=True))
+        self.addModel(Logistic(table=self.table, testingTable=self.testingTable, isUserSet=True))
         ZStack.__init__(self, [
             VStack([
                 GraphView(models=self.models, hasAxis=True, hoverEnabled=True)
@@ -600,8 +604,8 @@ class ExampleLogisticPage(MultiModel, ZStack):
 
 class CodingLogisticPage(CodingPage):
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/logistic/logistic_sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1), partition=0.3)
-        self.setModel(Logistic(table=self.table, testingTable=self.testingTable, drawTable=False, isUserSet=False))
+        self.setTable(Table(filePath="examples/logistic/logistic_sigmoid", constrainX=(0, 1 - 1e-5), constrainY=(0, 1 - 1e-5), features=1, drawTable=False), partition=0.3)
+        self.setModel(Logistic(table=self.table, testingTable=self.testingTable, isUserSet=False))
         # Codes
         codes = [
             Code("model = LogisticRegression()", "Load Model", 1),
@@ -635,7 +639,7 @@ class ExampleSVMPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/svm/svm_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
-        self.addCompModel(SVM(table=self.table, testingTable=self.testingTable, drawTable=True))
+        self.addCompModel(SVM(table=self.table, testingTable=self.testingTable))
         ZStack.__init__(self, [
             VStack([
                 SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=False)
@@ -689,15 +693,15 @@ class CompPage(MultiModel, ZStack):
             "y": {
                 "dist": "normal",
                 "mean": 0,
-                "std": 8
+                "std": 0.0001
             },
             "func": x2
         }])
 
         self.setTable(data.getTable(), partition=0.3)
-        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, name="Linear", n=1, drawTable=True, alpha=1e-5))
-        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, name="Quadratic", color=Color.blue, n=2, drawTable=False, alpha=1e-9))
-        # self.addCompModel(Logistic(table=self.table, testingTable=self.testingTable, name="Logistic", color=Color.green, drawTable=False))
+        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, name="Linear", n=1, alpha=1e-5))
+        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, name="Quadratic", color=Color.blue, n=2, alpha=1e-9))
+        # self.addCompModel(Logistic(table=self.table, testingTable=self.testingTable, name="Logistic", color=Color.green))
         ZStack.__init__(self, [
             VStack([
                 GraphView(models=self.models, compModels=self.compModels, hasAxis=True)

@@ -11,19 +11,18 @@ from math import inf, sqrt, log, pi, sin, cos, e
 
 
 class Model:
-    def __init__(self, table, testingTable=None, name="", color=Color.red, drawTable=False, isUserSet=False, isClassification=False, isRegression=False, **kwargs):
+    def __init__(self, table, testingTable=None, name="", color=Color.red, isUserSet=False, isClassification=False, isRegression=False, **kwargs):
         self.name = name
         self.table = table
         self.testingTable = testingTable
         self.color = color
-        self.drawTable = drawTable
         # isLinear=False, isCategorical=False, isConnected=False, displayRaw=False
         # self.isLinear = isLinear
         # self.isCategorical = isCategorical
         # self.isConnected = isConnected
         # self.displayRaw = displayRaw
-        self.minX1, self.maxX1 = None, None
-        self.minX2, self.maxX2 = None, None
+        self.minX1, self.maxX1 = self.table.minX1, self.table.maxX1
+        self.minX2, self.maxX2 = self.table.minX2, self.table.maxX2
         self.colNameA, self.colNameB = None, None
         self.graphics = []  # stores Point objects
         self.graphicsDict = {}
@@ -31,15 +30,6 @@ class Model:
         self.isRunning = False
         self.isClassification = isClassification
         self.isRegression = isRegression
-
-    def getTablePtsXX(self):
-        return [self.getPt(self.table.x[i][0], self.table.x[i][1], self.table.classColors[str(self.table.y[i][0])]) for i in range(self.table.rowCount)]
-
-    def getTablePtsXY(self):
-        return [self.getPt(self.table.x[i][0], self.table.y[i], self.color) for i in range(self.table.rowCount)]
-
-    def getPt(self, x, y, color):  # get many points
-        return (hp.map(x, self.minX1, self.maxX1, -1, 1, clamp=False), hp.map(y, self.minX2, self.maxX2, -1, 1, clamp=False), color)
 
     def getLinearPts(self, isLinear=True, **kwargs):
         edgePts = [
@@ -49,7 +39,7 @@ class Model:
             (self.getX(self.maxX2, **kwargs), self.maxX2),
         ]
         if isLinear:
-            return [self.getPt(x, y, self.color) for x, y in edgePts if(x >= self.minX1 and x <= self.maxX1 and y >= self.minX2 and y <= self.maxX2)]
+            return [self.table.getPt(x, y, self.color) for x, y in edgePts if(x >= self.minX1 and x <= self.maxX1 and y >= self.minX2 and y <= self.maxX2)]
         # print("Edge:", edgePts)
         edges = []
         for x, y in edgePts:
@@ -72,7 +62,7 @@ class Model:
             start = self.minX1
         if end == None:
             end = self.maxX1
-        return [self.getPt(num, self.getY(num), self.color) for num in hp.rangx(start, end, (end - start) / count, outputEnd=True)]
+        return [self.table.getPt(num, self.getY(num), self.color) for num in hp.rangx(start, end, (end - start) / count, outputEnd=True)]
 
     def addGraphics(self, *args):
         for graphic in args:
@@ -132,7 +122,7 @@ class Classifier(Model):
 
     def getCircleLabelPts(self, table=None):  # circle
         if table == None:
-            table = self.table
+            table = self.getTable()
 
         rowCount = table.rowCount
         if rowCount > 0:
@@ -158,11 +148,7 @@ class Regression(Model):
     def __init__(self, length, **kwargs):
         super().__init__(isConnected=True, isRegression=True, **kwargs)
         self.length = length
-        self.minX1, self.maxX1 = self.table.minX(), self.table.maxX()
-        self.minX2, self.maxX2 = self.table.minY(), self.table.maxY()
         self.colNameA, self.colNameB = self.table.xNames[0], self.table.yName
-        if self.drawTable:
-            self.graphics.append(Points(pts=self.getTablePtsXY(), color=self.color, isConnected=False))
         self.reset()
 
     def error(self, testTable):
@@ -399,8 +385,6 @@ class KNN(Classifier):
         super().__init__(table=table, displayRaw=True, **kwargs)
         self.k = k
         self.kdTree = spatial.KDTree(np.array(table.x))
-        if self.drawTable:
-            self.graphics.append(Points(pts=self.getTablePtsXX(), color=self.color, isConnected=False))
         if bestK:
             self.findBestK()
 
@@ -652,9 +636,6 @@ class SVM(Classifier):
 
         self.latest_optimum = self.max_feature_value * 10
         self.stepIndex = 0
-
-        if self.drawTable:
-            self.graphics.append(Points(pts=self.getTablePtsXX(), color=self.color, isConnected=False))
 
     def reset(self):
         self.w = np.zeros([1, self.table.x.shape[1]])

@@ -2,11 +2,12 @@ import helper as hp
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
+from graphics import Color
 
 
 class Table:
 
-    def __init__(self, df=None, param=None, filePath=None, numpy=None, features=None, constrainX=None, constrainY=None):
+    def __init__(self, df=None, param=None, filePath=None, numpy=None, features=None, constrainX=None, constrainY=None, drawTable=True, classColors=None):
         """
         Create a Table to store data.
 
@@ -36,13 +37,14 @@ class Table:
         self.filePath = filePath
         self.fileName = self.filePath.split("/")[-1].split(".")[0] if filePath != None else None
         self.param = hp.loadJSON(filePath + ".json") if not param else param
-        self.features = features
+        self.drawTable = drawTable
 
         # get column names
         self.yName = self.param['target']
         self.xNames = self.param['columns']
-        if self.features != None:
-            self.xNames = self.xNames[:self.features]
+        if features != None:
+            self.xNames = self.xNames[:features]
+        self.features = len(self.xNames)
         self.colNames = [self.yName] + self.xNames
         self.constrainX = constrainX
         self.constrainY = constrainY
@@ -75,12 +77,21 @@ class Table:
         self.colCount = len(self.xNames)  # does not include target
         self.isBoolCol = [self.data[colName].isin([0, 1]).all() for colName in self.colNames]
 
-        self.classColors = {}
-        i = 0
-        for label in sorted(list(self.classSet)):
-            # using str(label) because Table.flatten() is used for Grid.items and it may convert to string
-            self.classColors[str(label)] = hp.calmColor(i / self.classCount)
-            i += 1
+        self.minX1 = self.data[self.xNames[0]].min()
+        self.maxX1 = self.data[self.xNames[0]].max()
+        x2Name = self.yName if self.features == 1 else self.xNames[1]
+        self.minX2 = self.data[x2Name].min()
+        self.maxX2 = self.data[x2Name].max()
+
+        if classColors != None:
+            self.classColors = classColors
+        else:
+            self.classColors = {}
+            i = 0
+            for label in sorted(list(self.classSet)):
+                # using str(label) because Table.flatten() is used for Grid.items and it may convert to string
+                self.classColors[str(label)] = hp.calmColor(i / self.classCount)
+                i += 1
 
         # self.selectedRow = None
         self.selectedCol = None  # index
@@ -107,12 +118,14 @@ class Table:
     def partition(self, testing=0.3) -> tuple:
         train, test = train_test_split(self.data, test_size=testing)
 
-        trainTable = Table(df=train, param=self.param, filePath=self.filePath, features=self.features, constrainX=self.constrainX, constrainY=self.constrainY)
-        testTable = Table(df=test, param=self.param, filePath=self.filePath, features=self.features, constrainX=self.constrainX, constrainY=self.constrainY)
+        trainTable = Table(df=train, param=self.param, filePath=self.filePath, features=self.features, constrainX=self.constrainX,
+                           constrainY=self.constrainY, drawTable=self.drawTable, classColors=self.classColors)
+        testTable = Table(df=test, param=self.param, filePath=self.filePath, features=self.features, constrainX=self.constrainX,
+                          constrainY=self.constrainY, drawTable=self.drawTable, classColors=self.classColors)
         return trainTable, testTable
 
     def matchValue(self, colIndex, value):
-        return Table(df=self[self[self.xNames[colIndex]] == value], param=self.param, filePath=self.filePath, features=self.features, constrainX=self.constrainX, constrainY=self.constrainY)
+        return Table(df=self[self[self.xNames[colIndex]] == value], param=self.param, filePath=self.filePath, features=self.features, constrainX=self.constrainX, constrainY=self.constrainY, drawTable=self.drawTable, classColors=self.classColors)
 
     def minX(self, column=None):
         return self.data[self.xNames].min()[column if column != None else self.xNames[0]]
@@ -169,6 +182,15 @@ class Table:
     def map(self, colIndex, value):
         column = self.colNames[colIndex]
         return self.mapper[column][value] if column in self.mapper and value in self.mapper[column] else str(value)
+
+    def getPt(self, x, y, color):  # get many points
+        return (hp.map(x, self.minX1, self.maxX1, -1, 1, clamp=False), hp.map(y, self.minX2, self.maxX2, -1, 1, clamp=False), color)
+
+    def getPts(self):
+        if self.drawTable:
+            if self.features >= 2:
+                return [self.getPt(self.x[i][0], self.x[i][1], self.classColors[str(self.y[i][0])]) for i in range(self.rowCount)]
+            return [self.getPt(self.x[i][0], self.y[i], Color.green) for i in range(self.rowCount)]
 
     def __getitem__(self, column):
         return self.data[column]
