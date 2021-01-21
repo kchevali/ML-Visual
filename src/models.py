@@ -295,11 +295,13 @@ class DTNode:
         self.children = []
 
     def predict(self, x):
-        if self.children:
+        # print("Row:", x)
+        if len(self.children) > 0:
             for child in self.children:
                 if child.value == x[self.colIndex]:
                     return child.predict(x)
-            return None
+            # return None
+        # print("Majority:", self.table.majorityInTargetColumn())
         return self.table.majorityInTargetColumn()
 
     def getColName(self):
@@ -386,7 +388,7 @@ class KNN(Classifier):
         self.k = k
         self.kdTree = spatial.KDTree(np.array(table.x))
         if bestK:
-            self.findBestK()
+            self.findBestK(testTable=self.testingTable)
 
         # xy = self.table.getArray([1, 2])
         # print(xy)
@@ -421,7 +423,10 @@ class Linear(Regression):
         self.llamda = 0.1
         self.dJ = self.epsilon
 
-    # incoming point must be pixel coordinates
+    def reset(self):
+        if "n" in self.__dict__:
+            self.length = self.n + 1
+        super().reset()
 
     def getEq(self):
         if len(self.critPts) > 0:
@@ -475,9 +480,17 @@ class Linear(Regression):
             self.dJ = self.getJ(self.cef) - self.getJ(newCefs)
             self.cef = newCefs
             # print("DJ:", self.dJ, "CEF:", self.cef)
-            self.getGraphic("pts").setPts(self.getPts())
-            self.getGraphic("eq").setFont(text=self.getEqString())
-            self.getGraphic("err").setFont(text=self.getScoreString())
+            ptsGraphics = self.getGraphic("pts")
+            if ptsGraphics != None:
+                ptsGraphics.setPts(self.getPts())
+
+            eqGraphics = self.getGraphic("eq")
+            if eqGraphics != None:
+                eqGraphics.setFont(text=self.getEqString())
+
+            errGraphics = self.getGraphic("err")
+            if errGraphics != None:
+                errGraphics.setFont(text=self.getScoreString())
             return
         print("FIT DONE")
         self.isRunning = False

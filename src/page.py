@@ -175,11 +175,11 @@ class MenuPage(ModelPage):
 
 
 class CodingPage(SingleModel, ZStack):
-    def __init__(self, codes, codingAddString, codingFilePath, codingExamplePath, **kwargs):
+    def __init__(self, codes, codingFilePath, codingExamplePath, enableIncButton=True, **kwargs):
         self.codes = codes
-        self.codingAddString = codingAddString
         self.codingFilePath = codingFilePath
         self.codingExamplePath = codingExamplePath
+        self.enableIncButton = enableIncButton
 
         ZStack.__init__(self, [
             VStack([
@@ -202,6 +202,16 @@ class CodingPage(SingleModel, ZStack):
     def incMethod(self, sender):
         pass
 
+    def createIncButton(self, text, **kwargs):
+        self.incButtonLabel = Label(text)
+        return Button([
+            Rect(color=Color.backgroundColor, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
+            self.incButtonLabel
+        ], run=self.incMethod, lockedWidth=130, lockedHeight=80, dx=1, dy=-1, ** kwargs)
+
+    def updateScoreLabel(self):
+        self.codingScoreLabel.setFont(text=self.model.getScoreString())
+
     def createCodingHeader(self):
         self.codingRunRect = Rect(color=Color.gray, cornerRadius=10)
         self.codingRunButton = Button([
@@ -210,14 +220,10 @@ class CodingPage(SingleModel, ZStack):
         ], hideAllContainers=True, lockedWidth=240, run=self.runCodingTest, isDisabled=True)
 
         self.codingScoreLabel = Label(self.model.defaultScoreString())
-        self.codingAddLabel = Label(self.codingAddString)
         self.codingHeader = HStack([
             self.codingRunButton,
             self.codingScoreLabel,
-            Button([
-                Rect(color=Color.steelBlue, cornerRadius=10),
-                self.codingAddLabel
-            ], run=self.incMethod)
+            self.createIncButton() if self.enableIncButton else None
         ], ratios=[0.5, 0.25, 0.25])
         return self.codingHeader
 
@@ -414,7 +420,7 @@ class ExceriseDTPage(SingleModel, ZStack):
 class CodingDTPage(CodingPage):
     def __init__(self, **kwargs):
         self.setTable(Table(filePath="examples/decisionTree/dt_medical"))
-        self.setModel(DecisionTree(table=self.table, testingTable=self.testingTable))
+        self.setModel(RandomForest(table=self.table, testingTable=self.testingTable))
 
         # Codes
         codes = [
@@ -425,8 +431,14 @@ class CodingDTPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingAddString="Add Tree", codingFilePath="assets/treeExample.py",
-                         codingExamplePath="examples/decisionTree", **kwargs)
+        super().__init__(codes=codes, codingFilePath="assets/treeExample.py",
+                         codingExamplePath="examples/decisionTree", enableIncButton=False, **kwargs)
+
+    def createIncButton(self, **kwargs):
+        return super().createIncButton(text="Trees: {}".format(len(self.model.trees)))
+
+    def incMethod(self, sender):
+        pass
 
 
 class InfoDTPage(InfoView):
@@ -464,7 +476,7 @@ class ExampleKNNPage(MultiModel, ZStack):
 class CodingKNNPage(CodingPage):
     def __init__(self, **kwargs):
         self.setTable(Table(filePath="examples/knn/knn_iris", drawTable=False), partition=0.3)
-        self.setModel(KNN(table=self.table, testingTable=self.testingTable))
+        self.setModel(KNN(table=self.table, testingTable=self.testingTable, k=1, bestK=True))
         # Codes
         codes = [
             Code("model = KNeighborClassifier()", "Load Model", 1),
@@ -474,7 +486,17 @@ class CodingKNNPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingAddString="K: 3", codingFilePath="assets/treeExample.py", codingExamplePath="examples/knn", **kwargs)
+        super().__init__(codes=codes, codingFilePath="assets/treeExample.py", codingExamplePath="examples/knn", **kwargs)
+
+    def createIncButton(self, **kwargs):
+        return super().createIncButton("K: {}".format(self.model.k))
+
+    def incMethod(self, sender):
+        self.model.k += 2
+        if self.model.k > 10:
+            self.model.k = 1
+        self.incButtonLabel.setFont("K: {}".format(self.model.k))
+        super().incMethod(sender)
 
 
 class InfoKNNPage(InfoView):
@@ -567,7 +589,24 @@ class CodingLinearPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingAddString="--", codingFilePath="assets/treeExample.py", codingExamplePath="examples/linear", **kwargs)
+        super().__init__(codes=codes, codingFilePath="assets/treeExample.py", codingExamplePath="examples/linear", **kwargs)
+        self.model.startTraining()
+
+    def update(self):
+        if self.model.isRunning:
+            self.model.fit()
+
+    def createIncButton(self, **kwargs):
+        return super().createIncButton(text="N: {}".format(self.model.n))
+
+    def incMethod(self, sender):
+        self.model.n += 1
+        if self.model.n > 2:
+            self.model.n = 1
+        self.incButtonLabel.setFont("N: {}".format(self.model.n))
+        self.model.reset()
+        self.model.startTraining()
+        super().incMethod(sender)
 
 
 class InfoLinearPage(InfoView):
@@ -615,7 +654,7 @@ class CodingLogisticPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingAddString="--", codingFilePath="assets/treeExample.py", codingExamplePath="examples/linear", **kwargs)
+        super().__init__(codes=codes, codingFilePath="assets/treeExample.py", codingExamplePath="examples/linear", enableIncButton=False, **kwargs)
 
 
 class InfoLogisticPage(InfoView):

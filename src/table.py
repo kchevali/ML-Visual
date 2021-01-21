@@ -151,33 +151,42 @@ class Table:
     def addGraphic(self, graphic):
         self.graphics.append(graphic)
 
-    def tableChange(self, column=None, isSelect=None, isLock=None, isNewTable=False):
+    def tableChange(self, colIndex=None, isSelect=None, isLock=None, isNewTable=False, reset=False):
         """
-        column: index (x values starting at 1)
+        colIndex: index (x values starting at 1)
         isSelect: True, False or None(no change)
         isLock:True, False or None(no change)
         """
 
-        # can't lock/select a none column or unlock nothing
-        # you can select what you unlock though
-        if ((isLock or (isLock != False and isSelect)) and column == None) or (isLock == False and len(self.lockedCols) == 0) or (isSelect == False and self.selectedCol == None):
-            # print("Fail Change | Cond 1:", ((isLock or isSelect) and column == None), "Cond 2:", (isLock == False and len(self.lockedCols) == 0), "Cond 3:", (isSelect == False and self.selectedCol == None))
-            return
+        if reset:
+            self.selectedCol = None
+            self.lockedCols = []
+            colIndex = None
+            isSelect = False
+            isLock = False
+            isNewTable = True
+        else:
 
-        if isLock:
-            self.lockedCols.append(column)
-        elif isLock == False:
-            # you can select this item
-            column = self.lockedCols.pop()
+            # can't lock/select a none colIndex or unlock nothing
+            # you can select what you unlock though
+            if ((isLock or (isLock != False and isSelect)) and colIndex == None) or (isLock == False and len(self.lockedCols) == 0) or (isSelect == False and self.selectedCol == None):
+                # print("Fail Change | Cond 1:", ((isLock or isSelect) and column == None), "Cond 2:", (isLock == False and len(self.lockedCols) == 0), "Cond 3:", (isSelect == False and self.selectedCol == None))
+                return
 
-        if isSelect != None:
-            self.selectedCol = column if isSelect else None
+            if isLock:
+                self.lockedCols.append(colIndex)
+            elif isLock == False:
+                # you can select this item
+                colIndex = self.lockedCols.pop()
+
+            if isSelect != None:
+                self.selectedCol = colIndex if isSelect else None
 
         # Change None value to previous values
-        # isSelect = self.selectedCol != None and self.selectedCol == column
-        # isLock = column in self.lockedCols
+        # isSelect = self.selectedCol != None and self.selectedCol == colIndex
+        # isLock = colIndex in self.lockedCols
         for graphic in self.graphics:
-            graphic.tableChange(column, isSelect, isLock, isNewTable)
+            graphic.tableChange(colIndex=colIndex, isSelect=isSelect, isLock=isLock, isNewTable=isNewTable, reset=reset)
 
     def map(self, colIndex, value):
         column = self.colNames[colIndex]

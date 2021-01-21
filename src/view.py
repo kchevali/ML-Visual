@@ -154,6 +154,9 @@ class TableView(SingleModelView, Grid):
 
     def shiftTable(self, dy):
         self.shift(dy=dy)
+        colIndex = self.model.getTable().selectedCol
+        if colIndex != None:
+            self.updateColorInCol(colIndex, True)
         # self.table.tableChange(self.table.selectedCol, isSelect=True)
         # self.colorTableTargets()
         # self.updateHeaderSelectionButtons()
@@ -165,15 +168,17 @@ class TableView(SingleModelView, Grid):
     def scrollDown(self):
         self.shiftTable(dy=-1)
 
-    def tableChange(self, colIndex, isSelect, isLock, isNewTable):
+    def tableChange(self, colIndex, isSelect, isLock, isNewTable, reset):
         # creates infinite loop...
         if isNewTable:
             self.build(table=self.model.getTable())
             self.updateAll()
             # TableView(model=self.model).setContainer(self.container)
-            return
         if colIndex == None or isSelect == None:
             return
+        self.updateColorInCol(colIndex, isSelect)
+
+    def updateColorInCol(self, colIndex, isSelect):
         for index in range(colIndex + self.cols, self.length, self.cols):
             view = self.getView(index)
             if view != None:
@@ -195,11 +200,17 @@ class HeaderButtons(SingleModelView, HStack):
         self.table.tableChange(self.table.selectedCol, isSelect=False)
         self.table.tableChange(sender.tag, isSelect=sender.isOn)
 
-    def tableChange(self, column, isSelect, isLock, isNewTable):
-        if column == None:
-            return
-        # print("Update Button:", column, "Is Select:", isSelect, "Is Lock:", isLock)
+    def tableChange(self, colIndex, isSelect, isLock, isNewTable, reset):
+        if reset:
+            for i in range(self.table.features):
+                self.updateButton(i + 1, isSelect, isLock)
 
+        if colIndex == None:
+            return
+        self.updateButton(colIndex, isSelect, isLock)
+        # print("Update Button:", colIndex, "Is Select:", isSelect, "Is Lock:", isLock)
+
+    def updateButton(self, column, isSelect, isLock):
         button = self.getView(column - 1)
         rect = button.getView(0)
         if isLock:
@@ -256,9 +267,10 @@ class TreeRoom(SingleModelView, VStack):
     def updateBackButton(self, button):
         button.isDisabled, button.getView(0).color = (True, Color.gray) if self.model.isRoot() else (False, Color.blue)
 
-    def tableChange(self, colIndex, isSelect, isLock, isNewTable):
+    def tableChange(self, colIndex, isSelect, isLock, isNewTable, reset):
         self.updateBackButton(self.backButton)
-        if isSelect == None or isNewTable:
+
+        if isSelect == None or (not reset and isNewTable):
             return
         # rect = sender.getCousin(0)
         if isSelect:  # True
@@ -373,9 +385,9 @@ class TreeList(SingleModelView, VStack):
         ], dy=1)
         bagItem.setContainer(self[len(self.model)])
 
-        self.totalScoreLabel.setFont(text="Total " + self.model.getScoreString())
         self.model.saveTree()
-        self.table.tableChange()
+        self.totalScoreLabel.setFont(text="Total " + self.model.getScoreString())
+        self.table.tableChange(reset=True)
         self.updateAll()
         # self.table, self.localTestTable = self.trainTable.partition()
 
@@ -389,7 +401,7 @@ class TreeList(SingleModelView, VStack):
         # self.tableView.container.updateAll()
         # self.updateHeaderSelectionButtons()
 
-    def tableChange(self, colIndex, isSelect, isLock, isNewTable):
+    def tableChange(self, colIndex, isSelect, isLock, isNewTable, reset):
         pass
 
 
@@ -400,13 +412,14 @@ class GraphView(MultiModelView, ZStack):
         self.hasAxis = hasAxis
         self.userPts = Points(maxPts=1000, isCircle=False, ptSize=8) if enableUserPts else None
         self.legend = None
+        self.enableIncButton = enableIncButton
 
         self.graphGrid = ZStack([
             Button([
                 Points(pts=self.table.getPts(), color=Color.green, isConnected=False),
                 self.userPts, self.legend
             ] + self.graphics, run=self.clickGraph),
-            self.createIncButton() if enableIncButton else None
+            self.createIncButton() if self.enableIncButton else None
         ])
 
         ZStack.__init__(self, [
@@ -438,7 +451,7 @@ class GraphView(MultiModelView, ZStack):
             )
         if model.isClassification:
             model.addGraphics(
-                ("acc", Label(model.getScoreString(), fontSize=20, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15))
+                ("acc", Label(model.defaultScoreString(), fontSize=20, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15))
             )
         self.graphics += [graphic for graphic in model.graphics]
 
@@ -512,6 +525,10 @@ class GraphView(MultiModelView, ZStack):
 class KNNGraphView(GraphView):
     def __init__(self, **kwargs):
         super().__init__(enableIncButton=True, **kwargs)
+
+    def addModel(self, model):
+        super().addModel(model)
+        model.getGraphic("acc").setFont(text=model.getScoreString())
 
     def clickGraph(self, sender):
         super().clickGraph(sender)
