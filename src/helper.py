@@ -103,10 +103,10 @@ def resourcePath(relative_path):
     #     base_path = sys._MEIPASS
     # except Exception:
     #     base_path = os.path.abspath(".")
-    if base_path != "/Users/kevin/Documents/Repos/TeachApp":
-        # running as executable
-        base_path = os.path.dirname(os.path.realpath(__file__))
-        relative_path = relative_path.split("/")[-1]
+    # if base_path != "/Users/kevin/Documents/Repos/TeachApp":
+    #     # running as executable
+    #     base_path = os.path.dirname(os.path.realpath(__file__))
+    #     relative_path = relative_path.split("/")[-1]
 
     return os.path.join(base_path, relative_path)
 
