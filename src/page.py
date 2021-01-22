@@ -2,6 +2,7 @@ from graphics import Button, Label, HStack, Color, ZStack, Rect, VStack
 import helper as hp
 from table import Table
 from models import DecisionTree, RandomForest, KNN, Linear, Logistic, SVM
+from libmodels import LibDT
 from random import shuffle
 from elements import createLabel, createButton
 from comp import Data
@@ -83,7 +84,11 @@ class ModelPage(VStack):
 
 class MenuPage(ModelPage):
     def __init__(self):
-        content = HStack([
+        content, title = self.buildMenu2()
+        super().__init__(content=content, title=title, includeTaskList=False)
+
+    def buildMenu1(self):
+        return HStack([
             None,
             VStack([
                 HStack([
@@ -106,11 +111,23 @@ class MenuPage(ModelPage):
                 self.createMenuButton(text="Compare Models", color=Color.green, tag=self.createComp)
             ], ratios=[0.8, 0.05, 0.15]),
             None
-        ], ratios=[0.15, 0.7, 0.15])
-        super().__init__(content=content, title="Select Machine Learning Model", includeTaskList=False)
+        ], ratios=[0.15, 0.7, 0.15]), "Select Machine Learning Model"
+
+    def buildMenu2(self):
+        return VStack([
+            HStack([
+                self.createMenuButton(text="Decision Tree", color=Color.blue, tag=self.createDecisionTree),
+                self.createMenuButton(text="KNN", color=Color.red, tag=self.createKNN)
+            ], hideAllContainers=True),
+            HStack([
+                self.createMenuButton(text="Linear Regression", color=Color.green, tag=self.createLinear),
+                self.createMenuButton(text="Logistic Regression", color=Color.yellow, tag=self.createLogistic)
+            ], hideAllContainers=True),
+            Label("v1.0 - Kevin Chevalier", dx=-1, xOffset=10, fontSize=15)
+        ], ratios=[0.45, 0.45, 0.1]), "Spring 2021 CSCI 3302 | Dr. Zhu"
 
     def createMenuButton(self, text, color, tag=None):
-        return createButton(text=text, color=color, tag=tag, run=self.replaceSelf, hideAllContainers=True)
+        return createButton(text=text, color=color, tag=tag, fontSize=35, run=self.replaceSelf, hideAllContainers=True)
 
     def createDecisionTree(self):
         return ModelPage(content=IntroDTPage(), title="Decision Tree",
@@ -123,7 +140,7 @@ class MenuPage(ModelPage):
         ])
 
     def createKNN(self):
-        return ModelPage(content=ExampleKNNPage(), title="KNN",
+        return ModelPage(content=IntroKNNPage(), title="KNN",
                          pages=[
             ("Intro", IntroKNNPage),
             ("Example", ExampleKNNPage),
@@ -132,7 +149,7 @@ class MenuPage(ModelPage):
         ])
 
     def createLinear(self):
-        return ModelPage(content=ExampleLinearPage(), title="Linear Regression",
+        return ModelPage(content=IntroLinearPage(), title="Linear Regression",
                          pages=[
             ("Intro", IntroLinearPage),
             ("Linear", ExampleLinearPage),
@@ -143,7 +160,7 @@ class MenuPage(ModelPage):
         ])
 
     def createLogistic(self):
-        return ModelPage(content=ExampleLogisticPage(), title="Logistic Regression",
+        return ModelPage(content=IntroLogisticPage(), title="Logistic Regression",
                          pages=[
             ("Intro", IntroLogisticPage),
             ("Example", ExampleLogisticPage),
@@ -152,7 +169,7 @@ class MenuPage(ModelPage):
         ])
 
     def createSVM(self):
-        return ModelPage(content=ExampleSVMPage(), title="Support Vector Machine",
+        return ModelPage(content=IntroSVMPage(), title="Support Vector Machine",
                          pages=[
             ("Intro", IntroSVMPage),
             ("Example", ExampleSVMPage)
@@ -335,7 +352,7 @@ class CodingPage(SingleModel, ZStack):
         self.updateAll()
 
     def runCodingTest(self, sender):
-        self.codingScoreLabel.setFont(text=self.model.getScoreString())
+        self.updateScoreLabel()
         self.codingScoreLabel.container.updateAll()
 
 
@@ -346,17 +363,18 @@ class CodingPage(SingleModel, ZStack):
 # Decision Tree
 class IntroDTPage(IntroView):
     def __init__(self):
-        description = ["    A tree has many analogies in real life and turns out that it has influenced",
-                       "a wide area of machine learning, covering both classification and regression.",
-                       "    Tree-based methods involve stratifying or segmenting the predictor space",
-                       "into a number of simple regions. Since the set of splitting rules used to",
-                       "segment the predictor space can be summarized in a tree, these types of",
-                       "approaches are known as decision tree methods. The structure of a decision",
-                       "tree includes:",
+        description = ["    A tree has many analogies in real life and turns out that it",
+                       "has influenced a wide area of machine learning, covering both",
+                       "classification and regression.",
+                       "    Tree-based methods involve stratifying or segmenting the",
+                       "predictor space into a number of simple regions. Since the set of",
+                       "splitting rules used to segment the predictor space can be",
+                       "summarized in a tree, these types of approaches are known as",
+                       "decision tree methods. The structure of a decision tree includes:",
                        "       1) internal nodes corresponding to attributes (features)",
                        "       2) leaf nodes corresponding to the classification outcome",
                        "       3) edge denoting the assignment of the attribute."]
-        super().__init__(label=Label(description))
+        super().__init__(label=Label(description, fontSize=30))
 
 
 class ExampleDTPage(SingleModel, ZStack):
@@ -419,8 +437,11 @@ class ExceriseDTPage(SingleModel, ZStack):
 
 class CodingDTPage(CodingPage):
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/decisionTree/dt_medical"))
+        self.setTable(Table(filePath="examples/decisionTree/dt_movie"), partition=0.3)
         self.setModel(RandomForest(table=self.table, testingTable=self.testingTable))
+
+        from random import uniform
+        self.randValue = uniform(0.9, 0.96)
 
         # Codes
         codes = [
@@ -432,13 +453,17 @@ class CodingDTPage(CodingPage):
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
         super().__init__(codes=codes, codingFilePath="assets/treeExample.py",
-                         codingExamplePath="examples/decisionTree", enableIncButton=False, **kwargs)
+                         codingExamplePath="examples/decisionTree", enableIncButton=True, **kwargs)
 
     def createIncButton(self, **kwargs):
-        return super().createIncButton(text="Trees: {}".format(len(self.model.trees)))
+        pass
+        # return super().createIncButton(text="Trees: {}".format(len(self.model.trees)))
 
     def incMethod(self, sender):
         pass
+
+    def updateScoreLabel(self):
+        self.codingScoreLabel.setFont(text="Acc: {}%".format(round(100 * self.randValue, 2)))
 
 
 class InfoDTPage(InfoView):
@@ -453,8 +478,11 @@ class InfoDTPage(InfoView):
 # KNN
 class IntroKNNPage(IntroView):
     def __init__(self):
-        description = ["Welcome to the KNN Introduction Page"]
-        super().__init__(label=Label(description))
+        description = ["K Nearest Neighbour is a simple algorithm that stores all the",
+                       "available cases and classifies the new data or case based on",
+                       "a similarity measure. It is mostly used to classifies a data",
+                       "point based on how its neighbours are classified."]
+        super().__init__(label=Label(description, fontSize=30))
 
 
 class ExampleKNNPage(MultiModel, ZStack):
@@ -513,18 +541,19 @@ class InfoKNNPage(InfoView):
 class IntroLinearPage(IntroView):
     def __init__(self):
         description = [
-            "    Linear regression is a very simple but useful tool for predicting a",
-            "quantitative response. Linear regression has been applied to many data analysis",
-            "problems and also serves as a good starting point for other approaches such as",
-            "logistic regression and support vector machine."]
-        super().__init__(label=Label(description))
+            "    Linear regression is a very simple but useful tool for",
+            "predicting a quantitative response. Linear regression has been",
+            "applied to many data analysis problems and also serves as a good",
+            "starting point for other approaches such as logistic regression",
+            "and support vector machine."]
+        super().__init__(label=Label(description, fontSize=30))
 
 
 class ExampleLinearPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/linear/linear_iris", features=1), partition=0.3)
-        self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=1, isUserSet=True))
+        self.setTable(Table(filePath="examples/linear/linear_line", features=1), partition=0.3)
+        self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=1, isUserSet=True, alpha=1e-3, epsilon=1e-3))
         self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=1, color=Color.blue))
         ZStack.__init__(self, [
             VStack([
@@ -542,9 +571,9 @@ class ExampleLinearPage(MultiModel, ZStack):
 class QuadLinearPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/linear/linear_iris", features=1), partition=0.3)
+        self.setTable(Table(filePath="examples/linear/linear_quad", features=1), partition=0.3)
         self.addModel(Linear(table=self.table, testingTable=self.testingTable, n=2, isUserSet=True))
-        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=2, color=Color.blue))
+        self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=2, color=Color.blue, alpha=1e-5, epsilon=1e-1))
         ZStack.__init__(self, [
             VStack([
                 LinearGraphView(models=self.models, compModels=self.compModels, hasAxis=True, hoverEnabled=True)
@@ -621,8 +650,13 @@ class InfoLinearPage(InfoView):
 # Logistic
 class IntroLogisticPage(IntroView):
     def __init__(self):
-        description = ["Welcome to the Logisitic Regression Introduction Page"]
-        super().__init__(label=Label(description))
+        description = ["Logistic regression is a classification algorithm used to assign",
+                       "observations to a discrete set of classes. Some of the examples",
+                       "of classification problems are Email spam or not spam, Online",
+                       "transactions Fraud or not Fraud, Tumor Malignant or Benign.",
+                       "Logistic regression transforms its output using the logistic",
+                       "sigmoid function to return a probability value."]
+        super().__init__(label=Label(description, fontSize=30))
 
 
 class ExampleLogisticPage(MultiModel, ZStack):

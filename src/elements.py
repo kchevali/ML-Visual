@@ -8,8 +8,8 @@ def createLabel(text, color=Color.steelBlue, views=[], **kwargs):
     ] + views, **kwargs)
 
 
-def createButton(text, color=Color.steelBlue, views=[], **kwargs):
+def createButton(text, color=Color.steelBlue, fontSize=20, views=[], **kwargs):
     return Button([
         Rect(color=color, cornerRadius=10),
-        Label(text)
+        Label(text, fontSize=fontSize)
     ] + views, **kwargs)

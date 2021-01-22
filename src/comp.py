@@ -90,14 +90,30 @@ class Data:
         return Table(numpy=np.array(arr).transpose(), param=p)
 
 
+def saveTable(table, fileName):
+    if(len(fileName) == 0):
+        print("data is NOT saved.")
+        return
+    path = "examples/saved_data/" + fileName + ".csv"
+    table.data.to_csv(path_or_buf=path, index=False)
+    print("Saved successfully")
+
+
 if __name__ == '__main__':
     print("RUNNING COMP")
+
+    def x(x):
+        return -x
 
     def x2(x):
         return x * x
 
     def negx2(x):
         return -x * x
+
+    def sigmoid(x):
+        from math import e
+        return 1 / (1 + e**(-x))
 
     dataOptions1 = [{
         "x": {
@@ -140,15 +156,15 @@ if __name__ == '__main__':
         "type": "single",
         "x": {
             "dist": "normal",
-            "mean": 5,
+            "mean": 0,
             "std": 2
         },
         "y": {
             "dist": "normal",
             "mean": 0,
-            "std": 0.0001
+            "std": 0.05
         },
-        "func": x2
+        "func": sigmoid
     }]
 
     dataOptions5 = [{
@@ -188,3 +204,5 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     plt.scatter(training['x'], training['y'], c=training['label'], alpha=0.5)
     plt.show()
+
+    saveTable(training, input("Saving Data(Press Enter to skip)\nEnter filename:"))

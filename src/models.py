@@ -1,4 +1,3 @@
-# from sklearn.tree import DecisionTreeClassifier
 # from sklearn import linear_model
 from graphics import Color
 from sklearn import metrics
@@ -105,11 +104,14 @@ class Classifier(Model):
     def accuracy(self, testTable):
         if testTable == None:
             raise Exception("Model cannot find accuracy if testTable is None")
+        return self.run_accuracy(testTable.x, testTable.y)
+
+    def run_accuracy(self, x, y):
         correct = 0
-        x, y = testTable.x, testTable.y
-        for i in range(testTable.rowCount):
+        count = len(x)
+        for i in range(count):
             correct += 1 if self.predict(x[i]) == y[i] else 0
-        return (correct / testTable.rowCount)
+        return correct / count
 
     def predict(self, _x):
         pass
@@ -210,8 +212,6 @@ class DecisionTree(Classifier):
         super().__init__(**kwargs)
         self.curr = DTNode(table=self.table)
         self.graphics.append(Points(pts=self.getCircleLabelPts(), color=self.color, isConnected=False))
-        # self = DecisionTreeClassifier()
-        # self.fit(self.getTable().encodedData, self.getTable().encodeTargetCol)
 
     def getTable(self):
         return self.curr.table
@@ -566,7 +566,7 @@ class Linear(Regression):
         out = "Y="
         n = self.n
         for i in range(self.n + 1):
-            out += self.cefString(constant=self.cef[i], power=n, showPlus=i > 0, roundValue=7)
+            out += self.cefString(constant=self.cef[i], power=n, showPlus=i > 0, roundValue=4)
             n -= 1
         return out
 

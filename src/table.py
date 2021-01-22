@@ -188,6 +188,9 @@ class Table:
         for graphic in self.graphics:
             graphic.tableChange(colIndex=colIndex, isSelect=isSelect, isLock=isLock, isNewTable=isNewTable, reset=reset)
 
+    def getEncodedData(self):
+        return pd.get_dummies(self.data)
+
     def map(self, colIndex, value):
         column = self.colNames[colIndex]
         return self.mapper[column][value] if column in self.mapper and value in self.mapper[column] else str(value)

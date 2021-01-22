@@ -32,22 +32,22 @@ class TextboxView(ZStack):
         text, dx, dy = textboxScript[0]
         soundName = textboxAudioPath + str(1) if textboxAudioPath != None else None
         label = Label(text=text, color=Color.black, fontSize=15)
-        audio = Button(Image(imageName="audio.png", lockedWidth=50, lockedHeight=50), soundName=soundName, dx=1, dy=1, offsetX=-20, offsetY=-20, lockedWidth=60, lockedHeight=60)
+        # audio = Button(Image(imageName="audio.png", lockedWidth=50, lockedHeight=50), soundName=soundName, dx=1, dy=1, offsetX=-20, offsetY=-20, lockedWidth=60, lockedHeight=60)
 
         # super().__init__(items=None)
         super().__init__([
             Button([
                 Rect(color=Color.white, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
                 label
-            ], run=self.pressTextbox),
-            audio
+            ], run=self.pressTextbox)
+            # audio
         ], dx=dx, dy=dy, lockedWidth=450, lockedHeight=200, hideAllContainers=True, **kwargs)
 
         self.textboxScript = textboxScript
         self.textboxAudioPath = textboxAudioPath
         self.textboxIndex = 1000  # 0
         self.label = label
-        self.audio = audio
+        # self.audio = audio
 
     def pressTextbox(self, sender):
         self.textboxIndex += 1
@@ -63,7 +63,7 @@ class TextboxView(ZStack):
 
         self.label.setFont(text=text)
         self.setAlignment(dx=dx, dy=dy)
-        self.audio.setSoundName(soundName=soundName)
+        # self.audio.setSoundName(soundName=soundName)
         self.updateAll()
 
 
@@ -364,7 +364,7 @@ class TreeList(SingleModelView, VStack):
     def __init__(self, **kwargs):
         SingleModelView.__init__(self, **kwargs)
 
-        self.totalScoreLabel = Label("Total " + self.model.defaultScoreString(), fontSize=20)
+        self.totalScoreLabel = Label("Total " + self.model.defaultScoreString(), fontSize=12)
         self.totalScore = ZStack([
             Rect(color=Color.steelBlue),
             self.totalScoreLabel
@@ -374,19 +374,19 @@ class TreeList(SingleModelView, VStack):
             self.totalScore,
             Button([
                 Rect(color=Color.steelBlue, cornerRadius=10),
-                Label("Save Tree")
+                Label("Save Tree", fontSize=18)
             ], run=self.saveTree, lockedHeight=50, dy=1)
         ])
 
     def saveTree(self, sender):
         bagItem = ZStack([
-            Rect(color=Color.steelBlue),
-            Label(text=self.model.curr.getScoreString(), fontSize=20)
+            Rect(color=Color.steelBlue, cornerRadius=10),
+            Label(text=self.model.curr.getScoreString(), fontSize=16)
         ], dy=1)
         bagItem.setContainer(self[len(self.model)])
 
         self.model.saveTree()
-        self.totalScoreLabel.setFont(text="Total " + self.model.getScoreString())
+        self.totalScoreLabel.setFont(text="Total " + self.model.getScoreString(), fontSize=12)
         self.table.tableChange(reset=True)
         self.updateAll()
         # self.table, self.localTestTable = self.trainTable.partition()
@@ -413,6 +413,10 @@ class GraphView(MultiModelView, ZStack):
         self.userPts = Points(maxPts=1000, isCircle=False, ptSize=8) if enableUserPts else None
         self.legend = None
         self.enableIncButton = enableIncButton
+
+        # graphicsBox = ZStack([
+        #     Rect(color=Color.darkGray, cornerRadius=10)
+        # ] + self.graphics)
 
         self.graphGrid = ZStack([
             Button([
@@ -443,7 +447,7 @@ class GraphView(MultiModelView, ZStack):
     def addModel(self, model):
         super().addModel(model)
         # create model equation label & error label
-        model.addGraphics(("pts", Points(pts=[], color=model.color, isConnected=True)))
+        model.addGraphics(("pts", Points(pts=[], color=model.color, ptSize=5, isConnected=True)))
         if model.isRegression:
             model.addGraphics(
                 ("err", Label(model.defaultScoreString(), fontSize=20, color=model.color, dx=1, dy=-1, offsetY=100 + 45 * len(self.models), offsetX=-15)),

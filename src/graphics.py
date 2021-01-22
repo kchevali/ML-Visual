@@ -414,7 +414,7 @@ class Image(ResizableFrame):
         self.imageName = imageName
         self.angle = angle
 
-        self.surface = pg.transform.rotate(pg.image.load("assets/images/" + imageName), self.angle)
+        self.surface = pg.transform.rotate(pg.image.load(hp.resourcePath("assets/images/" + imageName)), self.angle)
         self.setSize(*self.surface.get_size())
         if self.isWidthLocked or self.isHeightLocked:
             self.surface = pg.transform.scale(self.surface, (self.getWidth(), self.getHeight()))
@@ -467,13 +467,15 @@ class Label(Frame):
         self.rects = []
         width, height = 0.0, 0.0
         x, y = self.pos
+        extraSpacing = 10
+        y += extraSpacing // 2
         for i, line in enumerate(lines):
             rect = self.font.get_rect(line)
             rect.topleft = (x, y)
             self.rects.append(rect)
             width = max(width, rect.width)
-            height += rect.height
-            y += rect.height
+            height += rect.height + extraSpacing
+            y += rect.height + extraSpacing
         self._setSize(width, height)
 
         #     surface = self.font.render(line, True, self.color)
@@ -1031,7 +1033,11 @@ class Button(ZStack):
 
     def setSoundName(self, soundName, volume=0.02):
         if soundName != None:
-            self.sound = Sound(hp.resourcePath("assets/audio/" + soundName + ".wav"))
+            path = hp.resourcePath("assets/audio/" + soundName + ".wav")
+            try:
+                self.sound = Sound(path)
+            except:
+                raise Exception("Cannot find audio file at: " + path)
             self.sound.set_volume(volume)
         else:
             self.sound = None
