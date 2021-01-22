@@ -14,6 +14,7 @@ import numpy as np
 
 
 modelTitle = ""
+version = "1.0.1"
 
 
 # =====================================================================
@@ -123,7 +124,7 @@ class MenuPage(ModelPage):
                 self.createMenuButton(text="Linear Regression", color=Color.green, tag=self.createLinear),
                 self.createMenuButton(text="Logistic Regression", color=Color.yellow, tag=self.createLogistic)
             ], hideAllContainers=True),
-            Label("v1.0 - Kevin Chevalier", dx=-1, xOffset=10, fontSize=15)
+            Label("v{} - Kevin Chevalier".format(version), dx=-1, xOffset=10, fontSize=15)
         ], ratios=[0.45, 0.45, 0.1]), "Spring 2021 CSCI 3302 | Dr. Zhu"
 
     def createMenuButton(self, text, color, tag=None):
