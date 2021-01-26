@@ -7,6 +7,7 @@ import pygame.gfxdraw as pgx
 import json
 import subprocess
 from colorsys import hsv_to_rgb
+import sys
 
 
 def clear():
@@ -97,16 +98,18 @@ def randomString():
 
 def resourcePath(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
-    base_path = os.path.abspath(".")
-    # try:
-    #     # PyInstaller creates a temp folder and stores path in _MEIPASS
-    #     base_path = sys._MEIPASS
-    # except Exception:
-    #     base_path = os.path.abspath(".")
-    # if base_path != "/Users/kevin/Documents/Repos/TeachApp":
-    #     # running as executable
-    #     base_path = os.path.dirname(os.path.realpath(__file__))
-    #     relative_path = relative_path.split("/")[-1]
+
+    # print("Input path:", relative_path)
+    # print("Path 1:", base_path)
+    # print("Path 2:", os.path.dirname(os.path.realpath(__file__)))
+    # print("Path 3:", sys._MEIPASS)
+
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+        relative_path = relative_path.split("/")[-1]
+    except Exception:
+        base_path = os.path.abspath(os.curdir)
 
     return os.path.join(base_path, relative_path)
 

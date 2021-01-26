@@ -1,0 +1,29 @@
+codesign -s "TeachApp" /Users/kevin/Documents/Repos/TeachApp/dist/TeachApp.app.zip --deep
+xcrun altool --notarize-app --primary-bundle-id "com.chevalier.teachapp.zip" --username "kevin.chevalier10@gmail.com" --password "@keychain:TeachApp" --file TeachApp.app.zip
+
+sudo xattr -cr "/Users/kevin/Documents/Repos/TeachApp/dist/TeachApp.app"
+sudo xattr -lr "/Users/kevin/Documents/Repos/TeachApp/dist/TeachApp.app"
+sudo chmod -R u+rw "/Users/kevin/Documents/Repos/TeachApp/dist/TeachApp.app"
+codesign --deep --force --verify --verbose --sign "Developer ID Application: Kevin Chevalier (UYEFTYB8JB)" --options runtime "/Users/kevin/Documents/Repos/TeachApp/dist/TeachApp.app"
+codesign --verify --verbose "/Users/kevin/Documents/Repos/TeachApp/dist/TeachApp.app"
+hdiutil create -volname "TeachApp" -srcfolder "/Users/kevin/Documents/Repos/TeachApp/dist/TeachApp.app" -ov -format UDZO "TeachApp.dmg"
+codesign --deep --force --verify --verbose --sign "Developer ID Application: Kevin Chevalier (UYEFTYB8JB)" --options runtime "/Users/kevin/Documents/Repos/TeachApp/dist/TeachApp.dmg"
+codesign --verify --verbose "/Users/kevin/Documents/Repos/TeachApp/dist/TeachApp.dmg"
+xcrun altool -type osx --notarize-app --primary-bundle-id "com.chevalier.teachapp.zip" --username "kevin.chevalier10@gmail.com" --password "@keychain:TeachApp" --file "/Users/kevin/Documents/Repos/TeachApp/dist/TeachApp.dmg"
+xcrun altool --notarization-info 84f3fbe9-b7ff-4f7f-a5c5-9111c5525959 --username "kevin.chevalier10@gmail.com" --password "@keychain:TeachApp"
+
+codesign --verify --deep --strict --verbose=2 TeachApp.app.zip
+codesign --display --requirements - --verbose=4 TeachApp.app.zip
+
+577a74b1-4cb9-4e9c-a1be-428345082808
+02613ef1-6d5e-41fb-aaaf-616696bc09e5
+0954ee34-d0af-4d85-a8fe-608cbed608db
+a91311f1-1893-4abb-8fde-74130cbed689
+c44cd0a8-33bd-4e3b-b5cc-8e9359521813
+a976e2c0-cd28-48b3-8dca-9ffa58fd9361
+84f3fbe9-b7ff-4f7f-a5c5-9111c5525959
+07cdd481-60a0-4a31-a522-617eafd664b4
+ada7bb37-2a30-49c9-9e16-179b9f523386
+3d7dabba-4b29-4938-a85f-88942c4b1dc7
+9dc7b7ad-0930-4b95-9ffe-e9deb0df00e5
+8f91d471-0f1d-4fc0-8918-c1aba0c2378b

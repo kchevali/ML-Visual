@@ -1,5 +1,5 @@
 How to run pyinstaller
-pyinstaller ./_run_main.spec
+pyinstaller "/Users/kevin/Documents/Repos/TeachApp/_run_main.spec" --noconfirm
 
 In case the spec file gets deleted add these data files to the spec file:
 
@@ -7,5 +7,10 @@ project_files=[
     ( 'examples/*', '.' ),
     ( 'assets/*', '.' )
 ]
+
+app = BUNDLE(exe,
+         name='TeachApp.app',
+         icon=None,
+         bundle_identifier="com.chevalier.teachapp.zip")
 
 Next add project_files to the data args in Analysis (~line 14)

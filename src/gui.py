@@ -19,6 +19,7 @@ def createGUI():
 
 
 def runGUI(page):
+    global windowWidth, windowHeight, g
     print("Loading...", end="\r")
     title = "Teaching APP"
     pg.display.set_caption(title)
