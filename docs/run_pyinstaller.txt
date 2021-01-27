@@ -1,5 +1,5 @@
 How to run pyinstaller
-pyinstaller "/Users/kevin/Documents/Repos/TeachApp/_run_main.spec" --noconfirm
+python -m PyInstaller "/Users/kevin/Documents/Repos/TeachApp/_run_main.spec" --noconfirm
 
 In case the spec file gets deleted add these data files to the spec file:
 

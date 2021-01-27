@@ -100,7 +100,7 @@ def resourcePath(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
 
     # print("Input path:", relative_path)
-    # print("Path 1:", base_path)
+    # print("Path 1:", os.path.abspath(os.curdir))
     # print("Path 2:", os.path.dirname(os.path.realpath(__file__)))
     # print("Path 3:", sys._MEIPASS)
 
@@ -109,7 +109,7 @@ def resourcePath(relative_path):
         base_path = sys._MEIPASS
         relative_path = relative_path.split("/")[-1]
     except Exception:
-        base_path = os.path.abspath(os.curdir)
+        base_path = os.path.dirname(os.path.realpath(__file__))[:-4]#remove the '/src'
 
     return os.path.join(base_path, relative_path)
 
