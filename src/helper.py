@@ -132,7 +132,7 @@ def getDisplayCoord(coord):
     from gui import windowHeight
     # return coord[0], windowHeight - coord[1]
     # TODO - code above moves the origin to the bottom left - fix issues when you have time
-    return coord[0], coord[1]
+    return float(coord[0]), float(coord[1])
 
 
 def draw_rounded_rect(surface, rect, color, corner_radius):
