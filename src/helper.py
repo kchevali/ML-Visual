@@ -109,14 +109,14 @@ def resourcePath(relative_path):
         base_path = sys._MEIPASS
         relative_path = relative_path.split("/")[-1]
     except Exception:
-        base_path = os.path.dirname(os.path.realpath(__file__))[:-4]#remove the '/src'
+        base_path = os.path.dirname(os.path.realpath(__file__))[:-4]  # remove the '/src'
 
     return os.path.join(base_path, relative_path)
 
 
-def getFiles(path, ext):
+def getFiles(path, ext, prefix=""):
     path = resourcePath(path)
-    return [f.split(".")[0] for f in os.listdir(path) if isfile(join(path, f)) and f.endswith(ext)]
+    return [f.split(".")[0] for f in os.listdir(path) if isfile(join(path, f)) and f.endswith(ext) and f.startswith(prefix)]
 
 
 def loadJSON(filePath):
@@ -125,7 +125,7 @@ def loadJSON(filePath):
 
 
 def openFile(sender):
-    subprocess.run(['open', sender.tag], check=True)
+    subprocess.run(['open', resourcePath(sender.tag)], check=True)
 
 
 def getDisplayCoord(coord):

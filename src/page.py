@@ -14,7 +14,7 @@ import numpy as np
 
 
 modelTitle = ""
-version = "1.0.3"
+version = "1.0.4"
 
 
 # =====================================================================
@@ -193,10 +193,11 @@ class MenuPage(ModelPage):
 
 
 class CodingPage(SingleModel, ZStack):
-    def __init__(self, codes, codingFilePath, codingExamplePath, enableIncButton=True, **kwargs):
+    def __init__(self, codes, codingFilePath, codingExamplePath, filePrefix, enableIncButton=True, **kwargs):
         self.codes = codes
         self.codingFilePath = codingFilePath
         self.codingExamplePath = codingExamplePath
+        self.filePrefix = filePrefix
         self.enableIncButton = enableIncButton
 
         ZStack.__init__(self, [
@@ -204,7 +205,7 @@ class CodingPage(SingleModel, ZStack):
                 self.createCodingHeader(),
                 self.createCodingTable(),
                 self.createCodingOptions()
-            ], ratios=[0.1, 0.8, 0.1]),
+            ], ratios=[0.1, 0.75, 0.1]),
             TextboxView(textboxScript=[
                 ("Welcome to the Coding Tutorial!", 0, 0),
                 (["On this page, we will show the basics on how to",
@@ -267,14 +268,15 @@ class CodingPage(SingleModel, ZStack):
 
     def createCodingOptions(self):
         self.codingOptions = ZStack([
-            self.createFileNameView(),
             HStack([
                 None,
                 self.createOpenSpreadsheetView(),
                 self.createCodingFileView(),
                 self.createOpenFilePath(),
                 None
-            ], hideAllContainers=True)
+            ], hideAllContainers=True),
+            self.createFileNameView()
+
         ])
         return self.codingOptions
 
@@ -299,13 +301,15 @@ class CodingPage(SingleModel, ZStack):
         self.codingRunButton.isDisabled = not success
 
     def createFileNameView(self):
-        return Label("File: " + self.table.fileName, fontSize=18)
+        self.fileLabel = Label("File: " + self.table.fileName, fontSize=15, dx=-1, dy=1, offsetX=5, offsetY=-5)
+        return self.fileLabel
 
     def createOpenSpreadsheetView(self):
-        return Button([
+        self.openSpreadsheetButton = Button([
             Rect(Color.green, cornerRadius=10),
             Label("Open Excel")
         ], run=hp.openFile, tag=self.table.filePath + ".csv", lockedWidth=200)
+        return self.openSpreadsheetButton
 
     def createCodingFileView(self):
         return Button([
@@ -331,8 +335,8 @@ class CodingPage(SingleModel, ZStack):
         self.updateAll()
 
     def createFileExplorerView(self):
-        files = hp.getFiles(self.codingExamplePath, ".csv")
         length = 10
+        files = hp.getFiles(self.codingExamplePath, ".csv", self.filePrefix)[:length - 1]  # get first 10 elements
         self.fileExplorer = ZStack([
             Rect(Color.backgroundColor, border=0),
             VStack([
@@ -343,7 +347,7 @@ class CodingPage(SingleModel, ZStack):
                 Button([
                     Rect(color=Color.steelBlue, cornerRadius=10),
                     Label(fileName.split(".")[0], fontSize=25)
-                ], name=fileName, lockedWidth=150) for fileName in files
+                ], name=fileName, lockedWidth=150, run=self.newDataFile) for fileName in files
             ] + [None] * (10 - len(files) - 1), ratios=[1.0 / length] * length)
         ], lockedWidth=350, lockedHeight=600)
         return self.fileExplorer
@@ -355,6 +359,14 @@ class CodingPage(SingleModel, ZStack):
     def runCodingTest(self, sender):
         self.updateScoreLabel()
         self.codingScoreLabel.container.updateAll()
+
+    def newDataFile(self, sender):
+        filePath = self.codingExamplePath + sender.name
+        self.setTable(table=Table(filePath=filePath), partition=self.partition)
+        self.model.setTable(table=self.table, testingTable=self.testingTable)
+        self.fileLabel.setFont(text="File: " + self.table.fileName)
+        self.codingScoreLabel.setFont(text=self.model.defaultScoreString())
+        self.openSpreadsheetButton.tag = self.table.filePath + ".csv"
 
 
 # =====================================================================
@@ -454,7 +466,7 @@ class CodingDTPage(CodingPage):
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
         super().__init__(codes=codes, codingFilePath="assets/treeExample.py",
-                         codingExamplePath="examples/decisionTree", enableIncButton=True, **kwargs)
+                         codingExamplePath="examples/decisionTree/", filePrefix="dt", enableIncButton=True, **kwargs)
 
     def createIncButton(self, **kwargs):
         pass
@@ -465,6 +477,11 @@ class CodingDTPage(CodingPage):
 
     def updateScoreLabel(self):
         self.codingScoreLabel.setFont(text="Acc: {}%".format(round(100 * self.randValue, 2)))
+
+    def newDataFile(self, sender):
+        super().newDataFile(sender)
+        from random import uniform
+        self.randValue = uniform(0.9, 0.96)
 
 
 class InfoDTPage(InfoView):
@@ -515,7 +532,7 @@ class CodingKNNPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingFilePath="assets/treeExample.py", codingExamplePath="examples/knn", **kwargs)
+        super().__init__(codes=codes, codingFilePath="assets/knnExample.py", codingExamplePath="examples/knn/", filePrefix="knn", **kwargs)
 
     def createIncButton(self, **kwargs):
         return super().createIncButton("K: {}".format(self.model.k))
@@ -619,7 +636,7 @@ class CodingLinearPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingFilePath="assets/treeExample.py", codingExamplePath="examples/linear", **kwargs)
+        super().__init__(codes=codes, codingFilePath="assets/linearExample.py", codingExamplePath="examples/linear/", filePrefix="linear", **kwargs)
         self.model.startTraining()
 
     def update(self):
@@ -689,7 +706,7 @@ class CodingLogisticPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingFilePath="assets/treeExample.py", codingExamplePath="examples/linear", enableIncButton=False, **kwargs)
+        super().__init__(codes=codes, codingFilePath="assets/logisticExample.py", codingExamplePath="examples/logistic/", filePrefix="logistic", enableIncButton=False, **kwargs)
 
 
 class InfoLogisticPage(InfoView):

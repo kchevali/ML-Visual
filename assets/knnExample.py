@@ -1,4 +1,4 @@
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn import metrics
 from sklearn.model_selection import train_test_split
 import numpy as np
@@ -9,7 +9,7 @@ import pandas as pd
 # pip install pandas
 
 # get the file path from the user
-fileName = input("Enter file path (Numeric data only - not categorical):")
+fileName = input("Enter file path:")
 
 # get the column header name from the user that will be targeted
 targetCol = input("Enter target column:")
@@ -21,8 +21,7 @@ colNum = int(input("Num of Selected Cols:"))
 columns = [input("Col Header:") for _ in range(colNum)]
 
 # create model object from sklearn
-model = DecisionTreeClassifier()
-# data = pd.get_dummies(pd.read_csv(fileName)[columns])
+model = KNeighborsClassifier(n_neighbors=3)
 
 # read data from file
 data = pd.read_csv(fileName)[[targetCol] + columns]

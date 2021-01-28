@@ -10,8 +10,8 @@
         "is_bug",
         "live_zoo"
     ],
-    "map2": {
-        "target": {
+    "map": {
+        "label": {
             "1": "mammal",
             "2": "insect",
             "3": "reptile",

@@ -12,23 +12,27 @@ from math import inf, sqrt, log, pi, sin, cos, e
 class Model:
     def __init__(self, table, testingTable=None, name="", color=Color.red, isUserSet=False, isClassification=False, isRegression=False, **kwargs):
         self.name = name
-        self.table = table
-        self.testingTable = testingTable
         self.color = color
         # isLinear=False, isCategorical=False, isConnected=False, displayRaw=False
         # self.isLinear = isLinear
         # self.isCategorical = isCategorical
         # self.isConnected = isConnected
         # self.displayRaw = displayRaw
-        self.minX1, self.maxX1 = self.table.minX1, self.table.maxX1
-        self.minX2, self.maxX2 = self.table.minX2, self.table.maxX2
-        self.colNameA, self.colNameB = None, None
         self.graphics = []  # stores Point objects
         self.graphicsDict = {}
         self.isUserSet = isUserSet
         self.isRunning = False
         self.isClassification = isClassification
         self.isRegression = isRegression
+        self.setTable(table=table, testingTable=testingTable, isReset=False)
+
+    def setTable(self, table, testingTable=None, isReset=True):
+        self.table = table
+        self.testingTable = testingTable
+        self.minX1, self.maxX1 = self.table.minX1, self.table.maxX1
+        self.minX2, self.maxX2 = self.table.minX2, self.table.maxX2
+        if isReset:
+            self.reset()
 
     def getLinearPts(self, isLinear=True, **kwargs):
         edgePts = [
@@ -84,7 +88,8 @@ class Model:
         raise NotImplementedError("Please Implement defaultScoreString")
 
     def reset(self):
-        raise NotImplementedError("Please Implement reset")
+        pass
+        # raise NotImplementedError("Please Implement reset")
 
     def getY(self, x):
         raise NotImplementedError("Please Implement getY")
@@ -97,8 +102,6 @@ class Classifier(Model):
     # takes multiple features and outputs a categorical data
     def __init__(self, **kwargs):
         super().__init__(isLinear=False, isConnected=False, isClassification=True, **kwargs)
-        self.minX1, self.maxX1 = self.table.minX(), self.table.maxX()
-        self.minX2, self.maxX2 = self.table.minX(self.table.xNames[1]), self.table.maxX(self.table.xNames[1])
         self.colNameA, self.colNameB = self.table.xNames[0], self.table.xNames[1]
 
     def accuracy(self, testTable):
@@ -210,8 +213,11 @@ class Regression(Model):
 class DecisionTree(Classifier):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.curr = DTNode(table=self.table)
         self.graphics.append(Points(pts=self.getCircleLabelPts(), color=self.color, isConnected=False))
+
+    def setTable(self, **kwargs):
+        super().setTable(**kwargs)
+        self.curr = DTNode(table=self.table)
 
     def getTable(self):
         return self.curr.table
@@ -312,6 +318,9 @@ class RandomForest(Classifier):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    def setTable(self, **kwargs):
+        super().setTable(**kwargs)
         self.curr = self.newTree()
         self.trees = []
 
@@ -383,16 +392,16 @@ class RandomForest(Classifier):
 
 class KNN(Classifier):
 
-    def __init__(self, table, k=3, bestK=False, **kwargs):
-        super().__init__(table=table, displayRaw=True, **kwargs)
+    def __init__(self, k=3, bestK=False, **kwargs):
         self.k = k
-        self.kdTree = spatial.KDTree(np.array(table.x))
-        if bestK:
-            self.findBestK(testTable=self.testingTable)
+        self.bestK = bestK
+        super().__init__(displayRaw=True, **kwargs)
 
-        # xy = self.table.getArray([1, 2])
-        # print(xy)
-        # self.distTree = spatial.KDTree(xy)
+    def setTable(self, **kwargs):
+        super().setTable(**kwargs)
+        self.kdTree = spatial.KDTree(np.array(self.table.x))
+        if self.bestK:
+            self.findBestK(testTable=self.testingTable)
 
     def getNeighbor(self, _x):
         return np.reshape(self.kdTree.query(_x, k=self.k)[1], self.k)  # if type(_x) == np.ndarray else np.array(_x)
@@ -619,10 +628,12 @@ class SVM(Classifier):
         self.c = C
         self.iter = n_iters
         self.eta = learning_rate
-        self.reset()
+        self.reset()  # no reset in classifer init90
         # print("X Shape:", self.table.x.shape)
         # print("W Shape:", self.w.shape)
 
+    def setTable(self, **kwargs):
+        super().setTable(**kwargs)
         self.data = {-1: [], 1: []}
         for i in range(self.table.rowCount):
             self.data[self.table.y[i][0]].append(self.table.x[i])

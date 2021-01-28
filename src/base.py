@@ -5,8 +5,9 @@ class TableBase:
             self.setTable(table, partition=partition)
 
     def setTable(self, table, partition=None):
-        if partition != None:
-            self.table, self.testingTable = table.partition(testing=partition)
+        self.partition = partition
+        if self.partition != None:
+            self.table, self.testingTable = table.partition(testing=self.partition)
         else:
             self.table = table
             self.testingTable = None
