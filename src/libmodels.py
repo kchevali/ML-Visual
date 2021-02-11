@@ -11,9 +11,8 @@ class LibDT(Classifier):
         self.fit()
 
     def fit(self):
-        # self.lib.fit(self.table.x, self.table.y)
-        x = pd.get_dummies(self.table.data[self.table.xNames])
-        y = pd.get_dummies(self.table.data[self.table.yName])
+        x = self.table.dataX
+        y = self.table.dataY
         self.lib.fit(x, y)
 
     def predict(self, x):
@@ -22,8 +21,8 @@ class LibDT(Classifier):
     def accuracy(self, testTable):
         if testTable == None:
             raise Exception("Model cannot find accuracy if testTable is None")
-        x = pd.get_dummies(testTable.data[self.table.xNames]).to_numpy()
-        y = pd.get_dummies(testTable.data[self.table.yName]).to_numpy().reshape(-1, 1)
+        x = self.table.x
+        y = self.table.y
         return self.run_accuracy(x, y)
 
 
@@ -32,7 +31,7 @@ if __name__ == '__main__':
 
     from table import Table
     import pandas as pd
-    table = Table(filePath="examples/decisionTree/dt_movie")
+    table = Table(filePath="examples/decisionTree/dt_movie").getEncodedData()
     table, testing = table.partition(testing=0.4)
 
     model = LibDT(table=table, testingTable=testing)
