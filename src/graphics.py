@@ -359,6 +359,16 @@ class Points(Ellipse):
         self.isCircle = isCircle
         self.displayPts = []  # pixel coordinates
 
+    def init(self, pts=None, color=None, isConnected=None, maxPts=None, ptSize=None, isCircle=None):
+        return Points(
+            pts=pts if pts != None else self.pts,
+            color=color if color != None else self.color,
+            isConnected=isConnected if isConnected != None else self.isConnected,
+            maxPts=maxPts if maxPts != None else self.maxPts,
+            ptSize=ptSize if ptSize != None else self.ptSize,
+            isCircle=isCircle if isCircle != None else self.isCircle
+        )
+
     def updateFrame(self):
         super().updateFrame()
         self.displayPts = [self.map(pt) for pt in self.pts]
@@ -380,7 +390,7 @@ class Points(Ellipse):
             hp.map(pt[0], -1, 1, self.x, self.x + self.getWidth(), clamp=False),
             hp.map(pt[1], -1, 1, self.y, self.y + self.getHeight(), clamp=False),
             pt[2]
-        )
+        ) if pt != None else None
 
     def display(self):
         if not self.isHidden:
@@ -391,9 +401,10 @@ class Points(Ellipse):
                 else:
                     for i in range(len(self.displayPts)):
                         pg.draw.rect(g, self.displayPts[i][2], (*hp.getDisplayCoord(self.displayPts[i]), self.ptSize, self.ptSize))
-            else:
+            elif self.color != None:
                 for i in range(1, len(self.displayPts)):
-                    pg.draw.line(g, self.color, hp.getDisplayCoord(self.displayPts[i - 1][0:2]), hp.getDisplayCoord(self.displayPts[i][0:2]), width=self.ptSize)
+                    if self.displayPts[i - 1] != None and self.displayPts[i] != None:
+                        pg.draw.line(g, self.color, hp.getDisplayCoord(self.displayPts[i - 1][0:2]), hp.getDisplayCoord(self.displayPts[i][0:2]), width=self.ptSize)
 
     def setColor(self, index, color):
         self.pts[index] = (self.pts[index][0], self.pts[index][1], color)

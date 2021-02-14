@@ -77,7 +77,13 @@ class LibSVM(Classifier, LibModel):
         return (-self.w[1] * y - self.b + v) / self.w[0]
 
     def getPts(self, start=None, end=None, count=40):  # get many points
-        return [self.getLinearPts(isLinear=True, v=v) for v in [0, -1, 1]]
+        return [self.getLinearPts(
+            isLinear=True,
+            stripeCount=False if v == 0 else 30,
+            m=-self.w[0] / self.w[1],
+            b=(v - self.b) / self.w[1],
+            v=v
+        ) for v in [0, -1, 1]]
 
 
 if __name__ == '__main__':
