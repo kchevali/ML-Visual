@@ -45,7 +45,6 @@ class LibSVM(Classifier, LibModel):
         # self.fit()
 
     def fit(self):
-        print("Start Fit")
         x = self.table.dataX
         y = self.table.dataY
         self.lib.fit(x, y)
@@ -54,9 +53,12 @@ class LibSVM(Classifier, LibModel):
         self.b = self.lib.intercept_[0]
 
         self.isRunning = False
-        self.getGraphic("acc").setFont(text=self.getScoreString())
-        for i, pts in enumerate(self.getPts()):
-            self.getGraphic("pts" + ("" if i == 0 else str(i + 1))).setPts(pts)
+
+        accGraphic = self.getGraphic("acc")
+        if accGraphic != None:
+            accGraphic.setFont(text=self.getScoreString())
+            for i, pts in enumerate(self.getPts()):
+                self.getGraphic("pts" + ("" if i == 0 else str(i + 1))).setPts(pts)
 
     def predict(self, x):
         return self.lib.predict(x.reshape(1, -1))
