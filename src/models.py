@@ -34,7 +34,7 @@ class Model:
         if isReset:
             self.reset()
 
-    def getLinearPts(self, isLinear=True, **kwargs):
+    def getLinearPts(self, isLinear=True, stripeCount=False, m=None, b=None, **kwargs):
         edgePts = [
             (self.minX1, self.getY(self.minX1, **kwargs)),
             (self.maxX1, self.getY(self.maxX1, **kwargs)),
@@ -42,7 +42,34 @@ class Model:
             (self.getX(self.maxX2, **kwargs), self.maxX2),
         ]
         if isLinear:
-            return [self.table.getPt(x, y, self.color) for x, y in edgePts if(x >= self.minX1 and x <= self.maxX1 and y >= self.minX2 and y <= self.maxX2)]
+            if not stripeCount:
+                return [self.table.getPt(x, y, self.color) for x, y in edgePts if(x >= self.minX1 and x <= self.maxX1 and y >= self.minX2 and y <= self.maxX2)]
+            edgePts = sorted([(x, y) for x, y in edgePts if(x >= self.minX1 and x <= self.maxX1 and y >= self.minX2 and y <= self.maxX2)])
+
+            x, y = edgePts[0]
+            endX, endY = edgePts[1]
+
+            stripeLength = (endX - x) / (2 * stripeCount)
+            dx = max(hp.quad(
+                1 + m * m,
+                -2 * (x + m * (y - b)),
+                x * x + (y - b) * (y - b) - stripeLength * stripeLength
+            )) - x
+
+            alt = 1
+            pts = [self.table.getPt(x, y, self.color)]
+
+            x += dx
+            y = self.getY(x, **kwargs)
+            while x < endX:
+                pts.append(self.table.getPt(x, y, self.color) if alt < 3 else None)
+                x += dx
+                y = self.getY(x, **kwargs)
+                alt = (alt + 1) % 4
+            if alt < 3:
+                pts.append(self.table.getPt(endX, endY, self.color) if alt else None)
+            return pts
+
         edges = []
         for x, y in edgePts:
             if type(x) != tuple:

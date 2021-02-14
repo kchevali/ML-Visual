@@ -516,6 +516,7 @@ class GraphView(MultiModelView, ZStack):
         for model in self.compModels:
             if model.isRunning:
                 model.fit()
+        self.updateAll()
 
     def hoverMouse(self, x, y):
         if self.hoverEnabled:
@@ -582,8 +583,8 @@ class LinearGraphView(GraphView):
 
 class SVMGraphView(GraphView):
     def addModel(self, model):
-        model.addGraphics(("pts2", Points(pts=[], color=Color.gray, isConnected=True)))
-        model.addGraphics(("pts3", Points(pts=[], color=Color.gray, isConnected=True)))
+        model.addGraphics(("pts2", Points(pts=[], color=model.color, ptSize=5, isConnected=True)))
+        model.addGraphics(("pts3", Points(pts=[], color=model.color, ptSize=5, isConnected=True)))
         super().addModel(model)
 
 # =====================================================================

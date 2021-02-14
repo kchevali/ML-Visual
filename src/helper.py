@@ -2,6 +2,7 @@ import os
 from os.path import isfile, join
 import pygame as pg
 from random import randint
+from math import sqrt
 
 import pygame.gfxdraw as pgx
 import json
@@ -94,6 +95,11 @@ def blueShade(blue):
 
 def randomString():
     return str(randint(0, 1 << 31))
+
+
+def quad(a, b, c):
+    d = sqrt(b * b - 4 * a * c)
+    return (-b + d) / (2 * a), (-b - d) / (2 * a)
 
 
 def resourcePath(relative_path):
