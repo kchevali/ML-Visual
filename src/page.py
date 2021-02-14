@@ -14,7 +14,7 @@ import numpy as np
 
 
 modelTitle = ""
-version = "1.0.4"
+version = "1.1.0"
 
 
 # =====================================================================
@@ -85,7 +85,7 @@ class ModelPage(VStack):
 
 class MenuPage(ModelPage):
     def __init__(self):
-        content, title = self.buildMenu2()
+        content, title = self.buildMenu1()
         super().__init__(content=content, title=title, includeTaskList=False)
 
     def buildMenu1(self):
@@ -173,9 +173,8 @@ class MenuPage(ModelPage):
         return ModelPage(content=IntroSVMPage(), title="Support Vector Machine",
                          pages=[
             ("Intro", IntroSVMPage),
-            ("Example", ExampleSVMPage)
-            # ("Coding", CodingLogisticPage),
-            # ("More Info", InfoLogisticPage)
+            ("Example", ExampleSVMPage),
+            ("Coding", CodingSVMPage)
         ])
 
     def createComp(self):
@@ -740,6 +739,23 @@ class ExampleSVMPage(MultiModel, ZStack):
                 ("Welcome to the SVM Simulator!", 0, 0)
             ])
         ])
+
+
+class CodingSVMPage(CodingPage):
+    def __init__(self, **kwargs):
+        self.setTable(Table(filePath="examples/svm/svm_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
+        self.setModel(LibSVM(table=self.table, testingTable=self.testingTable))
+        # Codes
+        codes = [
+            Code("model = SVC(kernel='linear')", "Load Model", 1),
+            Code("data = pandas.read_csv('example.csv')", "Load Data", 1),
+            Code("train, test = train_test_split(data, test_size=0.3)", "Split Data", 2),
+            Code("model.fit(train,train['y'])", "Train Data", 3),
+            Code("answer = model.predict(test)", "Run Test", 4),
+            Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
+        ]
+        super().__init__(codes=codes, codingFilePath="assets/svmExample.py", codingExamplePath="examples/svm/", filePrefix="svm", enableIncButton=False, **kwargs)
+        self.model.fit()
 
 
 class CompPage(MultiModel, ZStack):
