@@ -43,7 +43,6 @@ class Model:
         ]
         if isLinear:
             return [self.table.getPt(x, y, self.color) for x, y in edgePts if(x >= self.minX1 and x <= self.maxX1 and y >= self.minX2 and y <= self.maxX2)]
-        # print("Edge:", edgePts)
         edges = []
         for x, y in edgePts:
             if type(x) != tuple:

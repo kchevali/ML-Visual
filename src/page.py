@@ -2,7 +2,7 @@ from graphics import Button, Label, HStack, Color, ZStack, Rect, VStack
 import helper as hp
 from table import Table
 from models import DecisionTree, RandomForest, KNN, Linear, Logistic, SVM
-from libmodels import LibDT
+from libmodels import LibDT, LibSVM
 from random import shuffle
 from elements import createLabel, createButton
 from comp import Data
@@ -730,7 +730,7 @@ class ExampleSVMPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/svm/svm_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
-        self.addCompModel(SVM(table=self.table, testingTable=self.testingTable))
+        self.addCompModel(LibSVM(table=self.table, testingTable=self.testingTable))
         ZStack.__init__(self, [
             VStack([
                 SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=False)
