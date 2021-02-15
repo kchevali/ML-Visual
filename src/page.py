@@ -721,8 +721,14 @@ class InfoLogisticPage(InfoView):
 
 class IntroSVMPage(IntroView):
     def __init__(self):
-        description = ["Welcome to the Support Vector Machine Introduction Page"]
-        super().__init__(label=Label(description))
+        description = [
+            "Support vector machine (SVM), an approach for binary",
+            "classification (0/1 classification), was first proposed in the",
+            "1960s and then developed in the 1990s. The basic learning",
+            "strategy behind this is to separate data points into two classes",
+            "with the objective of maximizing the margin between two classes."
+        ]
+        super().__init__(label=Label(description, fontSize=30))
 
 
 class ExampleSVMPage(MultiModel, ZStack):

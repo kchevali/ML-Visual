@@ -324,5 +324,13 @@ TODO 1/17
     -Hide Comparsion model for now
 
     -hide accuracy before training (SVM)
+
+TODO 2/14
+    - Coding page: allow user to select svm kernel
+    - SVM: choose a complicated data set (Maybe medical data)
+    - SVM: Add legend
+
+    - Research: Mathlib - repeat their work by running their code.
+    - We can try their work with k-mean + svm
     
 """
