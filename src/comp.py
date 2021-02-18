@@ -102,97 +102,91 @@ def saveTable(table, fileName):
 if __name__ == '__main__':
     print("RUNNING COMP")
 
-    def x(x):
-        return -x
-
-    def x2(x):
+    def base(x):
         return x * x
 
-    def negx2(x):
-        return -x * x
+    def delta(x):
+        return base(x) + 5
 
-    def sigmoid(x):
-        from math import e
-        return 1 / (1 + e**(-x))
-
-    dataOptions1 = [{
-        "x": {
-            "dist": "normal",
-            "mean": 0,
-            "std": 0.1
-        },
-        "y": {
-            "dist": "normal",
-            "mean": 0,
-            "std": 0.1
-        }
-    }]
-    dataOptions2 = [{
-        "x": {
-            "dist": "uniform",
-            "min": 0,
-            "max": 1
-        },
-        "y": {
-            "dist": "normal",
-            "mean": 0,
-            "std": 1
-        }
-    }]
-    dataOptions3 = [{
-        "x": {
-            "dist": "normal",
-            "mean": 100,
-            "std": 10
-        },
-        "y": {
-            "dist": "normal",
-            "mean": 0,
-            "std": 400
-        },
-        "func": x2
-    }]
-    dataOptions4 = [{
-        "type": "single",
-        "x": {
-            "dist": "normal",
-            "mean": 0,
-            "std": 2
-        },
-        "y": {
-            "dist": "normal",
-            "mean": 0,
-            "std": 0.05
-        },
-        "func": sigmoid
-    }]
+    # dataOptions1 = [{
+    #     "x": {
+    #         "dist": "normal",
+    #         "mean": 0,
+    #         "std": 0.1
+    #     },
+    #     "y": {
+    #         "dist": "normal",
+    #         "mean": 0,
+    #         "std": 0.1
+    #     }
+    # }]
+    # dataOptions2 = [{
+    #     "x": {
+    #         "dist": "uniform",
+    #         "min": 0,
+    #         "max": 1
+    #     },
+    #     "y": {
+    #         "dist": "normal",
+    #         "mean": 0,
+    #         "std": 1
+    #     }
+    # }]
+    # dataOptions3 = [{
+    #     "x": {
+    #         "dist": "normal",
+    #         "mean": 100,
+    #         "std": 10
+    #     },
+    #     "y": {
+    #         "dist": "normal",
+    #         "mean": 0,
+    #         "std": 400
+    #     },
+    #     "func": x2
+    # }]
+    # dataOptions4 = [{
+    #     "type": "single",
+    #     "x": {
+    #         "dist": "normal",
+    #         "mean": 0,
+    #         "std": 2
+    #     },
+    #     "y": {
+    #         "dist": "normal",
+    #         "mean": 0,
+    #         "std": 0.05
+    #     },
+    #     "func": sigmoid
+    # }]
 
     dataOptions5 = [{
         "type": "double",
         "x1": {
-            "dist": "normal",
-            "mean": 5,
-            "std": 2
+            "dist": "uniform",
+            "min": -2,
+            "max": 4
         },
         "y1": {
             "dist": "normal",
             "mean": 0,
-            "std": 8
+            "std": 1
         },
         "x2": {
             "dist": "normal",
-            "mean": 3,
+            "mean": 0,
             "std": 1
         },
         "y2": {
             "dist": "normal",
-            "mean": 50,
-            "std": 10
+            "mean": 0,
+            "std": 0.6
         },
-        "func1": x2
+        "func1": base,
+        "func2": delta
     }]
 
-    training = Data(params=dataOptions4, labelValues=[0, 1]).getTable()
+    training = Data(params=dataOptions5, labelValues=[0, 1]).getTable()
     # training, testing = table.partition()
 
     print("TRAINING")
