@@ -734,7 +734,7 @@ class IntroSVMPage(IntroView):
 class ExampleSVMPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
-        self.setTable(Table(filePath="examples/svm/svm_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
+        self.setTable(Table(filePath="examples/svm/svm_quad", features=2), partition=0.3)  # , constrainX=(0, 1)
         self.addCompModel(LibSVM(table=self.table, testingTable=self.testingTable))
         ZStack.__init__(self, [
             VStack([
@@ -751,6 +751,8 @@ class CodingSVMPage(CodingPage):
     def __init__(self, **kwargs):
         self.setTable(Table(filePath="examples/svm/svm_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
         self.setModel(LibSVM(table=self.table, testingTable=self.testingTable))
+        self.buttonOptions = ["linear", "poly", "rbf"]
+        self.buttonIndex = 0
         # Codes
         codes = [
             Code("model = SVC(kernel='linear')", "Load Model", 1),
@@ -760,8 +762,20 @@ class CodingSVMPage(CodingPage):
             Code("answer = model.predict(test)", "Run Test", 4),
             Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
         ]
-        super().__init__(codes=codes, codingFilePath="assets/svmExample.py", codingExamplePath="examples/svm/", filePrefix="svm", enableIncButton=False, **kwargs)
+        super().__init__(codes=codes, codingFilePath="assets/svmExample.py", codingExamplePath="examples/svm/", filePrefix="svm", enableIncButton=True, **kwargs)
         self.model.fit()
+
+    def createIncButton(self, **kwargs):
+        return super().createIncButton(text="{}".format(self.buttonOptions[self.buttonIndex]))
+
+    def incMethod(self, sender):
+        self.buttonIndex = (self.buttonIndex + 1) % len(self.buttonOptions)
+        kernel = self.buttonOptions[self.buttonIndex]
+        self.incButtonLabel.setFont("{}".format(kernel))
+        self.setModel(LibSVM(kernel=kernel, table=self.table, testingTable=self.testingTable))
+        self.model.fit()
+        self.runCodingTest(None)
+        super().incMethod(sender)
 
 
 class CompPage(MultiModel, ZStack):

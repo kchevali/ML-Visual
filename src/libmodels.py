@@ -38,9 +38,10 @@ class LibDT(Classifier, LibModel):
 
 class LibSVM(Classifier, LibModel):
 
-    def __init__(self, **kwargs):
+    def __init__(self, kernel='linear', **kwargs):
         # LibModel.__init__(self, lib=make_pipeline(StandardScaler(), SVC(gamma='auto')))
-        LibModel.__init__(self, lib=SVC(kernel='linear', C=1000))
+        self.kernel = kernel
+        LibModel.__init__(self, lib=SVC(kernel=kernel, C=1000))
         Classifier.__init__(self, **kwargs)
         # self.fit()
 
@@ -48,17 +49,17 @@ class LibSVM(Classifier, LibModel):
         x = self.table.dataX
         y = self.table.dataY
         self.lib.fit(x, y)
-
-        self.w = self.lib.coef_[0]
-        self.b = self.lib.intercept_[0]
-
         self.isRunning = False
 
-        accGraphic = self.getGraphic("acc")
-        if accGraphic != None:
-            accGraphic.setFont(text=self.getScoreString())
-            for i, pts in enumerate(self.getPts()):
-                self.getGraphic("pts" + ("" if i == 0 else str(i + 1))).setPts(pts)
+        if self.kernel == 'linear':
+            self.w = self.lib.coef_[0]
+            self.b = self.lib.intercept_[0]
+
+            accGraphic = self.getGraphic("acc")
+            if accGraphic != None:
+                accGraphic.setFont(text=self.getScoreString())
+                for i, pts in enumerate(self.getPts()):
+                    self.getGraphic("pts" + ("" if i == 0 else str(i + 1))).setPts(pts)
 
     def predict(self, x):
         return self.lib.predict(x.reshape(1, -1))
