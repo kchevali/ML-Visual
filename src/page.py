@@ -173,7 +173,8 @@ class MenuPage(ModelPage):
         return ModelPage(content=IntroSVMPage(), title="Support Vector Machine",
                          pages=[
             ("Intro", IntroSVMPage),
-            ("Example", ExampleSVMPage),
+            ("Linear", ExampleSVMPage),
+            ("Quadratic", QuadSVMPage),
             ("Coding", CodingSVMPage)
         ])
 
@@ -734,6 +735,22 @@ class IntroSVMPage(IntroView):
 class ExampleSVMPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
+        self.setTable(Table(filePath="examples/svm/svm_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
+        self.addCompModel(LibSVM(table=self.table, testingTable=self.testingTable))
+        ZStack.__init__(self, [
+            VStack([
+                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=False)
+                # self.createHeaderButtons()
+            ], ratios=[0.9, 0.1]),
+            TextboxView(textboxScript=[
+                ("Welcome to the SVM Simulator!", 0, 0)
+            ])
+        ])
+
+
+class QuadSVMPage(MultiModel, ZStack):
+    def __init__(self):
+        MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/svm/svm_quad", features=2), partition=0.3)  # , constrainX=(0, 1)
         self.addCompModel(LibSVM(table=self.table, testingTable=self.testingTable))
         ZStack.__init__(self, [
@@ -749,7 +766,7 @@ class ExampleSVMPage(MultiModel, ZStack):
 
 class CodingSVMPage(CodingPage):
     def __init__(self, **kwargs):
-        self.setTable(Table(filePath="examples/svm/svm_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
+        self.setTable(Table(filePath="examples/svm/svm_quad", features=2), partition=0.3)  # , constrainX=(0, 1)
         self.setModel(LibSVM(table=self.table, testingTable=self.testingTable))
         self.buttonOptions = ["linear", "poly", "rbf"]
         self.buttonIndex = 0
