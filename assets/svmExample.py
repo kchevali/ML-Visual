@@ -21,7 +21,7 @@ colNum = int(input("Num of Selected Cols:"))
 columns = [input("Col Header:") for _ in range(colNum)]
 
 # create model object from sklearn
-model = SVC(kernel='linear', C=1000)
+model = SVC(kernel='linear', C=1000)# Other kernels: 'poly', 'rbf'
 
 # read data from file
 data = pd.read_csv(fileName)[[targetCol] + columns]
