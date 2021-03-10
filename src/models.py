@@ -10,7 +10,7 @@ from math import inf, sqrt, log, pi, sin, cos, e
 
 
 class Model:
-    def __init__(self, table, testingTable=None, name="", color=Color.red, isUserSet=False, isClassification=False, isRegression=False, **kwargs):
+    def __init__(self, table, testingTable=None, name="", color=Color.red, length=0, isUserSet=False, isClassification=False, isRegression=False, **kwargs):
         self.name = name
         self.color = color
         # isLinear=False, isCategorical=False, isConnected=False, displayRaw=False
@@ -18,6 +18,7 @@ class Model:
         # self.isCategorical = isCategorical
         # self.isConnected = isConnected
         # self.displayRaw = displayRaw
+        self.length = length
         self.graphics = []  # stores Point objects
         self.graphicsDict = {}
         self.isUserSet = isUserSet
@@ -32,6 +33,31 @@ class Model:
         self.minX1, self.maxX1 = self.table.minX1, self.table.maxX1
         self.minX2, self.maxX2 = self.table.minX2, self.table.maxX2
         if isReset:
+            self.reset()
+
+    def getPts(self, start=None, end=None, count=40):  # get many points
+        return self.getSweepingPts(start=start, end=end, count=count)
+
+    def addPt(self, x, y, storePt=True):
+        if len(self.critPts) == 0 and not storePt:
+            return
+        if len(self.critPts) < self.length:
+            self.critPts.append((x, y))
+            self.getEq()
+
+            # Update graphics
+            # SVM Graphics
+            self.getGraphic("acc").setFont(text=self.getScoreString())
+            for i, pts in enumerate(self.getPts()):
+                self.getGraphic("pts" + ("" if i == 0 else str(i + 1))).setPts(pts)
+
+            # Regression graphics
+            # self.getGraphic("pts").setPts(self.getPts())
+            # self.getGraphic("eq").setFont(text=self.getEqString())
+            # self.getGraphic("err").setFont(text="Error: " + self.getScoreString())
+            if not storePt:
+                self.critPts.pop()
+        elif storePt:
             self.reset()
 
     def getLinearPts(self, isLinear=True, stripeCount=False, m=None, b=None, **kwargs):
@@ -114,14 +140,16 @@ class Model:
         raise NotImplementedError("Please Implement defaultScoreString")
 
     def reset(self):
-        pass
-        # raise NotImplementedError("Please Implement reset")
+        self.critPts = []
 
     def getY(self, x):
         raise NotImplementedError("Please Implement getY")
 
     def getX(self, y):
         raise NotImplementedError("Please Implement getX")
+
+    def getEq():
+        pass
 
 
 class Classifier(Model):
@@ -176,9 +204,8 @@ class Classifier(Model):
 class Regression(Model):
     # takes multiple features and outputs real data
 
-    def __init__(self, length, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(isConnected=True, isRegression=True, **kwargs)
-        self.length = length
         self.colNameA, self.colNameB = self.table.xNames[0], self.table.yName
         self.reset()
 
@@ -189,7 +216,7 @@ class Regression(Model):
         return sqrt(error) / testTable.rowCount
 
     def reset(self):
-        self.critPts = []
+        super().reset()
         self.cef = [0] * self.length  # highest power first
 
         pts = self.getGraphic("pts")
@@ -198,9 +225,6 @@ class Regression(Model):
 
     def getEqString(self):
         raise NotImplementedError("Please Implement getEqString")
-
-    def getEq(self):
-        raise NotImplementedError("Please Implement getEq")
 
     def getScoreString(self):
         return self.name + " Error: " + str(round(self.error(testTable=self.testingTable), 4))
@@ -215,25 +239,6 @@ class Regression(Model):
         if constant == 0:
             return "0"
         return ("+" if constant > 0 and showPlus else "") + str(constant) + ("" if power <= 0 else ("x" + ("" if power == 1 else hp.superscript(power))))
-
-    def getPts(self, start=None, end=None, count=40):  # get many points
-        return self.getSweepingPts(start=start, end=end, count=count)
-
-    def addPt(self, x, y, storePt=True):
-        if len(self.critPts) == 0 and not storePt:
-            return
-        if len(self.critPts) < self.length:
-            self.critPts.append((x, y))
-            self.getEq()
-
-            # update graphics
-            self.getGraphic("pts").setPts(self.getPts())
-            self.getGraphic("eq").setFont(text=self.getEqString())
-            self.getGraphic("err").setFont(text="Error: " + self.getScoreString())
-            if not storePt:
-                self.critPts.pop()
-        elif storePt:
-            self.reset()
 
 
 class DecisionTree(Classifier):
@@ -650,7 +655,8 @@ class Logistic(Regression):
 
 class SVM(Classifier):
     def __init__(self, C=0.005, n_iters=10000, learning_rate=0.000001, **kwargs):
-        super().__init__(length=0, **kwargs)
+        super().__init__(length=3, **kwargs)
+        # Length is 3: 2 to define the line and the width
         self.c = C
         self.iter = n_iters
         self.eta = learning_rate
@@ -688,7 +694,8 @@ class SVM(Classifier):
         self.stepIndex = 0
 
     def reset(self):
-        self.w = np.zeros([1, self.table.x.shape[1]])
+        super().reset()
+        self.w = np.zeros([self.table.x.shape[1], 1])
         self.b = 0
         self.costs = np.zeros(self.iter)
         self.counter = 0
@@ -756,7 +763,7 @@ class SVM(Classifier):
             self.getGraphic("pts" + ("" if i == 0 else str(i + 1))).setPts(pts)
 
     def getY(self, x, v):
-            # returns a x2 value on line when given x1
+        # returns a x2 value on line when given x1
         return (-self.w[0] * x - self.b + v) / self.w[1]
 
     def getX(self, y, v):
@@ -769,6 +776,17 @@ class SVM(Classifier):
     def predict(self, x):
         return 1 if (x @ self.w.T + self.b) >= 0 else -1
         # return [1 if i >= 0 else 0 for i in (x @ self.w.T + self.b)]
+
+    def getEq(self):
+        x1, y1 = self.critPts[0] if len(self.critPts) > 1 else (0, 0)
+        x2, y2 = self.critPts[1] if len(self.critPts) > 1 else (x1 + 1, y1)
+        x3, y3 = self.critPts[2] if len(self.critPts) > 2 else (x1, y1 - 1)
+        try:
+            res = hp.solveEquations(a=np.array([[y1, x1, 1], [y2, x2, 1], [y3, x3, 1]]), b=np.array([0, 0, 1]))
+            self.w = np.array([res[1], res[0]])
+            self.b = res[2]
+        except:
+            pass
 
 
 if __name__ == '__main__':

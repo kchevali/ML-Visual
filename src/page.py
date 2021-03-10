@@ -736,10 +736,12 @@ class ExampleSVMPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/svm/svm_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
-        self.addCompModel(LibSVM(table=self.table, testingTable=self.testingTable))
+        self.addModel(SVM(table=self.table, testingTable=self.testingTable, isUserSet=True))
+        self.addCompModel(LibSVM(table=self.table, testingTable=self.testingTable, color=Color.blue))
+
         ZStack.__init__(self, [
             VStack([
-                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=False)
+                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
@@ -752,10 +754,11 @@ class QuadSVMPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/svm/svm_quad", features=2), partition=0.3)  # , constrainX=(0, 1)
-        self.addCompModel(LibSVM(table=self.table, testingTable=self.testingTable))
+        self.addModel(SVM(table=self.table, testingTable=self.testingTable, isUserSet=True))
+        self.addCompModel(LibSVM(table=self.table, testingTable=self.testingTable, color=Color.blue))
         ZStack.__init__(self, [
             VStack([
-                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=False)
+                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
