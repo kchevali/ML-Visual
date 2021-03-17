@@ -158,6 +158,11 @@ def getDisplayCoord(coord):
     return float(coord[0]), float(coord[1])
 
 
+def draw_circle(surface, color, rect):
+    coord, width, height = rect
+    pg.draw.ellipse(surface, color, (*getDisplayCoord((coord[0] - width // 2, coord[1] - height // 2)), width, height))
+
+
 def draw_rounded_rect(surface, rect, color, corner_radius):
     if rect.width < 2 * corner_radius or rect.height < 2 * corner_radius:
         return
