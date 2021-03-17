@@ -327,7 +327,14 @@
 
 
 if __name__ == '__main__':
-    pass
+    import numpy as np
+
+    a = np.array([[4, 3, 1], [-5, 9, 1], [2, 2, 1]])
+    invA = np.linalg.inv(a)
+    b = np.array([20, 26, 0])
+    x = np.linalg.inv(a).dot(b)
+
+    print(x)
     #     table = Table(filePath="examples/svm/iris").createXXYTable()
     #     train, test = table.partition(0.1)
 

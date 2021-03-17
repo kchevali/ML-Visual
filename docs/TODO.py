@@ -332,5 +332,12 @@ TODO 2/14
 
     - Research: Mathlib - repeat their work by running their code.
     - We can try their work with k-mean + svm
-    
+
+TODO 3/10
+    - Research
+        - Need to obtain their data (email them)
+        - Repeat their work with polynomial / rbf kernel
+        - Use modified SVM
+    - TeachApp
+        - Add explanation that 'Unfit SVM' is not linearly separable and requires a different kernel. 
 """
