@@ -1,4 +1,4 @@
-from models import Classifier, Regression
+from base_models import Classifier, Regression, SVMBase
 import pandas as pd
 
 from sklearn.tree import DecisionTreeClassifier
@@ -28,21 +28,14 @@ class LibDT(Classifier, LibModel):
     def predict(self, x):
         return self.lib.predict(x.reshape(1, -1))
 
-    def accuracy(self, testTable):
-        if testTable == None:
-            raise Exception("Model cannot find accuracy if testTable is None")
-        x = testTable.x
-        y = testTable.y
-        return self.run_accuracy(x, y)
 
-
-class LibSVM(Classifier, LibModel):
+class LibSVM(SVMBase, LibModel):
 
     def __init__(self, kernel='linear', **kwargs):
         # LibModel.__init__(self, lib=make_pipeline(StandardScaler(), SVC(gamma='auto')))
         self.kernel = kernel
         LibModel.__init__(self, lib=SVC(kernel=kernel, C=1000))
-        Classifier.__init__(self, **kwargs)
+        SVMBase.__init__(self, **kwargs)
         # self.fit()
 
     def fit(self):
@@ -54,39 +47,10 @@ class LibSVM(Classifier, LibModel):
         if self.kernel == 'linear':
             self.w = self.lib.coef_[0]
             self.b = self.lib.intercept_[0]
-
-            accGraphic = self.getGraphic("acc")
-            if accGraphic != None:
-                accGraphic.setFont(text=self.getScoreString())
-                for i, pts in enumerate(self.getPts()):
-                    self.getGraphic("pts" + ("" if i == 0 else str(i + 1))).setPts(pts)
+            self.updateGraphics()
 
     def predict(self, x):
         return self.lib.predict(x.reshape(1, -1))
-
-    def accuracy(self, testTable):
-        if testTable == None:
-            raise Exception("Model cannot find accuracy if testTable is None")
-        x = self.table.x
-        y = self.table.y
-        return self.run_accuracy(x, y)
-
-    def getY(self, x, v):
-            # returns a x2 value on line when given x1
-        return ((-self.w[0] * x - self.b + v) / self.w[1])
-
-    def getX(self, y, v):
-        # returns a x1 value on line when given x2
-        return (-self.w[1] * y - self.b + v) / self.w[0]
-
-    def getPts(self, start=None, end=None, count=40):  # get many points
-        return [self.getLinearPts(
-            isLinear=True,
-            stripeCount=False if v == 0 else 30,
-            m=-self.w[0] / self.w[1],
-            b=(v - self.b) / self.w[1],
-            v=v
-        ) for v in [0, -1, 1]]
 
 
 if __name__ == '__main__':

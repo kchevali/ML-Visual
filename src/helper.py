@@ -3,6 +3,7 @@ from os.path import isfile, join
 import pygame as pg
 from random import randint
 from math import sqrt
+import numpy as np
 
 import pygame.gfxdraw as pgx
 import json
@@ -100,6 +101,22 @@ def randomString():
 def quad(a, b, c):
     d = sqrt(b * b - 4 * a * c)
     return (-b + d) / (2 * a), (-b - d) / (2 * a)
+
+
+def solveEquations(a, b):
+    """
+    a are the coefficients as a 2D numpy array.
+    b are the constants as a 1D numpy array.
+
+    Example:
+        ax + by = c
+        dx + ey = f
+
+        a = np.array([[a,b],[d,e]])
+        b = np.array([c,f])
+        return np.array([x,y])
+    """
+    return np.linalg.inv(a).dot(b)
 
 
 def resourcePath(relative_path):
