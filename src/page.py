@@ -174,7 +174,7 @@ class MenuPage(ModelPage):
                          pages=[
             ("Intro", IntroSVMPage),
             ("Linear", ExampleSVMPage),
-            ("Quadratic", QuadSVMPage),
+            ("Unfit", QuadSVMPage),
             ("Coding", CodingSVMPage)
         ])
 
