@@ -340,7 +340,7 @@ class Ellipse(Shape):
             # y += h
             # print("Color:", self.color, self.color is not None)
             if self.color is not None:
-                pg.draw.ellipse(g, self.color, (*self.displayPos, self.getWidth(), self.getHeight()))
+                hp.draw_circle(g, self.color, (*self.displayPos, self.getWidth(), self.getHeight()))
             # if self.strokeColor and self.strokeWidth > 0:
             #     pgx.aaellipse(g, x, y, w, h, self.strokeColor)
 
@@ -397,7 +397,7 @@ class Points(Ellipse):
             if not self.isConnected:
                 if self.isCircle:
                     for i in range(len(self.displayPts)):
-                        pg.draw.ellipse(g, self.displayPts[i][2], (*hp.getDisplayCoord(self.displayPts[i]), self.ptSize, self.ptSize))
+                        hp.draw_circle(g, self.displayPts[i][2], (self.displayPts[i], self.ptSize, self.ptSize))
                 else:
                     for i in range(len(self.displayPts)):
                         pg.draw.rect(g, self.displayPts[i][2], (*hp.getDisplayCoord(self.displayPts[i]), self.ptSize, self.ptSize))
