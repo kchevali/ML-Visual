@@ -340,4 +340,22 @@ TODO 3/10
         - Use modified SVM
     - TeachApp
         - Add explanation that 'Unfit SVM' is not linearly separable and requires a different kernel. 
+
+TODO 3/17
+    -TeachApp
+        - Focus Entirely on ANN simulations
+    - Research Game Plan
+        - Wait for the data and modify SVM (Based on 3/10 Meeting)
+        - Contact Fujitsu for their data and modify SVM
+        - Use OPNet/algorithm to generate traffic pattern and learn Network Activity to improve resource allocation
+
+TODO 3/24
+    Continue ANN
+    Some datasets:
+        https://github.com/knowledgedefinednetworking/NetworkModelingDatasets/tree/master/datasets_v2
+        https://knowledgedefinednetworking.org/
+        Topics
+            Understanding the Network Modeling of Computer Networks:
+            Unveiling the potential of GNN for network modeling and optimization in SDN
+        
 """
