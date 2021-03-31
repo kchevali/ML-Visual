@@ -1,13 +1,5 @@
 from graphics import ZStack, VStack, Label, Rect, HStack, Grid, Button, Color, Points, Container, Image
 import helper as hp
-# from table import *
-# from models import *
-# from random import shuffle
-# from math import sin, cos, pi
-# from elements import *
-# from comp import *
-# import statistics as stat
-# from time import time
 from base import SingleModel, MultiModel
 
 # Solo Views
@@ -516,6 +508,7 @@ class GraphView(MultiModelView, ZStack):
         for model in self.compModels:
             if model.isRunning:
                 model.fit()
+        self.updateAll()
 
     def hoverMouse(self, x, y):
         if self.hoverEnabled:
@@ -582,8 +575,8 @@ class LinearGraphView(GraphView):
 
 class SVMGraphView(GraphView):
     def addModel(self, model):
-        model.addGraphics(("pts2", Points(pts=[], color=Color.gray, isConnected=True)))
-        model.addGraphics(("pts3", Points(pts=[], color=Color.gray, isConnected=True)))
+        model.addGraphics(("pts2", Points(pts=[], color=model.color, ptSize=5, isConnected=True)))
+        model.addGraphics(("pts3", Points(pts=[], color=model.color, ptSize=5, isConnected=True)))
         super().addModel(model)
 
 # =====================================================================

@@ -1,213 +1,12 @@
 # from sklearn import linear_model
-from graphics import Color
+from base_models import Classifier, Regression, SVMBase
 from sklearn import metrics
 from scipy import spatial
 import numpy as np
 import helper as hp
 from graphics import Points, HStack
-from math import inf, sqrt, log, pi, sin, cos, e
+from math import inf, sqrt, log, e
 # from random import uniform
-
-
-class Model:
-    def __init__(self, table, testingTable=None, name="", color=Color.red, isUserSet=False, isClassification=False, isRegression=False, **kwargs):
-        self.name = name
-        self.color = color
-        # isLinear=False, isCategorical=False, isConnected=False, displayRaw=False
-        # self.isLinear = isLinear
-        # self.isCategorical = isCategorical
-        # self.isConnected = isConnected
-        # self.displayRaw = displayRaw
-        self.graphics = []  # stores Point objects
-        self.graphicsDict = {}
-        self.isUserSet = isUserSet
-        self.isRunning = False
-        self.isClassification = isClassification
-        self.isRegression = isRegression
-        self.setTable(table=table, testingTable=testingTable, isReset=False)
-
-    def setTable(self, table, testingTable=None, isReset=True):
-        self.table = table
-        self.testingTable = testingTable
-        self.minX1, self.maxX1 = self.table.minX1, self.table.maxX1
-        self.minX2, self.maxX2 = self.table.minX2, self.table.maxX2
-        if isReset:
-            self.reset()
-
-    def getLinearPts(self, isLinear=True, **kwargs):
-        edgePts = [
-            (self.minX1, self.getY(self.minX1, **kwargs)),
-            (self.maxX1, self.getY(self.maxX1, **kwargs)),
-            (self.getX(self.minX2, **kwargs), self.minX2),
-            (self.getX(self.maxX2, **kwargs), self.maxX2),
-        ]
-        if isLinear:
-            return [self.table.getPt(x, y, self.color) for x, y in edgePts if(x >= self.minX1 and x <= self.maxX1 and y >= self.minX2 and y <= self.maxX2)]
-        # print("Edge:", edgePts)
-        edges = []
-        for x, y in edgePts:
-            if type(x) != tuple:
-                x = [x]
-            if type(y) != tuple:
-                y = [y]
-            edges += [(x_, y_) for x_ in x for y_ in y if x_ != None and y_ != None and x_ >= self.minX1 and x_ <= self.maxX1 and y_ >= self.minX2 and y_ <= self.maxX2]
-        edgePts = edges
-        edgePts.sort()
-
-        out = []
-        for i in range(1, len(edgePts), 2):
-            # sweep
-            out += self.getSweepingPts(start=edgePts[i - 1][0], end=edgePts[i][0], count=20)
-        return out
-
-    def getSweepingPts(self, start=None, end=None, count=40):
-        if start == None:
-            start = self.minX1
-        if end == None:
-            end = self.maxX1
-        return [self.table.getPt(num, self.getY(num), self.color) for num in hp.rangx(start, end, (end - start) / count, outputEnd=True)]
-
-    def addGraphics(self, *args):
-        for graphic in args:
-            if type(graphic) == tuple:
-                key, graphic = graphic
-                self.graphicsDict[key] = graphic
-            self.graphics.append(graphic)
-
-    def getGraphic(self, key):
-        return self.graphicsDict[key] if key in self.graphicsDict else None
-
-    def startTraining(self):
-        self.reset()
-        self.isRunning = True
-
-    def getScoreString(self):
-        raise NotImplementedError("Please Implement getScoreString")
-
-    def defaultScoreString(self):
-        raise NotImplementedError("Please Implement defaultScoreString")
-
-    def reset(self):
-        pass
-        # raise NotImplementedError("Please Implement reset")
-
-    def getY(self, x):
-        raise NotImplementedError("Please Implement getY")
-
-    def getX(self, y):
-        raise NotImplementedError("Please Implement getX")
-
-
-class Classifier(Model):
-    # takes multiple features and outputs a categorical data
-    def __init__(self, **kwargs):
-        super().__init__(isLinear=False, isConnected=False, isClassification=True, **kwargs)
-        self.colNameA, self.colNameB = self.table.xNames[0], self.table.xNames[1]
-
-    def accuracy(self, testTable):
-        if testTable == None:
-            raise Exception("Model cannot find accuracy if testTable is None")
-        return self.run_accuracy(testTable.x, testTable.y)
-
-    def run_accuracy(self, x, y):
-        correct = 0
-        count = len(x)
-        for i in range(count):
-            correct += 1 if self.predict(x[i]) == y[i] else 0
-        return correct / count
-
-    def predict(self, _x):
-        pass
-
-    def getScoreString(self):
-        return self.name + " Acc: " + str(round(100 * self.accuracy(testTable=self.testingTable), 2)) + "%"
-
-    def defaultScoreString(self):
-        return self.name + " Acc: --"
-
-    def getCircleLabelPts(self, table=None):  # circle
-        if table == None:
-            table = self.getTable()
-
-        rowCount = table.rowCount
-        if rowCount > 0:
-            trig = 2.0 * pi / rowCount
-
-        pts = []
-        i = 0
-        for label in table.y:
-            pts.append((0.5 * cos(trig * i) if rowCount > 1 else 0.0,
-                        0.5 * sin(trig * i) if rowCount > 1 else 0.0,
-                        table.classColors[str(label[0])]))
-            i += 1
-
-        # if treeNode.parent != None:
-        #     items.append(Label(text="{}:{}".format(treeNode.parent.column, treeNode.value), fontSize=20, color=Color.white, dx=-0.95, dy=-1))
-        # return ZStack(items=items, keywords="dotStack", limit=150)
-        return pts
-
-
-class Regression(Model):
-    # takes multiple features and outputs real data
-
-    def __init__(self, length, **kwargs):
-        super().__init__(isConnected=True, isRegression=True, **kwargs)
-        self.length = length
-        self.colNameA, self.colNameB = self.table.xNames[0], self.table.yName
-        self.reset()
-
-    def error(self, testTable):
-        error = 0
-        for i in range(testTable.rowCount):
-            error += (testTable.y[i] - self.getY(testTable.x[i]))**2
-        return sqrt(error) / testTable.rowCount
-
-    def reset(self):
-        self.critPts = []
-        self.cef = [0] * self.length  # highest power first
-
-        pts = self.getGraphic("pts")
-        if pts != None:
-            pts.reset()
-
-    def getEqString(self):
-        raise NotImplementedError("Please Implement getEqString")
-
-    def getEq(self):
-        raise NotImplementedError("Please Implement getEq")
-
-    def getScoreString(self):
-        return self.name + " Error: " + str(round(self.error(testTable=self.testingTable), 4))
-
-    def defaultScoreString(self):
-        return self.name + " Error: --"
-
-    def cefString(self, constant, power, showPlus=True, roundValue=2):
-        while type(constant) == np.ndarray:
-            constant = constant[0]
-        constant = round(constant, roundValue)
-        if constant == 0:
-            return "0"
-        return ("+" if constant > 0 and showPlus else "") + str(constant) + ("" if power <= 0 else ("x" + ("" if power == 1 else hp.superscript(power))))
-
-    def getPts(self, start=None, end=None, count=40):  # get many points
-        return self.getSweepingPts(start=start, end=end, count=count)
-
-    def addPt(self, x, y, storePt=True):
-        if len(self.critPts) == 0 and not storePt:
-            return
-        if len(self.critPts) < self.length:
-            self.critPts.append((x, y))
-            self.getEq()
-
-            # update graphics
-            self.getGraphic("pts").setPts(self.getPts())
-            self.getGraphic("eq").setFont(text=self.getEqString())
-            self.getGraphic("err").setFont(text="Error: " + self.getScoreString())
-            if not storePt:
-                self.critPts.pop()
-        elif storePt:
-            self.reset()
 
 
 class DecisionTree(Classifier):
@@ -425,7 +224,7 @@ class KNN(Classifier):
 
 class Linear(Regression):
     def __init__(self, n=1, alpha=1e-3, epsilon=1e-3, **kwargs):
-        super().__init__(length=n + 1, isLinear=n == 1, **kwargs)
+        super().__init__(critPtCount=n + 1, isLinear=n == 1, **kwargs)
         self.n = n
         self.alpha = alpha
         self.epsilon = epsilon
@@ -434,7 +233,7 @@ class Linear(Regression):
 
     def reset(self):
         if "n" in self.__dict__:
-            self.length = self.n + 1
+            self.critPtCount = self.n + 1
         super().reset()
 
     def getEq(self):
@@ -484,11 +283,8 @@ class Linear(Regression):
     def fit(self):
         if self.dJ >= self.epsilon:
             newCefs = [self.cef[i] - self.alpha * self.getJGradient(degreeX=self.n - i) for i in range(self.n + 1)]
-            # a = self.cef[0] - self.alpha * self.getJGradient(multX=True) / self.length
-            # b = self.cef[1] - self.alpha * self.getJGradient(multX=False) / self.length
             self.dJ = self.getJ(self.cef) - self.getJ(newCefs)
             self.cef = newCefs
-            # print("DJ:", self.dJ, "CEF:", self.cef)
             ptsGraphics = self.getGraphic("pts")
             if ptsGraphics != None:
                 ptsGraphics.setPts(self.getPts())
@@ -586,7 +382,7 @@ class Linear(Regression):
 class Logistic(Regression):
 
     def __init__(self, **kwargs):
-        super().__init__(length=2, isLinear=False, **kwargs)
+        super().__init__(critPtCount=2, isLinear=False, **kwargs)
         # self.compModel = linear_model.LogisticRegression()
 
     def getEq(self):
@@ -622,9 +418,10 @@ class Logistic(Regression):
         return "1/(1+e^(" + self.cefString(self.cef[0], 1, showPlus=False) + self.cefString(self.cef[1], 0) + "))"
 
 
-class SVM(Classifier):
+class SVM(SVMBase):
     def __init__(self, C=0.005, n_iters=10000, learning_rate=0.000001, **kwargs):
-        super().__init__(length=0, **kwargs)
+        super().__init__(**kwargs)
+        # Length is 3: 2 to define the line and the width
         self.c = C
         self.iter = n_iters
         self.eta = learning_rate
@@ -662,11 +459,9 @@ class SVM(Classifier):
         self.stepIndex = 0
 
     def reset(self):
-        self.w = np.zeros([1, self.table.x.shape[1]])
-        self.b = 0
+        super().reset()
         self.costs = np.zeros(self.iter)
         self.counter = 0
-
         self.reg_strength = 10000
 
     def fit(self):
@@ -724,25 +519,33 @@ class SVM(Classifier):
 
         # start with new self.latest_optimum (initial values for w)
         self.latest_optimum = opt_choice[0][0] + step * 2
-
-        self.getGraphic("acc").setFont(text=self.getScoreString())
-        for i, pts in enumerate(self.getPts()):
-            self.getGraphic("pts" + ("" if i == 0 else str(i + 1))).setPts(pts)
-
-    def getY(self, x, v):
-            # returns a x2 value on line when given x1
-        return (-self.w[0] * x - self.b + v) / self.w[1]
-
-    def getX(self, y, v):
-        # returns a x1 value on line when given x2
-        return (-self.w[1] * y - self.b + v) / self.w[0]
+        self.updateGraphics()
 
     def getPts(self, start=None, end=None, count=40):  # get many points
-        return [self.getLinearPts(isLinear=True, v=v) for v in [0, -1, 1]]
+        return [self.getLinearPts(
+            isLinear=True,
+            stripeCount=False if v == 0 else 30,
+            m=-self.w[0] / self.w[1],
+            b=(v - self.b) / self.w[1],
+            v=v
+        ) for v in [0, -1, 1]]
+    # def getPts(self, start=None, end=None, count=40):  # get many points
+    #     return [self.getLinearPts(isLinear=True, v=v) for v in [0, -1, 1]]
 
     def predict(self, x):
         return 1 if (x @ self.w.T + self.b) >= 0 else -1
         # return [1 if i >= 0 else 0 for i in (x @ self.w.T + self.b)]
+
+    def getEq(self):
+        x1, y1 = self.critPts[0] if len(self.critPts) > 1 else (0, 0)
+        x2, y2 = self.critPts[1] if len(self.critPts) > 1 else (x1 + 1, y1)
+        x3, y3 = self.critPts[2] if len(self.critPts) > 2 else (x1, y1 - 1)
+        try:
+            res = hp.solveEquations(a=np.array([[y1, x1, 1], [y2, x2, 1], [y3, x3, 1]]), b=np.array([0, 0, 1]))
+            self.w = np.array([res[1], res[0]])
+            self.b = res[2]
+        except:
+            pass
 
 
 if __name__ == '__main__':

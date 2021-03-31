@@ -2,7 +2,7 @@ from graphics import Button, Label, HStack, Color, ZStack, Rect, VStack
 import helper as hp
 from table import Table
 from models import DecisionTree, RandomForest, KNN, Linear, Logistic, SVM
-from libmodels import LibDT
+from libmodels import LibDT, LibSVM
 from random import shuffle
 from elements import createLabel, createButton
 from comp import Data
@@ -14,7 +14,7 @@ import numpy as np
 
 
 modelTitle = ""
-version = "1.0.4"
+version = "1.1.0"
 
 
 # =====================================================================
@@ -85,7 +85,7 @@ class ModelPage(VStack):
 
 class MenuPage(ModelPage):
     def __init__(self):
-        content, title = self.buildMenu2()
+        content, title = self.buildMenu1()
         super().__init__(content=content, title=title, includeTaskList=False)
 
     def buildMenu1(self):
@@ -173,9 +173,9 @@ class MenuPage(ModelPage):
         return ModelPage(content=IntroSVMPage(), title="Support Vector Machine",
                          pages=[
             ("Intro", IntroSVMPage),
-            ("Example", ExampleSVMPage)
-            # ("Coding", CodingLogisticPage),
-            # ("More Info", InfoLogisticPage)
+            ("Linear", ExampleSVMPage),
+            ("Unfit", QuadSVMPage),
+            ("Coding", CodingSVMPage)
         ])
 
     def createComp(self):
@@ -722,24 +722,80 @@ class InfoLogisticPage(InfoView):
 
 class IntroSVMPage(IntroView):
     def __init__(self):
-        description = ["Welcome to the Support Vector Machine Introduction Page"]
-        super().__init__(label=Label(description))
+        description = [
+            "Support vector machine (SVM), an approach for binary",
+            "classification (0/1 classification), was first proposed in the",
+            "1960s and then developed in the 1990s. The basic learning",
+            "strategy behind this is to separate data points into two classes",
+            "with the objective of maximizing the margin between two classes."
+        ]
+        super().__init__(label=Label(description, fontSize=30))
 
 
 class ExampleSVMPage(MultiModel, ZStack):
     def __init__(self):
         MultiModel.__init__(self)
         self.setTable(Table(filePath="examples/svm/svm_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
-        self.addCompModel(SVM(table=self.table, testingTable=self.testingTable))
+        self.addModel(SVM(table=self.table, testingTable=self.testingTable, isUserSet=True))
+        self.addCompModel(LibSVM(table=self.table, testingTable=self.testingTable, color=Color.blue))
+
         ZStack.__init__(self, [
             VStack([
-                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=False)
+                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
                 ("Welcome to the SVM Simulator!", 0, 0)
             ])
         ])
+
+
+class QuadSVMPage(MultiModel, ZStack):
+    def __init__(self):
+        MultiModel.__init__(self)
+        self.setTable(Table(filePath="examples/svm/svm_quad", features=2), partition=0.3)  # , constrainX=(0, 1)
+        self.addModel(SVM(table=self.table, testingTable=self.testingTable, isUserSet=True))
+        self.addCompModel(LibSVM(table=self.table, testingTable=self.testingTable, color=Color.blue))
+        ZStack.__init__(self, [
+            VStack([
+                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=True)
+                # self.createHeaderButtons()
+            ], ratios=[0.9, 0.1]),
+            TextboxView(textboxScript=[
+                ("Welcome to the SVM Simulator!", 0, 0)
+            ])
+        ])
+
+
+class CodingSVMPage(CodingPage):
+    def __init__(self, **kwargs):
+        self.setTable(Table(filePath="examples/svm/svm_quad", features=2), partition=0.3)  # , constrainX=(0, 1)
+        self.setModel(LibSVM(table=self.table, testingTable=self.testingTable))
+        self.buttonOptions = ["linear", "poly", "rbf"]
+        self.buttonIndex = 0
+        # Codes
+        codes = [
+            Code("model = SVC(kernel='linear')", "Load Model", 1),
+            Code("data = pandas.read_csv('example.csv')", "Load Data", 1),
+            Code("train, test = train_test_split(data, test_size=0.3)", "Split Data", 2),
+            Code("model.fit(train,train['y'])", "Train Data", 3),
+            Code("answer = model.predict(test)", "Run Test", 4),
+            Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
+        ]
+        super().__init__(codes=codes, codingFilePath="assets/svmExample.py", codingExamplePath="examples/svm/", filePrefix="svm", enableIncButton=True, **kwargs)
+        self.model.fit()
+
+    def createIncButton(self, **kwargs):
+        return super().createIncButton(text="{}".format(self.buttonOptions[self.buttonIndex]))
+
+    def incMethod(self, sender):
+        self.buttonIndex = (self.buttonIndex + 1) % len(self.buttonOptions)
+        kernel = self.buttonOptions[self.buttonIndex]
+        self.incButtonLabel.setFont("{}".format(kernel))
+        self.setModel(LibSVM(kernel=kernel, table=self.table, testingTable=self.testingTable))
+        self.model.fit()
+        self.runCodingTest(None)
+        super().incMethod(sender)
 
 
 class CompPage(MultiModel, ZStack):

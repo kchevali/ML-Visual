@@ -2,6 +2,8 @@ import os
 from os.path import isfile, join
 import pygame as pg
 from random import randint
+from math import sqrt
+import numpy as np
 
 import pygame.gfxdraw as pgx
 import json
@@ -96,6 +98,27 @@ def randomString():
     return str(randint(0, 1 << 31))
 
 
+def quad(a, b, c):
+    d = sqrt(b * b - 4 * a * c)
+    return (-b + d) / (2 * a), (-b - d) / (2 * a)
+
+
+def solveEquations(a, b):
+    """
+    a are the coefficients as a 2D numpy array.
+    b are the constants as a 1D numpy array.
+
+    Example:
+        ax + by = c
+        dx + ey = f
+
+        a = np.array([[a,b],[d,e]])
+        b = np.array([c,f])
+        return np.array([x,y])
+    """
+    return np.linalg.inv(a).dot(b)
+
+
 def resourcePath(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
 
@@ -133,6 +156,11 @@ def getDisplayCoord(coord):
     # return coord[0], windowHeight - coord[1]
     # TODO - code above moves the origin to the bottom left - fix issues when you have time
     return float(coord[0]), float(coord[1])
+
+
+def draw_circle(surface, color, rect):
+    coord, width, height = rect
+    pg.draw.ellipse(surface, color, (*getDisplayCoord((coord[0] - width // 2, coord[1] - height // 2)), width, height))
 
 
 def draw_rounded_rect(surface, rect, color, corner_radius):

@@ -67,11 +67,14 @@ class Table:
             y = self.data[self.yName]
             self.data[self.yName] = self.constrainY[1] * (y - y.min()) / y.max() + self.constrainY[0]
 
-        self.y = self.data[self.yName].to_numpy()
-        self.y = self.y.reshape([self.y.shape[0], 1])
-        self.x = self.data[self.xNames].to_numpy()
+        self.dataX = self.data[self.xNames]
+        self.dataY = self.data[self.yName]
 
-        self.classSet = self.data[self.yName].unique()
+        self.y = self.dataY.to_numpy()
+        self.y = self.y.reshape([self.y.shape[0], 1])
+        self.x = self.dataX.to_numpy()
+
+        self.classSet = self.dataY.unique()
         self.classCount = len(self.classSet)
         self.rowCount = len(self.data.index)  # total rows of data
         self.colCount = len(self.xNames)  # does not include target
@@ -115,23 +118,38 @@ class Table:
     def majorityInTargetColumn(self):
         return self.majorityInColumn(self.yName)
 
-    def partition(self, testing=0.3) -> tuple:
-        train, test = train_test_split(self.data, test_size=testing)
+    def init(self, df, param=None, filePath=None, features=None, constrainX=None,
+             constrainY=None, drawTable=None, classColors=None):
+        """
+        Create a new table based on the given parameters or the current table
+        """
+        return Table(df=df, param=self.param if param == None else param, filePath=self.filePath if filePath == None else filePath, features=self.features if features == None else features, constrainX=self.constrainX if constrainX == None else constrainX,
+                     constrainY=self.constrainY if constrainY == None else constrainY, drawTable=self.drawTable if drawTable == None else drawTable, classColors=self.classColors if classColors == None else classColors)
 
-        trainTable = Table(df=train, param=self.param, filePath=self.filePath, features=self.features, constrainX=self.constrainX,
-                           constrainY=self.constrainY, drawTable=self.drawTable, classColors=self.classColors)
-        testTable = Table(df=test, param=self.param, filePath=self.filePath, features=self.features, constrainX=self.constrainX,
-                          constrainY=self.constrainY, drawTable=self.drawTable, classColors=self.classColors)
-        return trainTable, testTable
+    def partition(self, testing=0.3) -> tuple:
+        """
+        Split the table into two tables by rows
+        """
+        train, test = train_test_split(self.data, test_size=testing)
+        return self.init(train), self.init(test)
 
     def matchValue(self, colIndex, value):
-        return Table(df=self[self[self.xNames[colIndex]] == value], param=self.param, filePath=self.filePath, features=self.features, constrainX=self.constrainX, constrainY=self.constrainY, drawTable=self.drawTable, classColors=self.classColors)
+        """
+        Create a new table where the row contains a value at the given column.
+        """
+        return self.init(df=self[self[self.xNames[colIndex]] == value])
 
     def minX(self, column=None):
-        return self.data[self.xNames].min()[column if column != None else self.xNames[0]]
+        """
+        Get the minimum value in the x column.
+        """
+        return self.dataX.min()[column if column != None else self.xNames[0]]
 
     def maxX(self, column=None):
-        return self.data[self.xNames].max()[column if column != None else self.xNames[0]]
+        """
+        Get the maximum value in the x column.
+        """
+        return self.dataX.max()[column if column != None else self.xNames[0]]
 
     def minY(self):
         return self.y.min()
@@ -189,7 +207,15 @@ class Table:
             graphic.tableChange(colIndex=colIndex, isSelect=isSelect, isLock=isLock, isNewTable=isNewTable, reset=reset)
 
     def getEncodedData(self):
-        return pd.get_dummies(self.data)
+        """
+        Creates a new Table where categorized data is converted to boolean by adding a column for each unique value per column.
+        Based on pd.get_dummies()
+        """
+        dataX = pd.get_dummies(self.dataX)
+
+        param = self.param.copy()
+        param['columns'] = list(dataX.columns)
+        return self.init(df=pd.concat([dataX, self.dataY], axis=1, join="inner"), param=param)
 
     def map(self, colIndex, value):
         column = self.colNames[colIndex]
@@ -206,17 +232,6 @@ class Table:
 
     def __getitem__(self, column):
         return self.data[column]
-
-    # Hidden Methods
-
-    # def createXYTable(self, xIndex=0):
-    #     param = self.param.copy()
-    #     param['columns'] = [self.xNames[xIndex]]
-    #     return Table(df=self.data, param=param)
-    # def createXXYTable(self, x1=0, x2=1):
-    #     param = self.param.copy()
-    #     param['columns'] = [self.xNames[x1], self.xNames[x2]]
-    #     return Table(df=self.data, param=param)
 
 
 if __name__ == '__main__':
