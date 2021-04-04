@@ -25,26 +25,12 @@ pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
 exe = EXE(pyz,
           a.scripts,
-          [],
-          exclude_binaries=True,
-          name='_run_main',
-          debug=True,
-          bootloader_ignore_signals=False,
+          a.binaries,
+          a.zipfiles,
+          a.datas,
+          name='main',
+          debug=False,
           strip=False,
           upx=True,
+          runtime_tmpdir=None,
           console=True )
-
-coll = COLLECT(exe,
-               a.binaries,
-               a.zipfiles,
-               a.datas,
-               strip=False,
-               upx=True,
-               upx_exclude=[],
-               name='_run_main')
-
-app = BUNDLE(coll,
-         name='TeachApp.app',
-         icon=None,
-         bundle_identifier="com.chevalier.teachapp.zip",
-)
