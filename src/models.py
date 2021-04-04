@@ -5,7 +5,8 @@ from scipy import spatial
 import numpy as np
 import helper as hp
 from graphics import Points, HStack
-from math import inf, sqrt, log, e
+from math import inf, sqrt, log, e, exp
+from random import random
 # from random import uniform
 
 
@@ -548,16 +549,58 @@ class SVM(SVMBase):
             pass
 
 
+class ANN(Classifier):
+
+    def __init__(self, hidden_layer=10, features=2, epoch=50, learning_rate=0.1, **kwargs):
+        super().__init__(**kwargs)
+        self.input_layer = 2
+        self.hidden_layer = hidden_layer
+        self.features = features
+
+        self.layers_shape = (self.input_layer, self.hidden_layer, self.features)
+        self.b = [np.array([random() for _ in range(self.layers_shape[i - 1])]) for i in range(len(self.layers_shape) - 1)]
+        self.w = [np.array([[random() for _ in range(self.layers_shape[i - 1])] for _ in range(self.layers_shape[i])]) for i in range(1, len(self.layers_shape))]
+
+        self.activations = [np.vectorize(self.sigmoid), np.vectorize(self.sigmoid)]
+        self.rev_activations = [np.vectorize(self.sigmoid_derivative), np.vectorize(self.sigmoid_derivative)]
+        self.epoch = epoch
+        self.learning_rate = learning_rate
+
+    def predict(self, x):
+        return self.predictLayers(x)[-1]
+
+    def predictLayers(self, x):
+        return [self.activations[i](self.w[i] @ x + self.b[i]) for i in range(len(self.layers_shape) - 1)]
+
+    def train(self):
+        for _ in range(self.epoch):
+            for x in self.table.x:
+                p = self.predictLayers(x)
+                d = (p[-1] - y) * self.sigmoid_derivative(p[-1])
+                self.w[-1] += self.p[-1].T @ d
+
+                for i in range(len(self.layers.shape) - 1, 0, -1):
+                    d = d @ self.w[i].T * self.sigmoid_derivative(self.p[i])
+                    self.w[i - 1] += self.p[i - 1].T @ d
+
+    def sigmoid(self, x):
+        return 1 / (1 + exp(-x))
+
+    def sigmoid_derivative(self, x):
+        return x * (1 - x)
+
+
 if __name__ == '__main__':
     hp.clear()
     print("Running Models MAIN")
-    # from table import Table
-    # table = Table(filePath="examples/decisionTree/small").createXXYTable()
-    # train, test = table.partition()
-    # knn = KNN(table=train, partition=0.8, k=3)
-    # print("Accuracy:", 100 * knn.accuracy(testTable=test))
-    # for _x in knn.x:
+    from table import Table
+    table = Table(filePath="examples/ann/ann_iris")
+    train, test = table.partition()
+    ann = ANN(table=train, testingTable=test)
+    ann.train
+    print("Accuracy:", ann.getScoreString())
+    # for _x in ann.x:
     #     print(_x, end=" Closest: ")
-    #     for j in knn.getNeighbor(_x):
-    #         print(knn.x[j], knn.y[j], end=" | ")
+    #     for j in ann.getNeighbor(_x):
+    #         print(ann.x[j], ann.y[j], end=" | ")
     #     print()

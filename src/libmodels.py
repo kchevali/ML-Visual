@@ -5,6 +5,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+from sklearn.neural_network import MLPClassifier
 
 
 class LibModel:
@@ -48,6 +49,21 @@ class LibSVM(SVMBase, LibModel):
             self.w = self.lib.coef_[0]
             self.b = self.lib.intercept_[0]
             self.updateGraphics()
+
+    def predict(self, x):
+        return self.lib.predict(x.reshape(1, -1))
+
+
+class LibANN(Classifier, LibModel):
+    def __init__(self, **kwargs):
+        LibModel.__init__(self, lib=MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1))
+        Classifier.__init__(self, **kwargs)
+        self.fit()
+
+    def fit(self):
+        x = self.table.dataX
+        y = self.table.dataY
+        self.lib.fit(x, y)
 
     def predict(self, x):
         return self.lib.predict(x.reshape(1, -1))

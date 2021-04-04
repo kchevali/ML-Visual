@@ -1,6 +1,7 @@
 from graphics import ZStack, VStack, Label, Rect, HStack, Grid, Button, Color, Points, Container, Image
 import helper as hp
 from base import SingleModel, MultiModel
+import numpy as np
 
 # Solo Views
 modelTitle = "Temp"
@@ -579,6 +580,42 @@ class SVMGraphView(GraphView):
         model.addGraphics(("pts3", Points(pts=[], color=model.color, ptSize=5, isConnected=True)))
         super().addModel(model)
 
+
+class ANNGraphView(GraphView):
+    def __init__(self, **kwargs):
+        super().__init__(enableIncButton=False, **kwargs)
+
+    def addModel(self, model):
+        super().addModel(model)
+        model.getGraphic("acc").setFont(text=model.getScoreString())
+
+    def clickGraph(self, sender):
+        super().clickGraph(sender)
+        if self.userPts != None:
+            x = np.array([
+                hp.map(sender.lastClickX, sender.x, sender.x + sender.getWidth(), self.models[0].minX1, self.models[0].maxX1),
+                hp.map(sender.lastClickY, sender.y, sender.y + sender.getHeight(), self.models[0].minX2, self.models[0].maxX2),
+            ])
+            pred = self.models[0].predict(x)[0]
+
+            # change color of most recent one
+            self.userPts.setColor(-1, self.models[0].table.classColors[str(pred)])
+
+    def updateUserPts(self):
+        for i in range(len(self.userPts)):
+            x1, x2, _ = self.userPts.pts[i]
+            x = [
+                hp.map(x1, -1, 1, self.models[0].minX1, self.models[0].maxX1),
+                hp.map(x2, -1, 1, self.models[0].minX2, self.models[0].maxX2),
+            ]
+            pred = self.models[0].predict(x)
+            self.userPts.setColor(i, self.models[0].table.classColors[str(pred)])
+
+    def incMethod(self, sender):
+        pass
+
+    def createIncButton(self, **kwargs):
+        pass
 # =====================================================================
 # Support classes
 # =====================================================================

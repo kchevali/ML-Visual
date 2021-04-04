@@ -2,13 +2,13 @@ from graphics import Button, Label, HStack, Color, ZStack, Rect, VStack
 import helper as hp
 from table import Table
 from models import DecisionTree, RandomForest, KNN, Linear, Logistic, SVM
-from libmodels import LibDT, LibSVM
+from libmodels import LibDT, LibSVM, LibANN
 from random import shuffle
 from elements import createLabel, createButton
 from comp import Data
 import statistics as stat
 from time import time
-from view import TableView, TreeRoom, HeaderButtons, TreeList, GraphView, KNNGraphView, SVMGraphView, LinearGraphView, TextboxView, IntroView, InfoView
+from view import TableView, TreeRoom, HeaderButtons, TreeList, GraphView, KNNGraphView, SVMGraphView, LinearGraphView, ANNGraphView, TextboxView, IntroView, InfoView
 from base import SingleModel, MultiModel
 import numpy as np
 
@@ -104,7 +104,7 @@ class MenuPage(ModelPage):
                         createLabel("Modern Models", color=Color.green),
                         self.createMenuButton(text="Decision Tree", color=Color.blue, tag=self.createDecisionTree),
                         self.createMenuButton(text="SVM", color=Color.blue, tag=self.createSVM),
-                        self.createMenuButton(text="Neural Networks", color=Color.gray),
+                        self.createMenuButton(text="Neural Networks", color=Color.blue, tag=self.createANN),
                         None
                     ], hideAllContainers=True)
                 ]),
@@ -176,6 +176,14 @@ class MenuPage(ModelPage):
             ("Linear", ExampleSVMPage),
             ("Unfit", QuadSVMPage),
             ("Coding", CodingSVMPage)
+        ])
+
+    def createANN(self):
+        return ModelPage(content=IntroANNPage(), title="Neural Network",
+                         pages=[
+            ("Intro", IntroANNPage),
+            ("Example", ExampleANNPage),
+            ("Coding", CodingANNPage)
         ])
 
     def createComp(self):
@@ -796,6 +804,58 @@ class CodingSVMPage(CodingPage):
         self.model.fit()
         self.runCodingTest(None)
         super().incMethod(sender)
+
+# ANN
+
+
+class IntroANNPage(IntroView):
+    def __init__(self):
+        description = [
+            "Welcome to the Artifical Neural Networks."
+        ]
+        super().__init__(label=Label(description, fontSize=30))
+
+
+class ExampleANNPage(MultiModel, ZStack):
+    def __init__(self):
+        MultiModel.__init__(self)
+        self.setTable(Table(filePath="examples/svm/svm_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
+        self.addCompModel(LibANN(table=self.table, testingTable=self.testingTable, color=Color.blue))
+
+        ZStack.__init__(self, [
+            VStack([
+                ANNGraphView(models=self.models, compModels=self.compModels, enableUserPts=True, hasAxis=True, hoverEnabled=True)
+                # self.createHeaderButtons()
+            ], ratios=[0.9, 0.1]),
+            TextboxView(textboxScript=[
+                ("Welcome to the ANN Simulator!", 0, 0)
+            ])
+        ])
+
+
+class CodingANNPage(CodingPage):
+    def __init__(self, **kwargs):
+        self.setTable(Table(filePath="examples/ann/ann_iris", features=2), partition=0.3)  # , constrainX=(0, 1)
+        self.setModel(LibSVM(table=self.table, testingTable=self.testingTable))
+        self.buttonOptions = ["linear", "poly", "rbf"]
+        self.buttonIndex = 0
+        # Codes
+        codes = [
+            Code("model = SVC(kernel='linear')", "Load Model", 1),
+            Code("data = pandas.read_csv('example.csv')", "Load Data", 1),
+            Code("train, test = train_test_split(data, test_size=0.3)", "Split Data", 2),
+            Code("model.fit(train,train['y'])", "Train Data", 3),
+            Code("answer = model.predict(test)", "Run Test", 4),
+            Code("return 100 * metrics.accuracy_score(test['y'], answer)", "Get Results", 5)
+        ]
+        super().__init__(codes=codes, codingFilePath="assets/svmExample.py", codingExamplePath="examples/ann/", filePrefix="ann", enableIncButton=False, **kwargs)
+        self.model.fit()
+
+    def createIncButton(self, **kwargs):
+        pass
+
+    def incMethod(self, sender):
+        pass
 
 
 class CompPage(MultiModel, ZStack):

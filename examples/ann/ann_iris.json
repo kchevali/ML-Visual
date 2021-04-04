@@ -1,0 +1,17 @@
+{
+    "target": "label",
+    "columns": [
+        "Petal Length(cm)",
+        "Petal Width(cm)"
+    ],
+    "map": [
+        {
+            "column": "class",
+            "values": {
+                "0": "setosa",
+                "1": "versicolour",
+                "2": "virginica"
+            }
+        }
+    ]
+}
