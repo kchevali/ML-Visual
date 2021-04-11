@@ -1,8 +1,9 @@
-from graphics import ZStack, VStack, Label, Rect, HStack, Grid, Button, Color, Points, Container, Image
+from graphics import ZStack, VStack, Label, Rect, HStack, Grid, Color, Points, Container, Image
 import helper as hp
 from base import SingleModel, MultiModel
 import numpy as np
 
+import pygame as pg
 # Solo Views
 modelTitle = "Temp"
 
@@ -10,29 +11,20 @@ modelTitle = "Temp"
 # Non-model based views
 # =====================================================================
 
-
-class MouseDebug(ZStack):
-    def __init__(self):
-        super().__init__([
-            Rect(color=Color.white, keywords="mRect", border=0),
-            Label(text="", fontSize=15, color=Color.black, keywords="text")
-        ], lockedWidth=80, lockedHeight=20, dx=-1, dy=1)
-
-
 class TextboxView(ZStack):
 
     def __init__(self, textboxScript=None, textboxAudioPath=None, **kwargs):
         text, dx, dy = textboxScript[0]
         soundName = textboxAudioPath + str(1) if textboxAudioPath != None else None
         label = Label(text=text, color=Color.black, fontSize=15)
-        # audio = Button(Image(imageName="audio.png", lockedWidth=50, lockedHeight=50), soundName=soundName, dx=1, dy=1, offsetX=-20, offsetY=-20, lockedWidth=60, lockedHeight=60)
+        # audio = ZStack(Image(imageName="audio.png", lockedWidth=50, lockedHeight=50), soundName=soundName, dx=1, dy=1, offsetX=-20, offsetY=-20, lockedWidth=60, lockedHeight=60)
 
         # super().__init__(items=None)
         super().__init__([
-            Button([
+            ZStack([
                 Rect(color=Color.white, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
                 label
-            ], run=self.pressTextbox)
+            ], mouseListener=self.pressTextbox)
             # audio
         ], dx=dx, dy=dy, lockedWidth=450, lockedHeight=200, hideAllContainers=True, **kwargs)
 
@@ -42,9 +34,10 @@ class TextboxView(ZStack):
         self.label = label
         # self.audio = audio
 
-    def pressTextbox(self, sender):
-        self.textboxIndex += 1
-        self.updateTextbox()
+    def pressTextbox(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            self.textboxIndex += 1
+            self.updateTextbox()
 
     def updateTextbox(self):
         if self.textboxIndex >= len(self.textboxScript):
@@ -82,10 +75,10 @@ class InfoView(VStack):
                 else:
                     labelView.setFont("Click here to learn more about: " + labelView.name)
 
-            buttons.append(Button(
+            buttons.append(ZStack(
                 Label("", dx=-1, offsetX=10, keywords="label", name=label),
                 tag=path,
-                run=hp.openFile,
+                mouseListener=hp.openFile,
                 setViewMethod=setView
             ))
 
@@ -117,7 +110,7 @@ class TableView(SingleModelView, Grid):
 
     def __init__(self, **kwargs):
         SingleModelView.__init__(self, **kwargs)
-        Grid.__init__(self, table=self.table, createCellViewMethod=self.createCellView, **kwargs)
+        Grid.__init__(self, table=self.table, createCellViewMethod=self.createCellView,mouseListener=self.scrollEvent, **kwargs)
 
     # def updateTableView(self, **kwargs):
     #     prevContainer = self.tableView.container if self.tableView != None else None
@@ -154,12 +147,10 @@ class TableView(SingleModelView, Grid):
         # self.colorTableTargets()
         # self.updateHeaderSelectionButtons()
         self.updateAll()
-
-    def scrollUp(self):
-        self.shiftTable(dy=1)
-
-    def scrollDown(self):
-        self.shiftTable(dy=-1)
+    
+    def scrollEvent(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and (event.button == 4 or event.button == 5):
+            self.shiftTable(1 if event.button == 4 else -1)
 
     def tableChange(self, colIndex, isSelect, isLock, isNewTable, reset):
         # creates infinite loop...
@@ -183,15 +174,16 @@ class HeaderButtons(SingleModelView, HStack):
     def __init__(self, **kwargs):
         SingleModelView.__init__(self, **kwargs)
         HStack.__init__(self, [
-            Button([
+            ZStack([
                 Rect(color=Color.steelBlue, strokeColor=Color.darkGray, strokeWidth=4, cornerRadius=10),
                 Label(self.table.xNames[i], fontSize=25, color=Color.white)
-            ], isOn=False, tag=i + 1, run=self.pressButton) for i in range(self.table.colCount)
+            ], state=False, tag=i + 1, mouseListener=self.pressButton) for i in range(self.table.colCount)
         ], **kwargs)
 
-    def pressButton(self, sender):
-        self.table.tableChange(self.table.selectedCol, isSelect=False)
-        self.table.tableChange(sender.tag, isSelect=sender.isOn)
+    def pressButton(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            self.table.tableChange(self.table.selectedCol, isSelect=False)
+            self.table.tableChange(sender.tag, isSelect=sender.state != True)
 
     def tableChange(self, colIndex, isSelect, isLock, isNewTable, reset):
         if reset:
@@ -209,15 +201,15 @@ class HeaderButtons(SingleModelView, HStack):
         if isLock:
             rect.strokeColor = Color.gray
             button.isDisabled = True
-            button.setOn(isOn=False)
+            button.setState(False)
         else:
             button.isDisabled = False
             if isSelect:
                 rect.strokeColor = Color.yellow
-                button.setOn(isOn=True)
+                button.setState(True)
             else:
                 rect.strokeColor = Color.darkGray
-                button.setOn(isOn=False)
+                button.setState(False)
 
         # def updateButtons(self):
         #     for button in self.getViews():
@@ -242,10 +234,10 @@ class TreeRoom(SingleModelView, VStack):
     def __init__(self, **kwargs):
         SingleModelView.__init__(self, **kwargs)
         view = Points(pts=self.model.getCircleLabelPts())
-        self.backButton = Button([
+        self.backButton = ZStack([
             Rect(color=Color.gray, isDisabled=True),
             Label(text="Back")  # , isDisabled=True
-        ], run=self.goBack, setViewMethod=self.updateBackButton)
+        ], mouseListener=self.goBack, setViewMethod=self.updateBackButton)
 
         VStack.__init__(self, items=[
             view,
@@ -282,10 +274,10 @@ class TreeRoom(SingleModelView, VStack):
 
         stack = VStack if prevStack != VStack else HStack
         label = [
-            Button(
+            ZStack(
                 Label(text="{}:{}".format(self.model.getParentColName(), self.model.getValue()), fontSize=10,
                       color=Color.white, dx=-0.95, dy=-1),
-                run=self.goBack)
+                mouseListener=self.goBack)
         ] if self.model.getParent() != None else []
 
         treeChildren = self.model.getChildren()
@@ -300,29 +292,31 @@ class TreeRoom(SingleModelView, VStack):
         self.modelBranch.setView(view=ZStack(items=label + [
             stack(items=[
                 VStack([
-                    Button(Label(text="{}:{}".format(self.model.getColName(), self.model.getChild(i).value), fontSize=10, dx=-1), run=self.goBack),
-                    Button(Points(pts=self.model.getCircleLabelPts(self.model.getChild(i).table), isConnected=False), run=self.goForward, tag=i)
+                    ZStack(Label(text="{}:{}".format(self.model.getColName(), self.model.getChild(i).value), fontSize=10, dx=-1), mouseListener=self.goBack),
+                    ZStack(Points(pts=self.model.getCircleLabelPts(self.model.getChild(i).table), isConnected=False), mouseListener=self.goForward, tag=i)
                 ], ratios=[0.05, 0.95], keywords="dotStack") for i in range(len(treeChildren))
             ], ratios=[
                 (child.table.classCount + 1) / totalClassCount for child in treeChildren
             ], border=20 if self.model.getParent() != None else 0, keywords="div")
         ], keywords=["z"]))
 
-    def goForward(self, sender):
-        if self.model.hasChildren():
-            # print("Forward: Children | Selected Col:", self.table.selectedCol)
-            self.goToChildTree(index=sender.tag)
-            # print("Forwar2: Children | Selected Col:", self.table.selectedCol)
+    def goForward(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            if self.model.hasChildren():
+                # print("Forward: Children | Selected Col:", self.table.selectedCol)
+                self.goToChildTree(index=sender.tag)
+                # print("Forwar2: Children | Selected Col:", self.table.selectedCol)
 
-            self.table.tableChange(self.table.selectedCol, isLock=True, isSelect=False, isNewTable=True)
-            self.modelBranch.getContainer().updateAll()
-            # self.updateContainers()
+                self.table.tableChange(self.table.selectedCol, isLock=True, isSelect=False, isNewTable=True)
+                self.modelBranch.getContainer().updateAll()
+                # self.updateContainers()
 
-    def goBack(self, sender):
-        if not self.model.isRoot():
-            self.goBackTree()
-            self.table.tableChange(self.table.selectedCol, isSelect=False, isNewTable=True)
-            self.table.tableChange(None, isLock=False, isSelect=True, isNewTable=True)
+    def goBack(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            if not self.model.isRoot():
+                self.goBackTree()
+                self.table.tableChange(self.table.selectedCol, isSelect=False, isNewTable=True)
+                self.table.tableChange(None, isLock=False, isSelect=True, isNewTable=True)
 
     def removeNodeTree(self):
         self.model.remove()
@@ -341,7 +335,7 @@ class TreeRoom(SingleModelView, VStack):
         # print("MOVE:", moveView)
         self.modelBranch.move(moveView)
 
-    # def selectColumn(self, sender):
+    # def selectColumn(self, sender, event, mouse):
     #     super().selectColumn(sender)
     #     rect = sender.getCousin(0)
     #     if sender.isOn:
@@ -365,18 +359,19 @@ class TreeList(SingleModelView, VStack):
 
         VStack.__init__(self, [None] * 9 + [
             self.totalScore,
-            Button([
+            ZStack([
                 Rect(color=Color.steelBlue, cornerRadius=10),
                 Label("Save Tree", fontSize=18)
-            ], run=self.saveTree, lockedHeight=50, dy=1)
+            ], mouseListener=self.saveTree, lockedHeight=50, dy=1)
         ])
 
-    def saveTree(self, sender):
-        bagItem = ZStack([
-            Rect(color=Color.steelBlue, cornerRadius=10),
-            Label(text=self.model.curr.getScoreString(), fontSize=16)
-        ], dy=1)
-        bagItem.setContainer(self[len(self.model)])
+    def saveTree(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            bagItem = ZStack([
+                Rect(color=Color.steelBlue, cornerRadius=10),
+                Label(text=self.model.curr.getScoreString(), fontSize=16)
+            ], dy=1)
+            bagItem.setContainer(self[len(self.model)])
 
         self.model.saveTree()
         self.totalScoreLabel.setFont(text="Total " + self.model.getScoreString(), fontSize=12)
@@ -412,10 +407,10 @@ class GraphView(MultiModelView, ZStack):
         # ] + self.graphics)
 
         self.graphGrid = ZStack([
-            Button([
+            ZStack([
                 Points(pts=self.table.getPts(), color=Color.green, isConnected=False),
                 self.userPts, self.legend
-            ] + self.graphics, run=self.clickGraph),
+            ] + self.graphics, mouseListener=self.clickGraph),
             self.createIncButton() if self.enableIncButton else None
         ])
 
@@ -476,34 +471,43 @@ class GraphView(MultiModelView, ZStack):
             Label(model.colNameB if isVertical else model.colNameA, fontSize=25, color=Color.white, isVertical=isVertical)
         ])
 
-    def clickGraph(self, sender):
-        if self.userPts != None:
-            dx = hp.map(sender.lastClickX, sender.x, sender.x + sender.getWidth(), -1, 1)
-            dy = hp.map(sender.lastClickY, sender.y, sender.y + sender.getHeight(), -1, 1)
-            self.userPts.addPt((dx, dy, self.models[0].color))
+    def clickGraph(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            if self.userPts != None:
+                dx = hp.map(mouse[0], sender.x, sender.x + sender.getWidth(), -1, 1)
+                dy = hp.map(mouse[1], sender.y, sender.y + sender.getHeight(), -1, 1)
+                self.userPts.addPt((dx, dy, self.models[0].color))
 
-        for model in self.models:
-            if model.isUserSet:
-                x = hp.map(sender.lastClickX, sender.x, sender.x + sender.getWidth(), model.minX1, model.maxX1)
-                y = hp.map(sender.lastClickY, sender.y, sender.y + sender.getHeight(), model.minX2, model.maxX2)
-                model.addPt(x, y)
+            for model in self.models:
+                if model.isUserSet:
+                    x = hp.map(mouse[0], sender.x, sender.x + sender.getWidth(), model.minX1, model.maxX1)
+                    y = hp.map(mouse[1], sender.y, sender.y + sender.getHeight(), model.minX2, model.maxX2)
+                    model.addPt(x, y)
+        elif event.type == None:
+            x,y = mouse
+            for model in self.models:
+                if model.isUserSet:
+                    x1 = hp.map(x, self.graphGrid.x, self.graphGrid.x + self.graphGrid.getWidth(), model.minX1, model.maxX1)
+                    y1 = hp.map(y, self.graphGrid.y, self.graphGrid.y + self.graphGrid.getHeight(), model.minX2, model.maxX2)
+                    model.addPt(x1, y1, storePt=False)
 
     def createIncButton(self, **kwargs):
         pass
 
-    def createIncMethod(self, sender):
+    def createIncMethod(self, sender, event, mouse):
         pass
 
     def createAddCompButton(self):
-        self.addCompButton = Button([
+        self.addCompButton = ZStack([
             Rect(color=Color.backgroundColor, cornerRadius=10, strokeColor=Color.steelBlue, strokeWidth=3),
             Label("ML Results", fontSize=15)
-        ], lockedWidth=150, lockedHeight=80, dx=1, dy=-1, offsetX=-10, offsetY=10, run=self.startComp)
+        ], lockedWidth=150, lockedHeight=80, dx=1, dy=-1, offsetX=-10, offsetY=10, mouseListener=self.startComp)
         return self.addCompButton
 
-    def startComp(self, sender):
-        for model in self.compModels:
-            model.startTraining()
+    def startComp(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            for model in self.compModels:
+                model.startTraining()
 
     def update(self):
         for model in self.compModels:
@@ -511,36 +515,31 @@ class GraphView(MultiModelView, ZStack):
                 model.fit()
         self.updateAll()
 
-    def hoverMouse(self, x, y):
-        if self.hoverEnabled:
-            for model in self.models:
-                if model.isUserSet:
-                    x1 = hp.map(x, self.graphGrid.x, self.graphGrid.x + self.graphGrid.getWidth(), model.minX1, model.maxX1)
-                    y1 = hp.map(y, self.graphGrid.y, self.graphGrid.y + self.graphGrid.getHeight(), model.minX2, model.maxX2)
-                    model.addPt(x1, y1, storePt=False)
-
-
 class KNNGraphView(GraphView):
     def __init__(self, **kwargs):
         super().__init__(enableIncButton=True, **kwargs)
+        self.hoverPt = Rect(Color.white,lockedWidth=15, lockedHeight=15)
+        self.addView(self.hoverPt)
 
     def addModel(self, model):
         super().addModel(model)
         model.getGraphic("acc").setFont(text=model.getScoreString())
 
-    def clickGraph(self, sender):
-        super().clickGraph(sender)
-        if self.userPts != None:
-            x = [
-                hp.map(sender.lastClickX, sender.x, sender.x + sender.getWidth(), self.models[0].minX1, self.models[0].maxX1),
-                hp.map(sender.lastClickY, sender.y, sender.y + sender.getHeight(), self.models[0].minX2, self.models[0].maxX2),
-            ]
-            pred = self.models[0].predict(x)
+    def clickGraph(self, sender, event, mouse):
+        for model in self.models:
+            color = model.table.classColors[str(model.predict([
+                hp.map(mouse[0], sender.x, sender.x + sender.getWidth(), model.minX1, model.maxX1),
+                hp.map(mouse[1], sender.y, sender.y + sender.getHeight(),model.minX2, model.maxX2),
+            ]))]
 
-            # print("CLICK:", pred, self.models[0].table.classColors[pred])
+            if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+                super().clickGraph(sender, event, mouse)
+                if self.userPts != None:
+                    self.userPts.setColor(-1, color)
 
-            # change color of most recent one
-            self.userPts.setColor(-1, self.models[0].table.classColors[str(pred)])
+            elif event.type == None:
+                self.hoverPt._setXY(mouse[0] - self.hoverPt.getWidth() / 2,mouse[1] - self.hoverPt.getHeight() / 2 )
+                self.hoverPt.color = color
 
     def updateUserPts(self):
         for i in range(len(self.userPts)):
@@ -552,21 +551,22 @@ class KNNGraphView(GraphView):
             pred = self.models[0].predict(x)
             self.userPts.setColor(i, self.models[0].table.classColors[str(pred)])
 
-    def incMethod(self, sender):
-        for model in self.models:
-            model.k += 2
-            if model.k > 10:
-                model.k = 1
-            self.incButtonLabel.setFont("K: {}".format(model.k))
-            self.updateUserPts()
+    def incMethod(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            for model in self.models:
+                model.k += 2
+                if model.k > 10:
+                    model.k = 1
+                self.incButtonLabel.setFont("K: {}".format(model.k))
+                self.updateUserPts()
 
     def createIncButton(self, **kwargs):
         for model in self.models:
             self.incButtonLabel = Label("K: {}".format(model.k))
-            return Button([
+            return ZStack([
                 Rect(color=Color.backgroundColor, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
                 self.incButtonLabel
-            ], run=self.incMethod, lockedWidth=130, lockedHeight=80, dx=1, dy=-1, ** kwargs)
+            ], mouseListener=self.incMethod, lockedWidth=130, lockedHeight=80, dx=1, dy=-1, ** kwargs)
 
 
 class LinearGraphView(GraphView):

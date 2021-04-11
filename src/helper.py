@@ -147,8 +147,9 @@ def loadJSON(filePath):
         return json.load(f)
 
 
-def openFile(sender):
-    subprocess.run(['open', resourcePath(sender.tag)], check=True)
+def openFile(sender, event, mouse):
+    if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+        subprocess.run(['open', resourcePath(sender.tag)], check=True)
 
 
 def getDisplayCoord(coord):
