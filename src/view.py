@@ -1,4 +1,4 @@
-from graphics import ZStack, VStack, Label, Rect, HStack, Grid, Color, Points, Container, Image
+from graphics import ZStack, VStack, Label, Rect, HStack, Grid, Color, Points, Container, Image, Ellipse
 import helper as hp
 from base import SingleModel, MultiModel
 import numpy as np
@@ -618,27 +618,50 @@ class ANNGraphView(GraphView):
         pass
 
 
-class PixelView(SingleModelView, ZStack):
+class PixelView(SingleModelView, VStack):
 
     def __init__(self, rows=8, cols=8, **kwargs):
         SingleModelView.__init__(self, **kwargs)
+        self.isMouseDown = False
 
-        def clickCell(sender):
-            rect = sender.getView(0)
-            v = 255 - self.values[rect.tag]
-            rect.color = (v, v, v)
-            self.values[rect.tag] = v
+        def getClicks(sender, event, mouse):
+            if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+                self.isMouseDown = True
+            elif event.type == pg.MOUSEBUTTONUP and event.button == 1:
+                self.isMouseDown = False
 
-            pred = self.model.predict(self.values)[0]
-            self.label.setFont(text="Prediction: {}".format(pred))
+        def handleMouse(sender, event, mouse):
+            if event.type == None and self.isMouseDown:
+                v = 255
+                sender.color = (v, v, v)
+                self.values[sender.tag] = v
 
-        self.grid = Grid([Button(Rect(color=Color.black, border=3, tag=i), run=clickCell) for i in range(rows * cols)], rows=rows, cols=cols, lockedWidth=300, lockedHeight=300)
+                pred = self.model.predict(self.values)[0]
+                self.label.setFont(text="Prediction: {}".format(pred))
+        
+        def resetView(sender, event, mouse):
+            if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+                self.values.fill(0)
+                for rect in self.grid.getViews():
+                    rect.color = Color.black
+            
+
+        self.grid = Grid([Rect(color=Color.black, border=3, tag=i, mouseListener=handleMouse) for i in range(rows * cols)], rows=rows, cols=cols, lockedWidth=300, lockedHeight=300, dy=-0.5)
         self.values = np.zeros((self.grid.length))
-        self.label = Label("Prediction:", dy=1)
-        ZStack.__init__(self, [
+        self.label = Label("Prediction:")
+        VStack.__init__(self, [
+            ZStack([
+                Rect(color=Color.red, cornerRadius=10),
+                Label("Reset")
+            ], lockedWidth = 300, mouseListener=resetView),
             self.grid,
-            self.label
-        ])
+            ZStack([
+                Rect(color=Color.steelBlue, cornerRadius=10),
+                self.label
+            ], lockedWidth = 300)
+        ],ratios=[0.1,0.9,0.1], mouseListener=getClicks)
+    
+    # def handleMouse(self, sender, event, mouse):
 
 # =====================================================================
 # Support classes
