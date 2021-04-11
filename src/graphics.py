@@ -18,7 +18,7 @@ class Frame:
 
     idCounter = 0
 
-    def __init__(self, name="", tag=0, keywords="", dx=0.0, dy=0.0, offsetX=0.0, offsetY=0.0, isHidden=False, hideContainer=False, hideAllContainers=False, isDraggable=False, isDisabled=False, container=None, **kwargs):
+    def __init__(self, name="", tag=0, keywords="", dx=0.0, dy=0.0, offsetX=0.0, offsetY=0.0, isHidden=False, hideContainer=False, hideAllContainers=False, isDisabled=False, container=None,mouseListener=None,keyListener=None, **kwargs):
         # INPUTS
         self.name = name
         self.tag = tag
@@ -31,7 +31,8 @@ class Frame:
         self.isDisabled = isDisabled
         self.hideContainer = hideContainer
         self.hideAllContainers = hideAllContainers
-        self.isDraggable = isDraggable
+        self.mouseListener=mouseListener
+        self.keyListener=keyListener
 
         self.container = container  # value set at the end
 
@@ -77,8 +78,6 @@ class Frame:
     def delink(self, allowButtonUpdate=True):
         if self.container != None:
             self.container.view = None
-            if self.container.isButton() and allowButtonUpdate:
-                self.container.viewBackup = None
             self.container = None
 
     def setContainer(self, container, allowButtonUpdate=True):
@@ -88,8 +87,6 @@ class Frame:
                 container.view.delink(allowButtonUpdate=allowButtonUpdate)
             self.container = container
             self.container.view = self
-            if self.container.isButton() and allowButtonUpdate:
-                self.container.viewBackup = self
 
     def replaceView(self, oldView):
         self.setContainer(container=oldView.container)
@@ -162,15 +159,27 @@ class Frame:
         for obj in self.getRootOrder():
             if obj.findKey(keyword) != None and (not excludeSelf or self != obj):
                 return obj
+    
+    def mouseEvent(self, event, mouse):
+        if not self.isDisabled and self.isWithin(*mouse):
+            # print("\n\nMouse event:",self,self.mouseListener != None)
+            if self.mouseListener != None:
+                self.mouseListener(self, event, mouse)
+            return True
+        return False
+    
+    def keyEvent(self, event):
+        if not self.isDisabled:
+            if self.keyListener != None:
+                self.keyListener(self, event)
+            return True
+        return False
 
     def isContainer(self):
         return isinstance(self, Container)
 
     def isStack(self):
         return isinstance(self, Stack)
-
-    def isButton(self):
-        return isinstance(self, Button)
 
     def getID(self):
         return (self.keywords[0] if len(self.keywords) == 1 else self.keywords) if self.keywords[0] else self.id
@@ -193,25 +202,11 @@ class Frame:
     def setSize(self, width=None, height=None):
         "Empty Method"
 
-    def hoverMouse(self, x, y):
-        "Empty Method"
-
     def update(self):
         pass
 
     def getSize(self):
         return (self.getWidth(), self.getHeight())
-
-    def scrollUp(self):
-        pass
-
-    def scrollDown(self):
-        pass
-
-    # Does not depend on isDraggable - this is asking if the container will accept the view
-    # See gui.py
-    def canDragView(self, view, container):
-        return False
 
     def display(self):
         "Empty Method"
@@ -556,12 +551,20 @@ class Container(ResizableFrame):
             if self.view != None:
                 self.view.display()
 
-    def clicked(self, x, y):
-        if self.isClicked(x, y):
-            if self.isDraggable:
-                return self
-            clickedObj = self.view.clicked(x, y) if self.view != None else None
-            return clickedObj if clickedObj != None else self
+
+    def mouseEvent(self, event, mouse):
+        if super().mouseEvent(event, mouse):
+            if self.view != None:
+                self.view.mouseEvent(event,mouse)
+            return True
+        return False
+    
+    def keyEvent(self, event):
+        if super().keyEvent(event):
+            if self.view != None:
+                self.view.keyEvent(event)
+            return True
+        return False
 
     def updateDown(self):
         super().updateDown()
@@ -608,14 +611,16 @@ class Container(ResizableFrame):
 class Stack(ResizableFrame):
 
     # init args have default values for ZStack()
-    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=[], ratiosY=[], containerArgs=[], createCellViewMethod=None, hoverEnabled=False, **kwargs):
+    def __init__(self, items=[], limit=15, cols=1, rows=1, depth=1, ratiosX=[], ratiosY=[], containerArgs=[], createCellViewMethod=None, state=None, updateViewMethod=None, **kwargs):
         super().__init__(**kwargs)
         self.buildStack(items=items, limit=limit, cols=cols, rows=rows, depth=depth, ratiosX=ratiosX, ratiosY=ratiosY,
-                        containerArgs=containerArgs, createCellViewMethod=createCellViewMethod, hoverEnabled=hoverEnabled)
+                        containerArgs=containerArgs, createCellViewMethod=createCellViewMethod, state=state, updateViewMethod=updateViewMethod)
         self.canHold = True
         self.isHidingViews = False
+        self.state = None
+        self.updateViewMethod=None
 
-    def buildStack(self, items=None, limit=None, cols=None, rows=None, depth=None, ratiosX=None, ratiosY=None, containerArgs=None, createCellViewMethod=None, hoverEnabled=None, **kwargs):
+    def buildStack(self, items=None, limit=None, cols=None, rows=None, depth=None, ratiosX=None, ratiosY=None, containerArgs=None, createCellViewMethod=None,state=None,updateViewMethod=None, **kwargs):
         if not items is None:
             self.items = items if type(items) == list or type(items) == np.ndarray else [items]
         if limit != None:
@@ -634,8 +639,10 @@ class Stack(ResizableFrame):
             self.containerArgs = containerArgs
         if createCellViewMethod != None:
             self.createCellView = createCellViewMethod
-        if hoverEnabled != None:
-            self.hoverEnabled = hoverEnabled
+        if state != None:
+            self.state = state
+        if updateViewMethod != None:
+            self.updateViewMethod = updateViewMethod
 
         self.ci, self.cj, self.ck = 0, 0, 0
         self.rows = min(self.totalRows, self.limit)
@@ -660,12 +667,16 @@ class Stack(ResizableFrame):
                     container = Container(view=view, container=self,
                                           ratioX=1.0 / self.cols if len(self.ratiosX) == 0 else self.ratiosX[index],
                                           ratioY=1.0 / self.rows if len(self.ratiosY) == 0 else self.ratiosY[index],
-                                          **self.containerArgs[index] if index < len(self.containerArgs) else {})
+                                          **((self.containerArgs[index] if index < len(self.containerArgs) else {}) if type(self.containerArgs) is list else self.containerArgs))
                     self.containers.append(container)
 
     def createCellView(self, selfObj, index):
         return self.items[index]
 
+    def setState(self, state=None):
+        self.state=state
+        if self.updateViewMethod != None:
+            self.updateViewMethod(self)
     # def isSelected(self, i, j, k):
     #     return self.selectedRow == i or self.selectedCol == j or self.selectedDepth == k
 
@@ -688,16 +699,20 @@ class Stack(ResizableFrame):
             super().display()
             for container in self.containers:
                 container.display()
-
-    def clicked(self, x, y):
-        if self.isClicked(x, y):
-            if self.isDraggable:
-                return self
-            for view in self.getRevViews():
-                clickedObj = view.clicked(x, y)
-                if clickedObj != None:
-                    return clickedObj
-            return self
+    
+    def mouseEvent(self, event, mouse):
+        if super().mouseEvent(event, mouse):
+            for container in self.containers:
+                container.mouseEvent(event, mouse)
+            return True
+        return False
+    
+    def keyEvent(self, event):
+        if super().keyEvent(event):
+            for container in self.containers:
+                container.keyEvent(event)
+            return True
+        return False
 
     def updateDown(self):
         super().updateDown()
@@ -787,24 +802,6 @@ class Stack(ResizableFrame):
             if view.isContainer() and view.view == None and view.isWithin(x, y):
                 yield view
 
-    def canDragView(self, view, container):
-        if(super().canDragView(view, container)):
-            return True
-        for c in self.containers:
-            if c.view != None and c.view.canDragView(view, container):
-                return True
-        return False
-
-    def draggedView(self, view):
-        for c in self.containers:
-            if c.view != None:
-                c.view.draggedView(view=view)
-
-    def hoverMouse(self, x, y):
-        for c in self.containers:
-            if c.view != None:
-                c.view.hoverMouse(x, y)
-
     def getView(self, key):
         return self.containers[key].view
 
@@ -842,16 +839,6 @@ class Stack(ResizableFrame):
 
     def peekView(self):
         return self.containers[-1].view
-
-    def scrollUp(self):
-        for view in self.getViews():
-            if view != None:
-                view.scrollUp()
-
-    def scrollDown(self):
-        for view in self.getViews():
-            if view != None:
-                view.scrollDown()
 
     def update(self):  # used in linear regression example page
         for c in self.containers:
@@ -1027,74 +1014,6 @@ class ZStack(Stack):
 
     def __getitem__(self, key):
         return super().__getitem__(key)
-
-
-class Button(ZStack):
-    def __init__(self, items, run=None, isOn=True, setViewMethod=None, clickHoldTime=0.5, soundName="click", volume=0.02, **kwargs):
-        super().__init__(items=items, **kwargs)
-        self.run = run
-        self.setViewMethod = setViewMethod
-        self.clickedTime = None
-        self.clickHoldTime = clickHoldTime
-        self.isOn = None
-        self.setOn(isOn=isOn)
-        self.lastClickX = 0
-        self.lastClickY = 0
-        self.setSoundName(soundName=soundName, volume=volume)
-
-    def setSoundName(self, soundName, volume=0.02):
-        if soundName != None:
-            path = hp.resourcePath("assets/audio/" + soundName + ".wav")
-            try:
-                self.sound = Sound(path)
-            except:
-                raise Exception("Cannot find audio file at: " + path)
-            self.sound.set_volume(volume)
-        else:
-            self.sound = None
-
-    def display(self):
-        if not self.isHidden:
-            # pg.draw.rect(g, Color.red, (self.x, self.y, self.getWidth(), self.getHeight()))
-            if self.clickedTime and time() - self.clickedTime > self.clickHoldTime:
-                self.clickedTime = None
-                self.setOn(None)  # force update
-            super().display()
-
-    def clicked(self, x, y):
-        if self.clickedTime == None and self.isClicked(x, y):
-            self.lastClickX = x
-            self.lastClickY = y
-            self.isOn = not self.isOn
-            self.clickedTime = time()
-            self.runSetView()
-            if self.sound != None:
-                Sound.play(self.sound)
-            if self.run != None:
-                self.run(self)
-            if self.isDraggable:
-                return self
-            return False  # Nothing else can be clicked above in the hiearchy(False != None)
-
-    def setOn(self, isOn):
-        if self.isOn != isOn:
-            if isOn != None:
-                self.isOn = isOn
-            self.runSetView()
-            # (self.viewBackup if self.isOn or self.toggleView == True else self.toggleView).setContainer(container=self, allowButtonUpdate=False)
-
-    def runSetView(self):
-        if self.setViewMethod != None:
-            self.setViewMethod(self)
-            stack = self.getParentStack()
-            if stack != None:
-                stack.updateAll()
-
-    def isAlt(self):
-        return self.clickedTime != None
-
-    def __str__(self, indent=""):
-        return "Button-{}".format(super().__str__(indent=indent))
 
 
 if __name__ == '__main__':

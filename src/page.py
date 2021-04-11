@@ -1,16 +1,16 @@
-from graphics import Button, Label, HStack, Color, ZStack, Rect, VStack
+from graphics import Label, HStack, Color, ZStack, Rect, VStack
 import helper as hp
 from table import Table
 from models import DecisionTree, RandomForest, KNN, Linear, Logistic, SVM
 from libmodels import LibDT, LibSVM
 from random import shuffle
-from elements import createLabel, createButton
 from comp import Data
 import statistics as stat
 from time import time
 from view import TableView, TreeRoom, HeaderButtons, TreeList, GraphView, KNNGraphView, SVMGraphView, LinearGraphView, TextboxView, IntroView, InfoView
 from base import SingleModel, MultiModel
 import numpy as np
+import pygame as pg
 
 
 modelTitle = ""
@@ -38,7 +38,11 @@ class ModelPage(VStack):
         self.content.modelPage = self
 
         items = [
-            createLabel(self.title, views=[Button(Label("<"), run=self.replaceSelf, tag=MenuPage, lockedWidth=40, lockedHeight=40, dx=-1, offsetX=20) if type(self) != MenuPage else None]),
+            ZStack([
+                Rect(color=Color.steelBlue, cornerRadius=10),
+                Label(self.title),
+                Label("<", lockedWidth=40, lockedHeight=40, dx=-1, offsetX=20) if type(self) != MenuPage else None
+            ],mouseListener=self.replaceSelf, tag=MenuPage),
             HStack([
                 self.createTaskList(),
                 self.content
@@ -49,38 +53,27 @@ class ModelPage(VStack):
 
     def createTaskList(self):
         return VStack([
-            createButton(text=task, color=Color.orange, tag=page, run=self.replaceContent) for task, page in self.pages
+            ZStack([
+                Rect(color=Color.orange, cornerRadius=10),
+                Label(task, tag=page, mouseListener=self.replaceContent)
+            ]) for task, page in self.pages
         ] + [None] * (self.taskListLength - len(self.pages)), ratios=[1.0 / self.taskListLength] * self.taskListLength)
-
-    def draggedView(self, view):
-        return self.content.draggedView(view=view)
-
-    def canDragView(self, view, container):
-        return self.content.canDragView(view, container)
-
-    def scrollUp(self):
-        self.content.scrollUp()
-
-    def scrollDown(self):
-        self.content.scrollDown()
 
     def update(self):
         self.content.update()
 
-    def replaceContent(self, sender):
-        self.content = sender.tag().replaceView(self.content)
-        self.content.container.updateAll()
+    def replaceContent(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            self.content = sender.tag().replaceView(self.content)
+            self.content.container.updateAll()
 
-    def replaceSelf(self, sender):
+    def replaceSelf(self, sender, event, mouse):
         global modelTitle
-        if sender.tag != None:
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1 and sender.tag != None:
             self.content = sender.tag().replaceView(self)
             modelTitle = self.content.title
             self.content.container.updateAll()
             # self.content.updateAll()
-
-    def hoverMouse(self, x, y):
-        self.content.hoverMouse(x, y)
 
 
 class MenuPage(ModelPage):
@@ -94,14 +87,20 @@ class MenuPage(ModelPage):
             VStack([
                 HStack([
                     VStack([
-                        createLabel(text="Classical Models", color=Color.green),
+                        ZStack([
+                            Rect(color=Color.green, cornerRadius=10),
+                            Label(text="Classical Models")
+                        ]),
                         self.createMenuButton(text="KNN", color=Color.red, tag=self.createKNN),
                         self.createMenuButton(text="Linear Regression", color=Color.red, tag=self.createLinear),
                         self.createMenuButton(text="Logistic Regression", color=Color.red, tag=self.createLogistic),
                         None
                     ], hideAllContainers=True),
                     VStack([
-                        createLabel("Modern Models", color=Color.green),
+                        ZStack([
+                            Rect(color=Color.green, cornerRadius=10),
+                            Label(text="Modern Models")
+                        ]),
                         self.createMenuButton(text="Decision Tree", color=Color.blue, tag=self.createDecisionTree),
                         self.createMenuButton(text="SVM", color=Color.blue, tag=self.createSVM),
                         self.createMenuButton(text="Neural Networks", color=Color.gray),
@@ -128,7 +127,10 @@ class MenuPage(ModelPage):
         ], ratios=[0.45, 0.45, 0.1]), "Spring 2021 CSCI 3302 | Dr. Zhu"
 
     def createMenuButton(self, text, color, tag=None):
-        return createButton(text=text, color=color, tag=tag, fontSize=35, run=self.replaceSelf, hideAllContainers=True)
+        return ZStack([
+            Rect(color=color, cornerRadius=10),
+            Label(text=text, fontSize=35)
+        ], mouseListener=self.replaceSelf, hideAllContainers=True, tag=tag)
 
     def createDecisionTree(self):
         return ModelPage(content=IntroDTPage(), title="Decision Tree",
@@ -199,6 +201,7 @@ class CodingPage(SingleModel, ZStack):
         self.codingExamplePath = codingExamplePath
         self.filePrefix = filePrefix
         self.enableIncButton = enableIncButton
+        self.dragObj = None
 
         ZStack.__init__(self, [
             VStack([
@@ -216,27 +219,27 @@ class CodingPage(SingleModel, ZStack):
                 (["Once you successfully set the code blocks,",
                     "add some trees and run your code!"], 0, 0)
             ])
-        ], **kwargs)
+        ],mouseListener=self.updateDrag, **kwargs)
 
-    def incMethod(self, sender):
+    def incMethod(self, sender, event, mouse):
         pass
 
     def createIncButton(self, text, **kwargs):
         self.incButtonLabel = Label(text)
-        return Button([
+        return ZStack([
             Rect(color=Color.backgroundColor, strokeColor=Color.steelBlue, strokeWidth=3, cornerRadius=10),
             self.incButtonLabel
-        ], run=self.incMethod, lockedWidth=130, lockedHeight=80, dx=1, dy=-1, ** kwargs)
+        ], mouseListener=self.incMethod, lockedWidth=130, lockedHeight=80, dx=1, dy=-1, ** kwargs)
 
     def updateScoreLabel(self):
         self.codingScoreLabel.setFont(text=self.model.getScoreString())
 
     def createCodingHeader(self):
         self.codingRunRect = Rect(color=Color.gray, cornerRadius=10)
-        self.codingRunButton = Button([
+        self.codingRunButton = ZStack([
             self.codingRunRect,
             Label("Run")
-        ], hideAllContainers=True, lockedWidth=240, run=self.runCodingTest, isDisabled=True)
+        ], hideAllContainers=True, lockedWidth=240, mouseListener=self.runCodingTest, isDisabled=True)
 
         self.codingScoreLabel = Label(self.model.defaultScoreString())
         self.codingHeader = HStack([
@@ -246,16 +249,58 @@ class CodingPage(SingleModel, ZStack):
         ], ratios=[0.5, 0.25, 0.25])
         return self.codingHeader
 
+    def startDrag(self, sender, event, mouse):
+        """
+        Sender is the draggable item
+        """
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            print("Start Drag: ",sender)
+            self.dragObj = sender
+    
+    def updateDrag(self, sender, event, mouse):
+        if event.type == None and self.dragObj != None:
+            dx, dy = hp.calcAlignment(x=mouse[0] - self.dragObj.container.x - self.dragObj.getWidth() // 2, y=mouse[1] - self.dragObj.container.y - self.dragObj.getHeight() // 2, dw=self.dragObj.container.getWidth() -
+                                      self.dragObj.getWidth(), dh=self.dragObj.container.getHeight() - self.dragObj.getHeight(), isX=True, isY=True)
+            self.dragObj.setAlignment(dx=dx, dy=dy)
+            self.dragObj.updateAll()
+        
+    def endDrag(self, sender, event, mouse):
+        """
+        Sender is the container that is accepting the drag obj
+        """
+        if event.type == pg.MOUSEBUTTONUP and self.dragObj != None:
+            print("Release Drag:",sender)
+            if sender.getParentStack().name == "left" or sender.tag == self.dragObj.tag.order:
+                self.dragObj.setContainer(sender)
+                stack = self.dragObj.getParentStack()
+                label = self.dragObj.keyDown("label")
+                isLeftStack = stack.name == "left"
+
+                label.setFont(text=self.dragObj.tag.label if isLeftStack else self.dragObj.tag.line, fontSize=22)
+                self.dragObj.lock(lockedWidth=label.getWidth() + 60)
+
+                success = True
+                for stackView in self.rightStack.getViews():
+                    if stackView == None:
+                        success = False
+                        break
+                self.codingRunRect.color = Color.green if success else Color.gray
+                self.codingRunButton.isDisabled = not success
+
+            self.dragObj.setAlignment(dx=0.0, dy=0.0)
+            self.dragObj.container.updateAll()
+            self.dragObj = None
+
     def createCodingTable(self):
         codeViews = [
             ZStack([
                 Rect(color=Color.steelBlue, keywords="rect", cornerRadius=10),
                 Label(code.label, keywords="label")
-            ], isDraggable=True, tag=code, keywords="codeStack", lockedWidth=200, lockedHeight=60, hideAllContainers=True)for code in self.codes
+            ],mouseListener=self.startDrag, tag=code, keywords="codeStack", lockedWidth=200, lockedHeight=60, hideAllContainers=True)for code in self.codes
         ]
         shuffle(codeViews)
-        self.leftStack = VStack(codeViews, name="left", containerArgs=[{"showEmpty": True}])
-        self.rightStack = VStack([None] * len(self.codes), name="right", containerArgs=[{"showEmpty": True, "tag": code.order} for code in self.codes])
+        self.leftStack = VStack(codeViews, name="left", containerArgs={"mouseListener": self.endDrag, "showEmpty": True}) #, containerArgs=[{"showEmpty": True}]
+        self.rightStack = VStack([None] * len(self.codes), name="right", containerArgs=[{"mouseListener": self.endDrag, "tag": code.order, "showEmpty": True} for code in self.codes])
 
         self.codingTable = HStack([
             self.leftStack,
@@ -280,59 +325,40 @@ class CodingPage(SingleModel, ZStack):
         ])
         return self.codingOptions
 
-    def canDragView(self, view, container):
-        return container.getParentStack().name == "left" or container.tag == view.tag.order
-
-    def draggedView(self, view):
-
-        stack = view.getParentStack()
-        label = view.keyDown("label")
-        isLeftStack = stack.name == "left"
-
-        label.setFont(text=view.tag.label if isLeftStack else view.tag.line, fontSize=22)
-        view.lock(lockedWidth=label.getWidth() + 60)
-
-        success = True
-        for stackView in self.rightStack.getViews():
-            if stackView == None:
-                success = False
-                break
-        self.codingRunRect.color = Color.green if success else Color.gray
-        self.codingRunButton.isDisabled = not success
-
     def createFileNameView(self):
         self.fileLabel = Label("File: " + self.table.fileName, fontSize=15, dx=-1, dy=1, offsetX=5, offsetY=-5)
         return self.fileLabel
 
     def createOpenSpreadsheetView(self):
-        self.openSpreadsheetButton = Button([
+        self.openSpreadsheetButton = ZStack([
             Rect(Color.green, cornerRadius=10),
             Label("Open Excel")
-        ], run=hp.openFile, tag=self.table.filePath + ".csv", lockedWidth=200)
+        ], mouseListener=hp.openFile, tag=self.table.filePath + ".csv", lockedWidth=200)
         return self.openSpreadsheetButton
 
     def createCodingFileView(self):
-        return Button([
+        return ZStack([
             Rect(Color.green, cornerRadius=10),
             Label("Open Code")
-        ], run=hp.openFile, tag=self.codingFilePath, lockedWidth=200)
+        ], mouseListener=hp.openFile, tag=self.codingFilePath, lockedWidth=200)
 
     def createOpenFilePath(self):
-        return Button([
+        return ZStack([
             Rect(Color.green, cornerRadius=10),
             Label("Select Data File")
-        ], run=self.showFileExplorer, lockedWidth=200)
+        ], mouseListener=self.showFileExplorer, lockedWidth=200)
 
-    def showFileExplorer(self, sender):
-        view = ZStack([
-            self.createFileExplorerView(),
-            Button([
-                Rect(Color.red, cornerRadius=10),
-                Label("Close", fontSize=25)
-            ], dy=1, lockedWidth=80, lockedHeight=60, offsetY=-50, run=self.hideFileExplorer)
-        ])
-        self.addView(view)
-        self.updateAll()
+    def showFileExplorer(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            view = ZStack([
+                self.createFileExplorerView(),
+                ZStack([
+                    Rect(Color.red, cornerRadius=10),
+                    Label("Close", fontSize=25)
+                ], dy=1, lockedWidth=80, lockedHeight=60, offsetY=-50, mouseListener=self.hideFileExplorer)
+            ])
+            self.addView(view)
+            self.updateAll()
 
     def createFileExplorerView(self):
         length = 10
@@ -344,29 +370,32 @@ class CodingPage(SingleModel, ZStack):
                     Rect(color=Color.steelBlue, cornerRadius=10),
                     Label("Files", fontSize=35)
                 ])] + [
-                Button([
+                ZStack([
                     Rect(color=Color.steelBlue, cornerRadius=10),
                     Label(fileName.split(".")[0], fontSize=25)
-                ], name=fileName, lockedWidth=150, run=self.newDataFile) for fileName in files
+                ], name=fileName, lockedWidth=150, mouseListener=self.newDataFile) for fileName in files
             ] + [None] * (10 - len(files) - 1), ratios=[1.0 / length] * length)
         ], lockedWidth=350, lockedHeight=600)
         return self.fileExplorer
 
-    def hideFileExplorer(self, sender):
-        self.popView()
-        self.updateAll()
+    def hideFileExplorer(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            self.popView()
+            self.updateAll()
 
-    def runCodingTest(self, sender):
-        self.updateScoreLabel()
-        self.codingScoreLabel.container.updateAll()
+    def runCodingTest(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            self.updateScoreLabel()
+            self.codingScoreLabel.container.updateAll()
 
-    def newDataFile(self, sender):
-        filePath = self.codingExamplePath + sender.name
-        self.setTable(table=Table(filePath=filePath), partition=self.partition)
-        self.model.setTable(table=self.table, testingTable=self.testingTable)
-        self.fileLabel.setFont(text="File: " + self.table.fileName)
-        self.codingScoreLabel.setFont(text=self.model.defaultScoreString())
-        self.openSpreadsheetButton.tag = self.table.filePath + ".csv"
+    def newDataFile(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            filePath = self.codingExamplePath + sender.name
+            self.setTable(table=Table(filePath=filePath), partition=self.partition)
+            self.model.setTable(table=self.table, testingTable=self.testingTable)
+            self.fileLabel.setFont(text="File: " + self.table.fileName)
+            self.codingScoreLabel.setFont(text=self.model.defaultScoreString())
+            self.openSpreadsheetButton.tag = self.table.filePath + ".csv"
 
 
 # =====================================================================
@@ -472,16 +501,17 @@ class CodingDTPage(CodingPage):
         pass
         # return super().createIncButton(text="Trees: {}".format(len(self.model.trees)))
 
-    def incMethod(self, sender):
+    def incMethod(self, sender, event, mouse):
         pass
 
     def updateScoreLabel(self):
         self.codingScoreLabel.setFont(text="Acc: {}%".format(round(100 * self.randValue, 2)))
 
-    def newDataFile(self, sender):
-        super().newDataFile(sender)
-        from random import uniform
-        self.randValue = uniform(0.9, 0.96)
+    def newDataFile(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            super().newDataFile(sender, event, mouse)
+            from random import uniform
+            self.randValue = uniform(0.9, 0.96)
 
 
 class InfoDTPage(InfoView):
@@ -537,12 +567,13 @@ class CodingKNNPage(CodingPage):
     def createIncButton(self, **kwargs):
         return super().createIncButton("K: {}".format(self.model.k))
 
-    def incMethod(self, sender):
-        self.model.k += 2
-        if self.model.k > 10:
-            self.model.k = 1
-        self.incButtonLabel.setFont("K: {}".format(self.model.k))
-        super().incMethod(sender)
+    def incMethod(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            self.model.k += 2
+            if self.model.k > 10:
+                self.model.k = 1
+            self.incButtonLabel.setFont("K: {}".format(self.model.k))
+            super().incMethod(sender, event, mouse)
 
 
 class InfoKNNPage(InfoView):
@@ -575,13 +606,13 @@ class ExampleLinearPage(MultiModel, ZStack):
         self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=1, color=Color.blue))
         ZStack.__init__(self, [
             VStack([
-                LinearGraphView(models=self.models, compModels=self.compModels, hasAxis=True, hoverEnabled=True)
+                LinearGraphView(models=self.models, compModels=self.compModels, hasAxis=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
                 ("Welcome to the Linear Regression Simulator!", 0, 0)
             ])
-        ], hoverEnabled=True)
+        ])
         # self.updateHeaderSelectionButtons()
         # print(view)
 
@@ -594,13 +625,13 @@ class QuadLinearPage(MultiModel, ZStack):
         self.addCompModel(Linear(table=self.table, testingTable=self.testingTable, n=2, color=Color.blue, alpha=1e-5, epsilon=1e-1))
         ZStack.__init__(self, [
             VStack([
-                LinearGraphView(models=self.models, compModels=self.compModels, hasAxis=True, hoverEnabled=True)
+                LinearGraphView(models=self.models, compModels=self.compModels, hasAxis=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
                 ("Welcome to the Linear Regression Simulator!", 0, 0)
             ])
-        ], hoverEnabled=True)
+        ])
         # self.updateHeaderSelectionButtons()
         # print(view)
 
@@ -646,14 +677,15 @@ class CodingLinearPage(CodingPage):
     def createIncButton(self, **kwargs):
         return super().createIncButton(text="N: {}".format(self.model.n))
 
-    def incMethod(self, sender):
-        self.model.n += 1
-        if self.model.n > 2:
-            self.model.n = 1
-        self.incButtonLabel.setFont("N: {}".format(self.model.n))
-        self.model.reset()
-        self.model.startTraining()
-        super().incMethod(sender)
+    def incMethod(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            self.model.n += 1
+            if self.model.n > 2:
+                self.model.n = 1
+            self.incButtonLabel.setFont("N: {}".format(self.model.n))
+            self.model.reset()
+            self.model.startTraining()
+            super().incMethod(sender, event, mouse)
 
 
 class InfoLinearPage(InfoView):
@@ -684,13 +716,13 @@ class ExampleLogisticPage(MultiModel, ZStack):
         self.addModel(Logistic(table=self.table, testingTable=self.testingTable, isUserSet=True))
         ZStack.__init__(self, [
             VStack([
-                GraphView(models=self.models, hasAxis=True, hoverEnabled=True)
+                GraphView(models=self.models, hasAxis=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
                 ("Welcome to the Logistic Regression Simulator!", 0, 0)
             ])
-        ], hoverEnabled=True)
+        ])
 
 
 class CodingLogisticPage(CodingPage):
@@ -741,7 +773,7 @@ class ExampleSVMPage(MultiModel, ZStack):
 
         ZStack.__init__(self, [
             VStack([
-                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=True)
+                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
@@ -758,7 +790,7 @@ class QuadSVMPage(MultiModel, ZStack):
         self.addCompModel(LibSVM(table=self.table, testingTable=self.testingTable, color=Color.blue))
         ZStack.__init__(self, [
             VStack([
-                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True, hoverEnabled=True)
+                SVMGraphView(models=self.models, compModels=self.compModels, enableUserPts=False, hasAxis=True)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[
@@ -788,14 +820,15 @@ class CodingSVMPage(CodingPage):
     def createIncButton(self, **kwargs):
         return super().createIncButton(text="{}".format(self.buttonOptions[self.buttonIndex]))
 
-    def incMethod(self, sender):
-        self.buttonIndex = (self.buttonIndex + 1) % len(self.buttonOptions)
-        kernel = self.buttonOptions[self.buttonIndex]
-        self.incButtonLabel.setFont("{}".format(kernel))
-        self.setModel(LibSVM(kernel=kernel, table=self.table, testingTable=self.testingTable))
-        self.model.fit()
-        self.runCodingTest(None)
-        super().incMethod(sender)
+    def incMethod(self, sender, event, mouse):
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            self.buttonIndex = (self.buttonIndex + 1) % len(self.buttonOptions)
+            kernel = self.buttonOptions[self.buttonIndex]
+            self.incButtonLabel.setFont("{}".format(kernel))
+            self.setModel(LibSVM(kernel=kernel, table=self.table, testingTable=self.testingTable))
+            self.model.fit()
+            self.runCodingTest(sender, event, mouse)
+            super().incMethod(sender)
 
 
 class CompPage(MultiModel, ZStack):

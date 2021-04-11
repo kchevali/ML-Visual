@@ -188,7 +188,7 @@ class Table:
             # can't lock/select a none colIndex or unlock nothing
             # you can select what you unlock though
             if ((isLock or (isLock != False and isSelect)) and colIndex == None) or (isLock == False and len(self.lockedCols) == 0) or (isSelect == False and self.selectedCol == None):
-                # print("Fail Change | Cond 1:", ((isLock or isSelect) and column == None), "Cond 2:", (isLock == False and len(self.lockedCols) == 0), "Cond 3:", (isSelect == False and self.selectedCol == None))
+                # print("Fail Change | Cond 1:", (isLock or (isLock != False and isSelect)) and colIndex == None, "Cond 2:", (isLock == False and len(self.lockedCols) == 0), "Cond 3:", (isSelect == False and self.selectedCol == None))
                 return
 
             if isLock:
