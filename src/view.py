@@ -100,7 +100,7 @@ class InfoView(VStack):
 class SingleModelView(SingleModel):
     def __init__(self, model, **kwargs):
         super().__init__(model=model, table=model.table, **kwargs)
-        self.table.addGraphic(self)
+        # self.table.addGraphic(self)
 
 
 class MultiModelView(MultiModel):
@@ -616,6 +616,30 @@ class ANNGraphView(GraphView):
 
     def createIncButton(self, **kwargs):
         pass
+
+
+class PixelView(SingleModelView, ZStack):
+
+    def __init__(self, rows=8, cols=8, **kwargs):
+        SingleModelView.__init__(self, **kwargs)
+
+        def clickCell(sender):
+            rect = sender.getView(0)
+            v = 255 - self.values[rect.tag]
+            rect.color = (v, v, v)
+            self.values[rect.tag] = v
+
+            pred = self.model.predict(self.values)[0]
+            self.label.setFont(text="Prediction: {}".format(pred))
+
+        self.grid = Grid([Button(Rect(color=Color.black, border=3, tag=i), run=clickCell) for i in range(rows * cols)], rows=rows, cols=cols, lockedWidth=300, lockedHeight=300)
+        self.values = np.zeros((self.grid.length))
+        self.label = Label("Prediction:", dy=1)
+        ZStack.__init__(self, [
+            self.grid,
+            self.label
+        ])
+
 # =====================================================================
 # Support classes
 # =====================================================================

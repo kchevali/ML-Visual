@@ -20,8 +20,8 @@ class Model:
     def setTable(self, table, testingTable=None, isReset=True):
         self.table = table
         self.testingTable = testingTable
-        self.minX1, self.maxX1 = self.table.minX1, self.table.maxX1
-        self.minX2, self.maxX2 = self.table.minX2, self.table.maxX2
+        # self.minX1, self.maxX1 = self.table.minX1, self.table.maxX1
+        # self.minX2, self.maxX2 = self.table.minX2, self.table.maxX2
         if isReset:
             self.reset()
 
@@ -141,7 +141,10 @@ class Classifier(Model):
     # takes multiple features and outputs a categorical data
     def __init__(self, **kwargs):
         super().__init__(isLinear=False, isConnected=False, isClassification=True, **kwargs)
-        self.colNameA, self.colNameB = self.table.xNames[0], self.table.xNames[1]
+        # if len(self.table.xNames) > 0:
+        #     self.colNameA = self.table.xNames[0]
+        #     if len(self.table.xNames) > 1:
+        #         self.colNameB = self.table.xNames[1]
 
     def accuracy(self, testTable):
         if testTable == None:

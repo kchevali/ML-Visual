@@ -51,7 +51,11 @@ class Table:
 
         # process data frame
         self.data = df if df is not None else (pd.read_csv(hp.resourcePath(self.filePath + ".csv")) if self.filePath != None else pd.DataFrame(data=numpy, columns=self.colNames))
-        self.data = self.data.drop_duplicates(self.colNames)
+        try:
+            # this will only succeed if the data is hashable
+            self.data = self.data.drop_duplicates(self.colNames)
+        except:
+            pass
         self.data = self.data[self.colNames]
         # print("Table Length:", len(self.data.index))
 
@@ -74,27 +78,38 @@ class Table:
         self.y = self.y.reshape([self.y.shape[0], 1])
         self.x = self.dataX.to_numpy()
 
-        self.classSet = self.dataY.unique()
-        self.classCount = len(self.classSet)
+        try:
+            # this will only succeed if the data is hashable
+            self.classSet = self.dataY.unique()
+            self.classCount = len(self.classSet)
+            self.isBoolCol = [self.data[colName].isin([0, 1]).all() for colName in self.colNames]
+
+            if classColors != None:
+                self.classColors = classColors
+            else:
+                self.classColors = {}
+                i = 0
+                for label in sorted(list(self.classSet)):
+                    # using str(label) because Table.flatten() is used for Grid.items and it may convert to string
+                    self.classColors[str(label)] = hp.calmColor(i / self.classCount)
+                    i += 1
+        except:
+            self.classSet = None
+            self.classCount = 0
+            self.isBoolCol = []
+            self.classColors = {}
+
         self.rowCount = len(self.data.index)  # total rows of data
         self.colCount = len(self.xNames)  # does not include target
-        self.isBoolCol = [self.data[colName].isin([0, 1]).all() for colName in self.colNames]
 
-        self.minX1 = self.data[self.xNames[0]].min()
-        self.maxX1 = self.data[self.xNames[0]].max()
-        x2Name = self.yName if self.features == 1 else self.xNames[1]
-        self.minX2 = self.data[x2Name].min()
-        self.maxX2 = self.data[x2Name].max()
-
-        if classColors != None:
-            self.classColors = classColors
-        else:
-            self.classColors = {}
-            i = 0
-            for label in sorted(list(self.classSet)):
-                # using str(label) because Table.flatten() is used for Grid.items and it may convert to string
-                self.classColors[str(label)] = hp.calmColor(i / self.classCount)
-                i += 1
+        try:
+            self.minX1 = self.data[self.xNames[0]].min()
+            self.maxX1 = self.data[self.xNames[0]].max()
+            x2Name = self.yName if self.features == 1 else self.xNames[1]
+            self.minX2 = self.data[x2Name].min()
+            self.maxX2 = self.data[x2Name].max()
+        except:
+            pass
 
         # self.selectedRow = None
         self.selectedCol = None  # index
@@ -232,6 +247,34 @@ class Table:
 
     def __getitem__(self, column):
         return self.data[column]
+
+
+class Table2D:
+    """
+    This object will store a 2D numpy array (x) and a 1D numpy array (y)
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.init(*args, **kwargs)
+
+    def init(self, x, y):
+        self.x = x
+        self.y = y
+        self.shuffle()
+
+    def partition(self, testing=0.3):
+        length = int(len(self.x) * testing)
+        return Table2D(self.x[:length], self.y[:length]), Table2D(self.x[length:], self.y[length:])
+
+    def shuffle(self):
+        shuffler = np.random.permutation(len(self.x))
+        self.x = self.x[shuffler]
+        self.y = self.y[shuffler]
+
+    def digitsDataset():
+        from sklearn.datasets import load_digits
+        digits = load_digits()
+        return Table2D(digits.data, digits.target)
 
 
 if __name__ == '__main__':

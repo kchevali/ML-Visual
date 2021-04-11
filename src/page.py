@@ -1,6 +1,6 @@
 from graphics import Button, Label, HStack, Color, ZStack, Rect, VStack
 import helper as hp
-from table import Table
+from table import Table, Table2D
 from models import DecisionTree, RandomForest, KNN, Linear, Logistic, SVM
 from libmodels import LibDT, LibSVM, LibANN
 from random import shuffle
@@ -8,13 +8,13 @@ from elements import createLabel, createButton
 from comp import Data
 import statistics as stat
 from time import time
-from view import TableView, TreeRoom, HeaderButtons, TreeList, GraphView, KNNGraphView, SVMGraphView, LinearGraphView, ANNGraphView, TextboxView, IntroView, InfoView
+from view import TableView, TreeRoom, HeaderButtons, TreeList, GraphView, KNNGraphView, SVMGraphView, LinearGraphView, ANNGraphView, TextboxView, IntroView, InfoView, PixelView
 from base import SingleModel, MultiModel
 import numpy as np
 
 
 modelTitle = ""
-version = "1.1.0"
+version = "1.2.0"
 
 
 # =====================================================================
@@ -182,7 +182,7 @@ class MenuPage(ModelPage):
         return ModelPage(content=IntroANNPage(), title="Neural Network",
                          pages=[
             ("Intro", IntroANNPage),
-            ("Example", ExampleANNPage),
+            ("Example", DigitsANNPage),
             ("Coding", CodingANNPage)
         ])
 
@@ -825,6 +825,23 @@ class ExampleANNPage(MultiModel, ZStack):
         ZStack.__init__(self, [
             VStack([
                 ANNGraphView(models=self.models, compModels=self.compModels, enableUserPts=True, hasAxis=True, hoverEnabled=True)
+                # self.createHeaderButtons()
+            ], ratios=[0.9, 0.1]),
+            TextboxView(textboxScript=[
+                ("Welcome to the ANN Simulator!", 0, 0)
+            ])
+        ])
+
+
+class DigitsANNPage(SingleModel, ZStack):
+    def __init__(self):
+        SingleModel.__init__(self)
+        self.setTable(Table2D.digitsDataset(), partition=0.3)  # , constrainX=(0, 1)
+        self.setModel(LibANN(table=self.table, testingTable=self.testingTable, color=Color.blue))
+
+        ZStack.__init__(self, [
+            VStack([
+                PixelView(model=self.model)
                 # self.createHeaderButtons()
             ], ratios=[0.9, 0.1]),
             TextboxView(textboxScript=[

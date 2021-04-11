@@ -574,7 +574,7 @@ class ANN(Classifier):
 
     def train(self):
         for _ in range(self.epoch):
-            for x in self.table.x:
+            for x, y in zip(self.table.x, self.table.y):
                 p = self.predictLayers(x)
                 d = (p[-1] - y) * self.sigmoid_derivative(p[-1])
                 self.w[-1] += self.p[-1].T @ d
@@ -593,12 +593,33 @@ class ANN(Classifier):
 if __name__ == '__main__':
     hp.clear()
     print("Running Models MAIN")
+    from sklearn.datasets import load_digits
+    digits = load_digits()
+    print(digits.data.shape)
+
+    import pandas as pd
+    df = pd.DataFrame({'x': [data for data in digits.data], 'y': [target for target in digits.target]})
+    print(df)
+    param = {
+        "target": "y",
+        "columns": [
+            "x"
+        ]
+    }
     from table import Table
-    table = Table(filePath="examples/ann/ann_iris")
+    table = Table(df=df, param=param, features=2)
+    # import matplotlib.pyplot as plt
+    # plt.gray()
+    # plt.matshow(digits.images[0])
+    # plt.show()
+
+    # from table import Table
+    # table = Table(filePath="examples/ann/ann_iris")
     train, test = table.partition()
     ann = ANN(table=train, testingTable=test)
-    ann.train
+    ann.train()
     print("Accuracy:", ann.getScoreString())
+
     # for _x in ann.x:
     #     print(_x, end=" Closest: ")
     #     for j in ann.getNeighbor(_x):

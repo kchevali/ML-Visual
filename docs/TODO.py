@@ -364,5 +364,12 @@ TODO 3/31
     - Look at Dataset (from 3/24) and discuss on Sunday (4/4) - 10am.
         - Find out: Features? Model? Missing data? Figures? Submit paper?
         - Try to replicate work?
+
+TODO 4/7
+    - Deadline: 2 wks (4/21)
+    - Look at the v2 dataset and define our problem. What is our target? Per flow delay?
+    - Compare Deep Neural Network with SVR (SVM for regression)
+    - Compare Deep Neural Network with modified SVM - classification
+        - SLA - service level agreement (regression -> classification)
         
 """
